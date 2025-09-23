@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlatformName {
+  X
+  TELEGRAM
+}
+
+enum SourcePrice {
+  MONTHLY
+  LIFETIME
+  FREE
+}
+
+model User {
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  email         String    @unique
+  login         String
+  password      String
+  twoFactorAuth Boolean   @default(false)
+  isAdmin       Boolean   @default(false)
+  isBanned      Boolean   @default(false)
+  bannedAt      DateTime?
+  lastLogin     DateTime?
+  refreshToken  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt()
+}
+
+model Source {
+  id                              BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  platform_logo                   String
+  platform_user_picture           String
+  platform_name                   PlatformName
+  user_id_source                  String
+  user_verified                   Boolean      @default(false)
+  user_creation_date              DateTime
+  followers_count                 BigInt       @default(0)
+  source_price                    SourcePrice  @default(FREE)
+  source_price_value              Int?
+  price                           Int?
+  source_activated                Boolean      @default(false)
+  source_reverse_signal_activated Boolean      @default(false)
+
+  source_total_quantity_signals Int?
+  source_global_probility       Int?
+
+  source_reverse_signal_profit Int?
+
+  source_bullish_total_quantity Int?
+  source_bullish_percentage     Int?
+  source_bullish_probility      Int?
+
+  source_bearish_total_quantity Int?
+  source_bearish_percentage     Int?
+  source_bearish_probility      Int?
+
+  btc_total_quantity Int?
+  btc_probility      Int?
+
+  eth_total_quantity Int?
+  eth_probility      Int?
+
+  sol_total_quantity Int?
+  sol_probility      Int?
+
+  alts_total_quantity Int?
+  alts_probility      Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt()
+}

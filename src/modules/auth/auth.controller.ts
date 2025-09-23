@@ -1,0 +1,162 @@
+﻿import { NextFunction, Request, Response } from "express"
+import { prisma } from "../../prisma"
+import bcrypt from "bcrypt"
+import jwt from "jsonwebtoken"
+import config from "../../config/config"
+
+export const generateTokens = (userId: bigint) => {
+    // const a = 1
+    const accessToken = jwt.sign(
+        { id: userId },
+        config.jwtSecret,
+        { expiresIn: config.jwtExpireIn } as jwt.SignOptions
+    )
+
+    const refreshToken = jwt.sign(
+        { id: userId },
+        config.jwtRefreshSecret,
+        { expiresIn: config.jwtRefreshExpireIn } as jwt.SignOptions
+    )
+
+    return { accessToken, refreshToken }
+}
+
+
+export const login = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { login, password } = req.body
+        const user = await prisma.user.findUnique({
+            where: { email: login },
+        })
+
+        if (!user) {
+            return res.status(401).json({ status: false, message: "Invalid email or password" })
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password)
+
+        if (!isPasswordValid) {
+            return res.status(401).json({ status: false, message: "Invalid email or password" })
+        }
+
+        const { accessToken, refreshToken } = generateTokens(user.id)
+
+        // set last login
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                lastLogin: new Date(),
+                refreshToken
+            },
+        })
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+        }).json({
+            status: true,
+            token: accessToken,
+            isAdmin: user.isAdmin
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const register = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const hashedPassword = await bcrypt.hash(req.body.password, 10)
+
+        const users = await prisma.user.create({
+            data: {
+                email: req.body.email,
+                login: req.body.login,
+                password: hashedPassword,
+                twoFactorAuth: true,
+            },
+        })
+        res.status(200).json({
+            status: true,
+            message: "Register successful",
+            data: users,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const checkToken = async (req: Request, res: Response) => {
+    try {
+        // const { token } = req.body
+        const token = req.headers.authorization?.split(" ")[1]
+
+        const decodedToken = jwt.verify(token!, config.jwtSecret) as { id: number, iat: number, exp: number }
+        const user = await prisma.user.findUnique({
+            where: { id: decodedToken.id },
+        })
+        if (!user) {
+            return res.status(401).json({ status: false, message: "Invalid token" })
+        }
+        res.status(200).json({
+            status: true,
+            data: {
+                // id: user.id,
+                email: user.email,
+                isAdmin: user.isAdmin,
+                accessToken: token
+            },
+        })
+    } catch (err: any) {
+        if (err.name === "TokenExpiredError") {
+            return res.status(401).json({ status: false, message: "Token expired" })
+        }
+        return res.status(401).json({ status: false, message: "Invalid token" })
+    }
+}
+
+export const refreshToken = async (req: any, res: Response) => {
+    if (!req.cookies) return res.status(401).json({ error: "No refresh token provided" })
+
+    const token = req.cookies.refreshToken
+    if (!token) return res.status(401).json({ error: "No refresh token provided" })
+
+    try {
+        const decoded = jwt.verify(token, config.jwtRefreshSecret) as { id: bigint }
+        const user = await prisma.user.findUnique({ where: { id: decoded.id } })
+        if (!user || user.refreshToken !== token) {
+            return res.status(403).json({ error: "Invalid refresh token" })
+        }
+        const { accessToken, refreshToken: newRefreshToken } = generateTokens(user.id)
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { refreshToken: newRefreshToken }
+        })
+
+        res.cookie("refreshToken", newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+
+        }).json({
+            status: true,
+            token: accessToken,
+            isAdmin: user.isAdmin
+        })
+
+    } catch (err: any) {
+        console.log(" 🚀   -->  err:", err)
+        return res.status(403).json({ error: "Invalid or expired refresh token" })
+    }
+}
+
+export const logout = async (req: Request, res: Response) => {
+    const token = req.cookies.refreshToken
+    if (token) {
+        await prisma.user.updateMany({
+            where: { refreshToken: token },
+            data: { refreshToken: null },
+        })
+    }
+    res.clearCookie("refreshToken").json({ status: true, message: "Logged out" })
+}
