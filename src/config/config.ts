@@ -9,10 +9,11 @@ interface Config {
   jwtRefreshSecret: string;
   jwtExpireIn: string | number; // e.g. "1h" or 3600
   jwtRefreshExpireIn: string | number; // e.g. "1h" or 3600
+  // X_CLIENT_ID: string;
   TELEGRAM_API_SESSION: string;
   TELEGRAM_API_ID: string;
   TELEGRAM_API_HASH_CODE: string;
-  X_CLIENT_ID: string;
+  OPENROUTER_API_KEY: string;
 }
 
 const config: Config = {
@@ -28,7 +29,8 @@ const config: Config = {
     TELEGRAM_API_ID: process.env.TELEGRAM_API_ID || "",
     TELEGRAM_API_HASH_CODE: process.env.TELEGRAM_API_HASH_CODE || "",
     // twitter keys
-    X_CLIENT_ID: process.env.X_CLIENT_ID || "",
+    // X_CLIENT_ID: process.env.X_CLIENT_ID || "",
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || ""
 }
 
 export default config

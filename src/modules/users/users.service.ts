@@ -1,6 +1,6 @@
 ﻿import { User } from "@prisma/client"
 import { prisma } from "../../prisma"
-import { getChannelMessages } from "../sources/telegram.service"
+// import { collectChannelMessages } from "../../services/telegram/telegram.service"
 
 // import { getUserTweets } from "../sources/twitter.service";
 
@@ -28,8 +28,8 @@ export const getUsersService = async () => {
         // const msgs = await getChannelMessages("sada18")
         // const msgs = await getChannelMessages("Crypto_Signals_Original1")
         // const msgs = await getChannelMessages("guebli_me")
-        const { messages } = await getChannelMessages("guebli_me")
         // const { messages } = await getChannelMessages("abdussalamhawwa")
+        // const messages = await collectChannelMessages("guebli_me")
         const users = await prisma.user.findMany({
             where: {
                 isAdmin: false, 
@@ -48,8 +48,8 @@ export const getUsersService = async () => {
                 password: false
             }
         })
-        return { messages,users }
-        // return users;
+        // return { users }
+        return users
     } catch (error) {
 
         console.log(" 🚀   -->  error:", error)
