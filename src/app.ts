@@ -14,14 +14,21 @@ app.use(morgan("dev"))
 app.use(express.json())
 app.use(cookieParser())
 
-app.use(helmet())
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  }));
 app.use(cors({
     origin: "http://localhost:4010",
     credentials: true
 }))
 
 // Public storage folder
-app.use("/storage", express.static(path.join(__dirname, "../storage")))
+// app.use("/storage", express.static(path.join(__dirname, "../storage")))
+app.use(
+    "/storage",
+    cors({ origin: "*" }),
+    express.static(path.join(__dirname, "../storage"))
+);
 
 app.get("/health", (req: Request, res: Response) => {
     res.status(200).send("healthy")

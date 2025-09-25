@@ -4,8 +4,8 @@ import {  getSources, getSourceById, addSource, updateSourceById, deleteSourceBy
 const SourcesRouter = Router()
 
 SourcesRouter.get("/get-sources", getSources)
-SourcesRouter.get("/get-source/:id", getSourceById)
 SourcesRouter.post("/create-source", addSource)
+SourcesRouter.get("/get-source/:id", getSourceById)
 SourcesRouter.put("/update-source/:id", updateSourceById)
 SourcesRouter.delete("/delete-source/:id", deleteSourceById)
 

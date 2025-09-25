@@ -12,12 +12,12 @@ export const IsAdmin = async (
         }
 
         if (!user.isAdmin) {
-            return res.status(403).json({ message: "Access denied" })
+            return res.status(403).json({ message: "Access denied1" })
         }
 
         next()
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
-        res.status(403).json({ error: "Access denied" })
+        res.status(403).json({ error: "Access denied2" })
     }
 }

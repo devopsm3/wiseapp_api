@@ -25,6 +25,11 @@ enum SourcePrice {
   FREE
 }
 
+enum SourceMessageType {
+  photo
+  text
+}
+
 model User {
   id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
   email         String    @unique
@@ -41,19 +46,20 @@ model User {
 }
 
 model Source {
-  id                              BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  id                              BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
   platform_logo                   String
   platform_user_picture           String
-  platform_name                   PlatformName
+  user_name_source                String
+  user_username_source            String
   user_id_source                  String
-  user_verified                   Boolean      @default(false)
-  user_creation_date              DateTime
-  followers_count                 BigInt       @default(0)
-  source_price                    SourcePrice  @default(FREE)
-  source_price_value              Int?
+  user_verified                   Boolean     @default(false)
+  user_creation_date              BigInt
+  followers_count                 BigInt      @default(0)
+  source_price                    SourcePrice @default(FREE)
+  source_price_value              String?
   price                           Int?
-  source_activated                Boolean      @default(false)
-  source_reverse_signal_activated Boolean      @default(false)
+  source_activated                Boolean     @default(false)
+  source_reverse_signal_activated Boolean     @default(false)
 
   source_total_quantity_signals Int?
   source_global_probility       Int?
@@ -79,7 +85,77 @@ model Source {
 
   alts_total_quantity Int?
   alts_probility      Int?
+  metadata            Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @default(now()) @updatedAt()
+  SourcePost          SourcePost[]
+}
+
+model SourcePost {
+  id         BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  sourceId   BigInt            @db.UnsignedBigInt
+  sourceType PlatformName
+  timestamp  Int?
+  date       DateTime?
+  originalId Int
+  mediaType  SourceMessageType
+  senderId   String?
+  text       String
+  analysis   Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt()
+  Source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+// SIGNALS
+enum SignalTrendLvl {
+  VTC
+  VC
+  V100
+  RTC
+  RC
+  R100
+}
+
+enum SignalTrend {
+  LONG
+  SHORT
+}
+
+enum SignalStatus {
+  NEW
+  OPEN
+  CLOSED
+  PASSED
+}
+
+enum ManualOverride {
+  OPEN
+  PASS
+  CLOSE
+}
+
+model Signal {
+  id Int @id @default(autoincrement())
+
+  signal_trend_level SignalTrendLvl
+  signal_trend       SignalTrend
+  status             SignalStatus
+  manual_override    ManualOverride?
+
+  currency_logo   String?
+  currency_label  String
+  pnl1            Int?
+  pnl2            Int?
+  time_frame      String
+  entry_timestamp DateTime?
+  entry_price     Int?
+  exit_price      Int?
+  alignments      String?
+
+  signal_type_id  String    @unique
+  
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }

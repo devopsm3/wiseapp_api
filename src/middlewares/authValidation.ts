@@ -15,15 +15,14 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
     const token = authHeader.split(" ")[1]
 
-    if (!token) return res.status(401).json({ error: "Access denied" })
+    if (!token) return res.status(401).json({ error: "Access denied4" })
 
     try {
         const decoded = jwt.verify(token, config.jwtSecret) as TokenPayload
-
         const user = await prisma.user.findUnique({
             where: { id: decoded.id },
         })
-        if (!user) return res.status(401).json({ error: "Access denied" })
+        if (!user) return res.status(401).json({ error: "token_expired" })
         req.user = user
         next()
     } catch (error: any) {
