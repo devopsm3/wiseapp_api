@@ -26,3 +26,13 @@ export interface ChannelInfo {
     [key: string]: any;
   }
 }
+
+export interface SourcePostAnalysis {
+  type: "Signal" | "PreSignal" | "Irrelevant",
+  token: string,
+  condition: string,
+  direction: "bullish" | "bearish",
+  target: number,
+  unit: string,
+  timeframe: "Swing" | "Intraday" | "Scalping"
+}

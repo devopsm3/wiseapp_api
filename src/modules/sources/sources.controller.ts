@@ -3,7 +3,7 @@ import { getSourcesService, getSourceByIdService, addSourceService, updateSource
 
 export const getSources = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const sources = await getSourcesService()
+        const sources = await getSourcesService(req.user!)
         if (!sources) {
             return res.status(404).json({ status: false, message: "Sources not found" })
         }
@@ -18,7 +18,7 @@ export const getSources = async (req: Request, res: Response, next: NextFunction
 
 export const addSource = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const source = await addSourceService(req.body)
+        const source = await addSourceService(req.body, req.user!)
         if (!source.status) {
             return res.status(400).json({ status: false, message: source.message })
         }
@@ -63,7 +63,7 @@ export const deleteSourceById = async (req: Request, res: Response, next: NextFu
 
 export const getSourceById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const source = await getSourceByIdService(Number(req.params.id))
+        const source = await getSourceByIdService(Number(req.params.id), req.user!)
         if (!source) {
             return res.status(404).json({ status: false, message: "Source not found" })
         }

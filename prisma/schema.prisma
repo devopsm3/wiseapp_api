@@ -31,7 +31,7 @@ enum SourceMessageType {
 }
 
 model User {
-  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  id            Int       @id @default(autoincrement())
   email         String    @unique
   login         String
   password      String
@@ -43,18 +43,22 @@ model User {
   refreshToken  String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt()
+  Source        Source[]
+  Signal        Signal[]
 }
 
 model Source {
-  id                              BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  id         Int @id @default(autoincrement())
+  user_db_id Int
+
   platform_logo                   String
   platform_user_picture           String
   user_name_source                String
   user_username_source            String
   user_id_source                  String
   user_verified                   Boolean     @default(false)
-  user_creation_date              BigInt
-  followers_count                 BigInt      @default(0)
+  user_creation_date              Int
+  followers_count                 Int         @default(0)
   source_price                    SourcePrice @default(FREE)
   source_price_value              String?
   price                           Int?
@@ -67,33 +71,34 @@ model Source {
   source_reverse_signal_profit Int?
 
   source_bullish_total_quantity Int?
-  source_bullish_percentage     Int?
-  source_bullish_probility      Int?
+  source_bullish_percentage     Decimal? @db.Decimal(20, 8)
+  source_bullish_probility      Decimal? @db.Decimal(20, 8)
 
   source_bearish_total_quantity Int?
-  source_bearish_percentage     Int?
-  source_bearish_probility      Int?
+  source_bearish_percentage     Decimal? @db.Decimal(20, 8)
+  source_bearish_probility      Decimal? @db.Decimal(20, 8)
 
   btc_total_quantity Int?
-  btc_probility      Int?
+  btc_probility      Decimal? @db.Decimal(20, 8)
 
   eth_total_quantity Int?
-  eth_probility      Int?
+  eth_probility      Decimal? @db.Decimal(20, 8)
 
   sol_total_quantity Int?
-  sol_probility      Int?
+  sol_probility      Decimal? @db.Decimal(20, 8)
 
   alts_total_quantity Int?
-  alts_probility      Int?
+  alts_probility      Decimal?     @db.Decimal(20, 8)
   metadata            Json?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @default(now()) @updatedAt()
   SourcePost          SourcePost[]
+  User                User         @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
 }
 
 model SourcePost {
-  id         BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
-  sourceId   BigInt            @db.UnsignedBigInt
+  id         Int               @id @default(autoincrement())
+  sourceId   Int
   sourceType PlatformName
   timestamp  Int?
   date       DateTime?
@@ -101,11 +106,12 @@ model SourcePost {
   mediaType  SourceMessageType
   senderId   String?
   text       String
-  analysis   Json?
+  analysis   Json
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt()
   Source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  Signal    Signal[]
 }
 
 // SIGNALS
@@ -137,8 +143,9 @@ enum ManualOverride {
 }
 
 model Signal {
-  id Int @id @default(autoincrement())
-
+  id                 Int             @id @default(autoincrement())
+  user_db_id         Int
+  source_post_id     Int
   signal_trend_level SignalTrendLvl
   signal_trend       SignalTrend
   status             SignalStatus
@@ -146,16 +153,18 @@ model Signal {
 
   currency_logo   String?
   currency_label  String
-  pnl1            Int?
-  pnl2            Int?
+  pnl1            Decimal?  @db.Decimal(20, 8)
+  pnl2            Decimal?  @db.Decimal(20, 8)
   time_frame      String
   entry_timestamp DateTime?
-  entry_price     Int?
-  exit_price      Int?
+  entry_price     Decimal?  @db.Decimal(20, 8)
+  exit_price      Decimal?  @db.Decimal(20, 8)
   alignments      String?
 
-  signal_type_id  String    @unique
-  
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  signal_type_id String   @unique
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  User       User       @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
+  SourcePost SourcePost @relation(fields: [source_post_id], references: [id], onDelete: Cascade)
 }

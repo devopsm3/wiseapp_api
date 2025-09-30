@@ -7,6 +7,7 @@ import morgan from "morgan"
 import apiRouter from "./routes"
 import cookieParser from "cookie-parser"
 import path from "path"
+import { allowList } from "./allowList"
 
 const app = express()
 
@@ -18,7 +19,7 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
   }));
 app.use(cors({
-    origin: "http://localhost:4010",
+    origin: allowList,
     credentials: true
 }))
 
@@ -26,7 +27,7 @@ app.use(cors({
 // app.use("/storage", express.static(path.join(__dirname, "../storage")))
 app.use(
     "/storage",
-    cors({ origin: "*" }),
+    cors({ origin: allowList }),
     express.static(path.join(__dirname, "../storage"))
 );
 

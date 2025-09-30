@@ -7,10 +7,10 @@ import { agentAI_Analyzer } from "../AgentAI/agent.ai.service"
 
 
 function cutoffSeconds(days = 21): number {
-    const d = new Date();           // now (server local time)
-    d.setHours(0, 0, 0, 0);        // set to today 00:00:00 local
-    d.setDate(d.getDate() - days); // subtract days
-    return Math.floor(d.getTime() / 1000); // seconds
+    const d = new Date()           // now (server local time)
+    d.setHours(0, 0, 0, 0)        // set to today 00:00:00 local
+    d.setDate(d.getDate() - days) // subtract days
+    return Math.floor(d.getTime() / 1000) // seconds
 }
 
 export async function getChannelInfo(channelName: string) {
@@ -38,14 +38,14 @@ export async function getChannelInfo(channelName: string) {
             platform_logo: "telegram",
             platform_user_picture: `storage/telegram/sources/${channelName}/channelPic.jpg`,
             user_name_source: (channel as Api.Channel).title,
-            user_username_source: (channel as Api.Channel).username || '',
+            user_username_source: (channel as Api.Channel).username || "",
             user_id_source: (channel as Api.Channel).id.toString(),
             user_verified: (channel as Api.Channel).verified || false,
             followers_count: (channel as Api.Channel).participantsCount || 0,
             user_creation_date: creationDate,
             metadata: {
                 title: (channel as Api.Channel).title,
-                username: (channel as Api.Channel).username || '',
+                username: (channel as Api.Channel).username || "",
                 broadcast: (channel as Api.Channel).broadcast || false,
                 megagroup: (channel as Api.Channel).megagroup || false,
             },
@@ -66,7 +66,7 @@ export async function getChannelInfo(channelName: string) {
 export async function collectChannelMessages(channelName: string, lastSavedId: number = 0) {
     // Fetch only new messages
     const messages: any[] = []
-    const offsetDate = cutoffSeconds(21);
+    const offsetDate = cutoffSeconds(21)
     // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
     for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true })) {
         if (!(message instanceof Api.Message)) continue
@@ -76,11 +76,11 @@ export async function collectChannelMessages(channelName: string, lastSavedId: n
         let analysis: any = null
         if (message.message) {
             analysis = await agentAI_Analyzer(message.message)
-            console.log(' ')
-            console.log(' 🚀   -->  message.message:', message.message)
-            console.log(' 🚀   -->  analysis:', analysis.timeframe)
-            console.log(' ')
-            console.log(' ')
+            console.log(" ")
+            console.log(" 🚀   -->  message.message:", message.message)
+            console.log(" 🚀   -->  analysis:", analysis)
+            console.log(" ")
+            console.log(" ")
             if (analysis.type === "Irrelevant") continue
             if (analysis.timeframe !== "Swing") continue
 
@@ -117,15 +117,5 @@ export async function collectChannelMessages(channelName: string, lastSavedId: n
         })
 
     }
-    // // 5. Save filtered messages to DB
-    // if (messagesToSave.length > 0) {
-    //     await db.saveMessages(channelUsername, messagesToSave);
-    //     console.log(`💾 Saved ${messagesToSave.length} new signals from ${channelUsername}`);
-    // }
-
-    // // 6. Update last processed ID in DB
-    // if (newHighestId > lastSavedId) {
-    //     await db.updateLastMessageId(channelUsername, newHighestId);
-    // }
     return messages
 }

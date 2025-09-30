@@ -4,7 +4,7 @@ import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import config from "../../config/config"
 
-export const generateTokens = (userId: bigint) => {
+export const generateTokens = (userId: number) => {
     // const a = 1
     const accessToken = jwt.sign(
         { id: userId },
@@ -63,11 +63,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 }
 
-export const register = async (req: Request, res: Response, next: NextFunction) => {
+export const register = async (req: Request, res: Response) => {
     try {
         const hashedPassword = await bcrypt.hash(req.body.password, 10)
 
-        const users = await prisma.user.create({
+        await prisma.user.create({
             data: {
                 email: req.body.email,
                 login: req.body.login,
@@ -75,13 +75,15 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
                 twoFactorAuth: true,
             },
         })
-        res.status(200).json({
-            status: true,
-            message: "Register successful",
-            data: users,
+        return res.status(200).json({
+            status: true
         })
-    } catch (error) {
-        next(error)
+    } catch (error: any) {
+        return res.status(400).json({
+            status: false,
+            message: error.message
+        })
+        // next(error)
     }
 }
 
@@ -121,7 +123,7 @@ export const refreshToken = async (req: any, res: Response) => {
     if (!token) return res.status(401).json({ error: "No refresh token provided" })
 
     try {
-        const decoded = jwt.verify(token, config.jwtRefreshSecret) as { id: bigint }
+        const decoded = jwt.verify(token, config.jwtRefreshSecret) as { id: number }
         const user = await prisma.user.findUnique({ where: { id: decoded.id } })
         if (!user || user.refreshToken !== token) {
             return res.status(403).json({ error: "Invalid refresh token" })
