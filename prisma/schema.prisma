@@ -25,6 +25,12 @@ enum SourcePrice {
   FREE
 }
 
+enum SourceStatus {
+  PROCESSING
+  VALIDE
+  INVALIDE
+}
+
 enum SourceMessageType {
   photo
   text
@@ -35,12 +41,18 @@ model User {
   email         String    @unique
   login         String
   password      String
-  twoFactorAuth Boolean   @default(false)
   isAdmin       Boolean   @default(false)
   isBanned      Boolean   @default(false)
   bannedAt      DateTime?
   lastLogin     DateTime?
   refreshToken  String?
+
+  emailVerified     Boolean   @default(false)
+
+  twoFactorAuthEnabled     Boolean   @default(false)
+  twoFactorAuthSecret     String?
+  twoFactorAuthMethod     String? @default("AUTH_APP")
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt()
   Source        Source[]
@@ -51,19 +63,21 @@ model Source {
   id         Int @id @default(autoincrement())
   user_db_id Int
 
+  source_status                   SourceStatus @default(PROCESSING)
+  
   platform_logo                   String
   platform_user_picture           String
   user_name_source                String
   user_username_source            String
   user_id_source                  String
-  user_verified                   Boolean     @default(false)
+  user_verified                   Boolean      @default(false)
   user_creation_date              Int
-  followers_count                 Int         @default(0)
-  source_price                    SourcePrice @default(FREE)
+  followers_count                 Int          @default(0)
+  source_price                    SourcePrice  @default(FREE)
   source_price_value              String?
   price                           Int?
-  source_activated                Boolean     @default(false)
-  source_reverse_signal_activated Boolean     @default(false)
+  source_activated                Boolean      @default(false)
+  source_reverse_signal_activated Boolean      @default(false)
 
   source_total_quantity_signals Int?
   source_global_probility       Int?
@@ -94,6 +108,7 @@ model Source {
   updatedAt           DateTime     @default(now()) @updatedAt()
   SourcePost          SourcePost[]
   User                User         @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
+  Signal              Signal[]
 }
 
 model SourcePost {
@@ -143,9 +158,11 @@ enum ManualOverride {
 }
 
 model Signal {
-  id                 Int             @id @default(autoincrement())
-  user_db_id         Int
-  source_post_id     Int
+  id             Int @id @default(autoincrement())
+  user_db_id     Int
+  sourceId       Int
+  source_post_id Int
+
   signal_trend_level SignalTrendLvl
   signal_trend       SignalTrend
   status             SignalStatus
@@ -153,18 +170,18 @@ model Signal {
 
   currency_logo   String?
   currency_label  String
-  pnl1            Decimal?  @db.Decimal(20, 8)
-  pnl2            Decimal?  @db.Decimal(20, 8)
+  pnlA            Decimal?  @db.Decimal(20, 8)
+  pnlP            Decimal?  @db.Decimal(20, 8)
   time_frame      String
   entry_timestamp DateTime?
   entry_price     Decimal?  @db.Decimal(20, 8)
   exit_price      Decimal?  @db.Decimal(20, 8)
-  alignments      String?
+  sources_nbr     Int       @default(1)
 
-  signal_type_id String   @unique
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   User       User       @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
   SourcePost SourcePost @relation(fields: [source_post_id], references: [id], onDelete: Cascade)
+  Source     Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 }

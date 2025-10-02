@@ -2,7 +2,7 @@
 import fs from "fs"
 import { client } from "./initTelegram"
 import { Api } from "telegram"
-import { agentAI_Analyzer } from "../AgentAI/agent.ai.service"
+import { agentAI_signal_analyzer } from "../AgentAI/agent.ai.service"
 // import { ChannelInfo, PlatformName } from "../../models/models"
 
 
@@ -63,32 +63,21 @@ export async function getChannelInfo(channelName: string) {
     }
 }
 
-export async function collectChannelMessages(channelName: string, lastSavedId: number = 0) {
-    // Fetch only new messages
-    const messages: any[] = []
-    const offsetDate = cutoffSeconds(21)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function collectChannelPosts(channelName: string, lastSavedId: number = 0) {
+    
+
+    const posts: any[] = []
+    const analysedPosts: any[] = []
+    
+    const offsetDate = cutoffSeconds(9)
+    
     // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
     for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true })) {
         if (!(message instanceof Api.Message)) continue
-        if (!message.message && !message.photo) continue
-
-        // 3. Analyze text with AI only if present
-        let analysis: any = null
-        if (message.message) {
-            analysis = await agentAI_Analyzer(message.message)
-            console.log(" ")
-            console.log(" 🚀   -->  message.message:", message.message)
-            console.log(" 🚀   -->  analysis:", analysis)
-            console.log(" ")
-            console.log(" ")
-            if (analysis.type === "Irrelevant") continue
-            if (analysis.timeframe !== "Swing") continue
-
-            // console.log(' ')
-            // console.log(' ')
-
-        }
-
+        if (!message.message) continue
+        // if (!message.message && !message.photo) continue
+        
         // // handle photo if present
         // if (message.photo) {
         //     const storageDir = path.join(__dirname, `../../../storage/telegram/sources/${channelName}`)
@@ -103,19 +92,37 @@ export async function collectChannelMessages(channelName: string, lastSavedId: n
         //         console.log("✅ Saved new media:", fileName)
         //     }
         // }
-
-        // keep only needed data
-        messages.push({
+        posts.push({
             id: message.id,
             text: message.message,
             timestamp: message.date,
             date: new Date(message.date * 1000),
-            // date: message.date,
             senderId: message.senderId?.toString() || null,
             mediaType: message.photo ? "photo" : "text",
+            // date: message.date,
+        })
+    }
+
+    // Analyze text signals with AI 
+    for await (const post of posts) {
+        let analysis: any = null
+        if (post.text) {
+            analysis = await agentAI_signal_analyzer(post.text)
+            // // console.log(" ")
+            // console.log(" 🚀   -->  post.text:", post.text)
+            // console.log(" 🚀   -->  analysis:", analysis)
+            // console.log(" ")
+            // console.log(" ")
+            // console.log(" ")
+            if (analysis.type === "Irrelevant") continue
+            if (analysis.timeframe !== "Swing") continue
+        }
+        // keep only needed data
+        analysedPosts.push({
+            ...post,
             analysis,
         })
 
     }
-    return messages
+    return analysedPosts
 }

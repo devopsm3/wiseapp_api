@@ -1,12 +1,14 @@
-﻿export enum PlatformName {
+﻿import { Signal } from "@prisma/client"
+
+export enum PlatformName {
   X = "X",
-  TELEGRAM = "TELEGRAM"
+  TELEGRAM = "TELEGRAM",
 }
 
 export enum SourcePrice {
   MONTHLY = "monthly",
   LIFETIME = "lifetime",
-  FREE = "free"
+  FREE = "free",
 }
 
 export interface ChannelInfo {
@@ -24,15 +26,23 @@ export interface ChannelInfo {
     broadcast?: boolean;
     megagroup?: boolean;
     [key: string]: any;
-  }
+  };
 }
 
 export interface SourcePostAnalysis {
-  type: "Signal" | "PreSignal" | "Irrelevant",
-  token: string,
-  condition: string,
-  direction: "bullish" | "bearish",
-  target: number,
-  unit: string,
-  timeframe: "Swing" | "Intraday" | "Scalping"
+  type: "directSignal" | "conditionalSignal" | "Irrelevant";
+  token: string;
+  condition: string;
+  direction: "bullish" | "bearish";
+  target: number;
+  unit: string;
+  timeframe: "Swing" | "Intraday" | "Scalping";
 }
+
+export type signalFront = Partial<Signal> & {
+  currency_logo: string;
+  pnlAbsolute: number | null;
+  pnlPercent: number | null;
+  timeFromNow: string;
+  readableDate: string;
+};

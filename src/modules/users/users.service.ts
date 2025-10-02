@@ -1,6 +1,5 @@
 ﻿import { User } from "@prisma/client"
 import { prisma } from "../../prisma"
-// import { collectChannelMessages } from "../../services/telegram/telegram.service"
 
 // import { getUserTweets } from "../sources/twitter.service";
 
@@ -29,7 +28,6 @@ export const getUsersService = async () => {
         // const msgs = await getChannelMessages("Crypto_Signals_Original1")
         // const msgs = await getChannelMessages("guebli_me")
         // const { messages } = await getChannelMessages("abdussalamhawwa")
-        // const messages = await collectChannelMessages("guebli_me")
         const users = await prisma.user.findMany({
             where: {
                 isAdmin: false, 
@@ -38,7 +36,7 @@ export const getUsersService = async () => {
                 id: true,
                 email: true,
                 login: true,
-                twoFactorAuth: true,
+                twoFactorAuthEnabled: false,
                 isAdmin: true,
                 isBanned: true,
                 bannedAt: true,
@@ -68,7 +66,7 @@ export const getUserByIdService = async (id: number) => {
                 id: true,
                 email: true,
                 login: true,
-                twoFactorAuth: true,
+                twoFactorAuthEnabled: false,
                 isAdmin: true,
                 isBanned: true,
                 bannedAt: true,

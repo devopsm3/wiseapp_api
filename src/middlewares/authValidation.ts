@@ -15,7 +15,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
     const token = authHeader.split(" ")[1]
 
-    if (!token) return res.status(401).json({ error: "Access denied4" })
+    if (!token) return res.status(401).json({ error: "Access denied" })
 
     try {
         const decoded = jwt.verify(token, config.jwtSecret) as TokenPayload
@@ -23,6 +23,17 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             where: { id: decoded.id },
         })
         if (!user) return res.status(401).json({ error: "token_expired" })
+        
+        const allowedWithout2FA = [
+            { path: "/two-factor-auth", methods: ["GET", "POST"] },
+        ]
+        const isAllowedWithout2FA = allowedWithout2FA.some(
+            route => route.path === req.path && route.methods.includes(req.method)
+        )
+         
+        if (!user.twoFactorAuthEnabled && !isAllowedWithout2FA) {
+            return res.status(401).json({ error: "2fa_not_enabled" })
+        }
         req.user = user
         next()
     } catch (error: any) {

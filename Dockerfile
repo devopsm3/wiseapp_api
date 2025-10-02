@@ -1,0 +1,34 @@
+﻿# Stage 1: Build
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install dependencies first (cached if package.json hasn't changed)
+COPY package*.json tsconfig.json ./
+RUN npm install
+
+# Copy source files
+COPY src ./src
+
+# Build TypeScript -> JavaScript
+RUN npm run build
+
+# Stage 2: Run
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Copy only compiled code + node_modules
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY package*.json ./
+
+# Set environment variable for production
+ENV NODE_ENV=production
+ENV PORT=4000
+
+# Expose API port
+EXPOSE 4000
+
+# Start app
+CMD ["node", "dist/server.js"]

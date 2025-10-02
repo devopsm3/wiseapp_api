@@ -19,8 +19,6 @@
 }
 
 export const formatTimeFromNow = (date: Date): string => {
-
-    console.log(" 🚀   -->  date:", date)
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
   

@@ -17,7 +17,7 @@ app.use(cookieParser())
 
 app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
-  }));
+}))
 app.use(cors({
     origin: allowList,
     credentials: true
@@ -29,7 +29,7 @@ app.use(
     "/storage",
     cors({ origin: allowList }),
     express.static(path.join(__dirname, "../storage"))
-);
+)
 
 app.get("/health", (req: Request, res: Response) => {
     res.status(200).send("healthy")

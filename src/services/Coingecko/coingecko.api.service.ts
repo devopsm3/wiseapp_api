@@ -36,3 +36,44 @@
         return error
     }
 }
+
+export const getOHLC = async (coinId: string, targetDate: string): Promise<{ time: Date; open: number; high: number; low: number; close: number } | null> => {
+
+    const now = new Date()
+    const targetTime = new Date(targetDate).getTime()
+    const diffInDays = Math.ceil((now.getTime() - targetTime) / (1000 * 60 * 60 * 24))
+    const availableDays = [1, 7, 14, 30, 90, 180, 365]
+    let days = availableDays.find(d => diffInDays <= d) || 365
+    
+    const url = `${process.env.COINGECKO_API_URL}/coins/${coinId}/ohlc?days=${days}&vs_currency=usd&precision=18`
+    const options = {
+        method: "GET",
+        headers: { "x-cg-demo-api-key": process.env.COINGECKO_API_KEY as string },
+    }
+
+    try {
+        const response = await fetch(url, options)
+        const data = await response.json()
+
+        const tolerance =
+            days <= 2 ? 60 * 60 * 1000 :
+                days <= 30 ? 4 * 60 * 60 * 1000 : 
+                    2 * 24 * 60 * 60 * 1000  
+        const entry = data.find(([time]: any) =>
+            Math.abs(time - targetTime) < tolerance
+        )
+
+        return entry
+            ? {
+                time: new Date(entry[0]),
+                open: entry[1],
+                high: entry[2],
+                low: entry[3],
+                close: entry[4],
+            }
+            : null
+    } catch (error) {
+        console.error(error)
+        return null
+    }
+}

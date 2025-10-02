@@ -71,3 +71,27 @@ export const calculateSignalTrendLevel = (signalPostsCount: number, signalTrend:
     }
     return signalTrend === "LONG" ? "V100" : "R100"
 }
+
+type PivotLevels = {
+    pivot: number;
+    r1: number;
+    s1: number;
+    r2: number;
+    s2: number;
+    r3: number;
+    s3: number;
+  };
+  
+export const calculatePivot = (high: number, low: number, close: number): PivotLevels => {
+    const pivot = (high + low + close) / 3
+  
+    return {
+        pivot,
+        r1: (2 * pivot) - low,
+        s1: (2 * pivot) - high,
+        r2: pivot + (high - low),
+        s2: pivot - (high - low),
+        r3: high + 2 * (pivot - low),
+        s3: low - 2 * (high - pivot),
+    }
+}

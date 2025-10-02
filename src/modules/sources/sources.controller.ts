@@ -63,13 +63,13 @@ export const deleteSourceById = async (req: Request, res: Response, next: NextFu
 
 export const getSourceById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const source = await getSourceByIdService(Number(req.params.id), req.user!)
-        if (!source) {
-            return res.status(404).json({ status: false, message: "Source not found" })
+        const dt: any = await getSourceByIdService(req.params.id, req.user!)
+        if (!dt.status) {
+            return res.status(404).json({ status: false, message: dt.message || "Source not found" })
         }
         res.status(200).json({
             status: true,
-            data: source,
+            data: dt.source,
         })
     } catch (error) {
         next(error)

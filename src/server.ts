@@ -2,6 +2,8 @@
 import app from "./app"
 import config from "./config/config"
 import { initTelegram } from "./services/telegram/initTelegram"
+import http from "http"
+import { initSocket } from "./config/socket"
 
 declare global {
     interface BigInt {
@@ -21,7 +23,11 @@ declare global {
 if (process.env.TELEGRAM_API_STATUS === "activted") {
     initTelegram()
 }
+const server = http.createServer(app)
 
-app.listen(config.port, () => {
-    console.log(`Server running on port ${config.port}`)
+initSocket(server)
+
+
+server.listen(config.port, () => {
+    console.log(`🚀 Server running on http://localhost:${config.port}`)
 })
