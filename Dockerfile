@@ -7,6 +7,12 @@ WORKDIR /app
 COPY package*.json tsconfig.json ./
 RUN npm install
 
+# Copy Prisma schema
+COPY prisma ./prisma
+
+# Generate Prisma client
+RUN npx prisma generate
+
 # Copy source files
 COPY src ./src
 
@@ -30,5 +36,6 @@ ENV PORT=4000
 # Expose API port
 EXPOSE 4000
 
-# Start app.
-CMD ["node", "dist/server.js"]
+# Apply Prisma migrations then start app
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# CMD ["node", "dist/server.js"]
