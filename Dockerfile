@@ -30,5 +30,5 @@ ENV PORT=4000
 # Expose API port
 EXPOSE 4000
 
-# Start app
+# Start app.
 CMD ["node", "dist/server.js"]
