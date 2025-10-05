@@ -1,7 +1,7 @@
 ﻿import { User } from "@prisma/client"
 import app from "./app"
 import config from "./config/config"
-import { initTelegram } from "./services/telegram/initTelegram"
+import { initTelegram } from "./config/initTelegram"
 import http from "http"
 import { initSocket } from "./config/socket"
 

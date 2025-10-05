@@ -1,6 +1,6 @@
 ﻿import { NextFunction, Request, Response } from "express"
 import { getSignalsService, getSignalByIdService } from "./signals.service"
-import { coingeckoApiServiceMarket, getOHLC } from "../../services/Coingecko/coingecko.api.service"
+import { coingeckoApiServiceMarket, getOHLC } from "../../providers/Coingecko/coingecko.provider"
 
 export const getSignals = async (req: Request, res: Response, next: NextFunction) => {
     try {

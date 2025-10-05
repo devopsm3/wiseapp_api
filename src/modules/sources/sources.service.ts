@@ -1,10 +1,12 @@
 ﻿import { prisma } from "../../prisma"
 
 import { sourcesQueue } from "../../jobs/sources.job"
-import { SourceStatus, User } from "@prisma/client"
+import { PlatformName, SourceStatus, User } from "@prisma/client"
 import { getIO } from "../../config/socket"
-import { ChannelInfo } from "../../models/models"
-import { getChannelInfo, normalizeTelegramSourceId } from "../../services/telegram/telegram.service"
+import { getTelegramChannelInfo } from "../../providers/telegram/telegram.provider"
+import { getTwitterChannelInfo } from "../../providers/twitter/twitter.provider"
+import { normalizeSourceId } from "../../providers/telegram/telegram.helpers"
+import { SourceType } from "../../providers/sources/sources.types"
 
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
@@ -77,11 +79,12 @@ export const getSourceByIdService = async (id: string, currentUser: User) => {
 export const addSourceService = async (source: any, currentUser: User) => {
 
     try {
-        const normalizedSourceId = normalizeTelegramSourceId(source.sourceId)
+        const normalizedSourceId = normalizeSourceId(source.sourceId)
         const sourceExists = await prisma.source.findFirst({
             where: {
                 user_username_source: normalizedSourceId,
                 user_db_id: currentUser.id,
+                platform_logo: source.platform_logo,
                 source_status: SourceStatus.VALIDE,
             },
         })
@@ -91,7 +94,15 @@ export const addSourceService = async (source: any, currentUser: User) => {
                 message: "Source already exists"
             }
         }
-        const { channelInfo }: { channelInfo: ChannelInfo | null } = await getChannelInfo(normalizedSourceId)
+        let channelInfo: SourceType | null = null
+        if (source.platform_logo === PlatformName.TELEGRAM) {
+            const channel = await getTelegramChannelInfo(normalizedSourceId)
+            channelInfo = channel.channelInfo
+        }
+        if (source.platform_logo === PlatformName.X) {
+            const channel = await getTwitterChannelInfo(normalizedSourceId)
+            channelInfo = channel.channelInfo
+        }
         if (!channelInfo) {
             return {
                 status: false,
@@ -100,7 +111,7 @@ export const addSourceService = async (source: any, currentUser: User) => {
         }
 
         getIO().emit("sources_creating_init")
-        await sourcesQueue.add("createSource", { channelInfo, source, currentUser })
+        await sourcesQueue.add("createSourceJob", { channelInfo, source, currentUser })
         return {
             status: true
         }

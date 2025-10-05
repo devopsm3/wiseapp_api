@@ -17,13 +17,14 @@ export const extractTradingInfo = (text: string): string => {
         .trim()
 
     // Keep only useful info: tickers, numbers, buy/sell, target, stop loss
-    const matches = cleaned.match(
-        /\b(Buy|Sell)\b.*?[\d.]+|\bTarget\d*=?\s*[\d.]+|\bStop\s*Loss=?\s*[\d.]+|[A-Z]{2,10}USDT|\b[A-Z]{2,10}\b/g
-    )
+    // const matches = cleaned.match(
+    //     /\b(Buy|Sell)\b.*?[\d.]+|\bTarget\d*=?\s*[\d.]+|\bStop\s*Loss=?\s*[\d.]+|[A-Z]{2,10}USDT|\b[A-Z]{2,10}\b/g
+    // )
 
-    if (!matches) return ""
+    // if (!matches) return ""
 
-    return matches.join(" ")
+    // return matches.join(" ")
+    return cleaned
 }
 
 export const countTokens = (text: string): { postText: string; tokens: number } => {

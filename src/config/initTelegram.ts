@@ -1,11 +1,20 @@
 ﻿const input: any = require("input")
 import { TelegramClient } from "telegram"
 import { StringSession } from "telegram/sessions"
-import config from "../../config/config"
+import config from "./config"
+import fs from "fs"
 
-const stringSession = new StringSession(config.TELEGRAM_API_SESSION)
 
-export const client = new TelegramClient(stringSession, Number(config.TELEGRAM_API_ID!), config.TELEGRAM_API_HASH_CODE!, {
+const sessionFile = "tel_api.session"
+
+let sessionString = ""
+if (fs.existsSync(sessionFile)) {
+    sessionString = fs.readFileSync(sessionFile, "utf-8")
+}
+
+const session = new StringSession(sessionString)
+
+export const client = new TelegramClient(session, Number(config.TELEGRAM_API_ID!), config.TELEGRAM_API_HASH_CODE!, {
     connectionRetries: 5,
 })
 
@@ -19,6 +28,7 @@ export async function initTelegram() {
             onError: (err) => console.error(err),
         })
         console.log("✅ Telegram connected!")
-    // console.log("Session string:", client.session.save()); // Save this!
+        const sessionString = client.session.save()
+        fs.writeFileSync(sessionFile, String(sessionString), "utf-8")
     }
 }

@@ -1,4 +1,15 @@
-﻿export const toNumberSafe = (v: any): number | null => {
+﻿import fs from "fs"
+
+// remove file
+export const removeFile = async (filePath: string) => {
+    try {
+        fs.unlinkSync(filePath)
+    } catch (error) {
+        console.error(error)
+    }
+}
+
+export const toNumberSafe = (v: any): number | null => {
     if (v === null || v === undefined) return null
     if (typeof v === "number") return v
     if (typeof v === "string") {
@@ -54,4 +65,11 @@ export const formatDateTime = (date: Date): string => {
     const seconds = pad(date.getSeconds())
   
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
+}
+
+export const getDaysAgoTimestamp = (days = 21): number => {
+    const d = new Date()           
+    d.setHours(0, 0, 0, 0)        
+    d.setDate(d.getDate() - days) 
+    return Math.floor(d.getTime() / 1000) 
 }

@@ -1,37 +1,15 @@
 ﻿import path from "path"
 import fs from "fs"
-import { client } from "./initTelegram"
+import { client } from "../../config/initTelegram"
 import { Api } from "telegram"
-import { agentAI_signal_analyzer } from "../AgentAI/agent.ai.service"
-import { countTokens } from "../AgentAI/ai.libs"
-// import { ChannelInfo, PlatformName } from "../../models/models"
+// import { agentAI_signal_analyzer } from "../AgentAI/agent.ai.service"
+import { countTokens } from "../AgentAI/agentai.helpers"
+import { PlatformName } from "@prisma/client"
+import { getDaysAgoTimestamp } from "../../utils/global.helpers"
 
 
-export const normalizeTelegramSourceId = (sourceId: string): string => {
-    if (!sourceId) return ""
 
-    // 1. Extract after last slash if it's a URL
-    let id = sourceId.trim()
-    if (id.includes("telegram.org") || id.includes("t.me")) {
-        id = id.split("#@").pop() || id.split("/").pop() || id
-    }
-  
-    // 2. Remove "@" if exists
-    if (id.startsWith("@")) {
-        id = id.slice(1)
-    }
-  
-    return id.trim()
-}
-
-function cutoffSeconds(days = 21): number {
-    const d = new Date()           // now (server local time)
-    d.setHours(0, 0, 0, 0)        // set to today 00:00:00 local
-    d.setDate(d.getDate() - days) // subtract days
-    return Math.floor(d.getTime() / 1000) // seconds
-}
-
-export async function getChannelInfo(channelName: string) {
+export async function getTelegramChannelInfo(channelName: string) {
     try {
 
         const channel = await client.getEntity(channelName)
@@ -53,7 +31,7 @@ export async function getChannelInfo(channelName: string) {
         }
 
         const channelInfo = {
-            platform_logo: "telegram",
+            platform_logo: PlatformName.TELEGRAM,
             platform_user_picture: `storage/telegram/sources/${channelName}/channelPic.jpg`,
             user_name_source: (channel as Api.Channel).title,
             user_username_source: (channel as Api.Channel).username || "",
@@ -68,7 +46,6 @@ export async function getChannelInfo(channelName: string) {
                 megagroup: (channel as Api.Channel).megagroup || false,
             },
         }
-
         return {
             channelInfo,
             error: null
@@ -83,14 +60,13 @@ export async function getChannelInfo(channelName: string) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function collectChannelPosts(channelName: string, lastSavedId: number = 0) {
+export async function getTelegramChannelPosts(channelName: string, lastSavedId: number = 0) {
     
 
     const posts: any[] = []
-    // const analysedPosts: any[] = []
-    const offsetDate = cutoffSeconds(31)
+    const offsetDate = getDaysAgoTimestamp(4)
     // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
-    for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true })) {
+    for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true, limit: 2 })) {
         if (!(message instanceof Api.Message)) continue
         if (!message.message) continue
         // if (!message.message && !message.photo) continue
@@ -111,13 +87,20 @@ export async function collectChannelPosts(channelName: string, lastSavedId: numb
         // }
         const { postText, tokens } = countTokens(message.message)
 
+        
+        console.log(" -------------------------------------------------------------- ----------------------- ")
+        console.log(" 🚀   -->  message.message:", message.message)
         console.log(" 🚀   -->  message.message:", postText, " 🚀   -->  tokens:", tokens)
+    
+        console.log(" ")
+        console.log(" ")
         console.log(" ")
         if (tokens < 3) continue
         if (tokens > 90) continue
         posts.push({
             id: message.id,
             text: postText,
+            originalText: message.message,
             timestamp: message.date,
             date: new Date(message.date * 1000),
             senderId: message.senderId?.toString() || null,
@@ -141,15 +124,39 @@ export async function collectChannelPosts(channelName: string, lastSavedId: numb
     //     })
 
     // }
-    const analyses = await Promise.all(
-        posts.map(p => agentAI_signal_analyzer(p.text))
-    )
+    const analyses: any[] = [
+        {
+            type: "Signal",
+            token: "BTC",
+            currency: "USDT",
+            direction: "bullish",
+            entry_price: 12.74,
+            exit_price: null,
+            target: [ 12.82, 13.01, 13.2 ],
+            stop_loss: 12.49,
+            leverage: null
+        },
+        {
+            type: "Signal",
+            token: "ICX",
+            currency: "USDT",
+            direction: "bullish",
+            entry_price: 0.119,
+            exit_price: null,
+            target: [ 0.1198, 0.1215, 0.1233 ],
+            stop_loss: 0.1167,
+            leverage: null
+        }
+    ]
+    // const analyses = await Promise.all(
+    //     posts.map(p => agentAI_signal_analyzer(p.text))
+    // )
 
-    // console.log(" 🚀   -->  analyses:", analyses)
+    console.log(" 🚀   -->  analyses:", analyses)
       
     const analysedPosts = posts
         .map((post, i) => ({ ...post, analysis: analyses[i] }))
+        .filter(p => p?.analysis?.type !== "Irrelevant")
         // .filter(p => p.analysis.type !== "Irrelevant" && p.analysis.timeframe === "Swing")
-        .filter(p => p.analysis.type !== "Irrelevant")
     return analysedPosts
 }

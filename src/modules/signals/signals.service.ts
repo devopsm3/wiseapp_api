@@ -1,11 +1,11 @@
 ﻿import { User } from "@prisma/client"
 import { prisma } from "../../prisma"
-import { coinImages } from "../../services/Coingecko/constants"
-import { coingeckoApiServiceMarket } from "../../services/Coingecko/coingecko.api.service"
-import { calculatePnl, calculateSignalTrendLevel } from "../../services/signals/calculs/libs"
-import { formatDateTime, formatTimeFromNow } from "../../utils/libs"
-import { signalFront } from "../../models/models"
-import { getFilteredSignals } from "../../services/signals/libs"
+import { coinImages } from "../../providers/Coingecko/constants"
+import { coingeckoApiServiceMarket } from "../../providers/Coingecko/coingecko.provider"
+import { calculatePnl, calculateSignalTrendLevel } from "../../providers/signals/signals.helpers"
+import { formatDateTime, formatTimeFromNow } from "../../utils/global.helpers"
+import { getFilteredSignals } from "../../providers/signals/signals.helpers"
+import { signalFront } from "../../providers/signals/signals.types"
 
 export const getSignalsService = async (currentUser: User) => {
     try {

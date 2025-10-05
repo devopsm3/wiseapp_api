@@ -113,16 +113,17 @@ model Source {
 }
 
 model SourcePost {
-  id         Int               @id @default(autoincrement())
-  sourceId   Int
-  sourceType PlatformName
-  timestamp  Int?
-  date       DateTime?
-  originalId Int
-  mediaType  SourceMessageType
-  senderId   String?
-  text       String
-  analysis   Json
+  id           Int               @id @default(autoincrement())
+  sourceId     Int
+  sourceType   PlatformName
+  timestamp    Int?
+  date         DateTime?
+  originalId   Int
+  mediaType    SourceMessageType
+  senderId     String?
+  originalText String            @db.MediumText
+  text         String            @db.MediumText
+  analysis     Json
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt()
@@ -192,10 +193,10 @@ model Setup {
   user_db_id Int
   name       String
 
-  sources Json?
+  sources      Json?
   meta_signals Json?
-  trading Json?
-  
+  trading      Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   User      User     @relation(fields: [user_db_id], references: [id], onDelete: Cascade)

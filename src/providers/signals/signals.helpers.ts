@@ -1,4 +1,6 @@
-﻿import { SignalTrend, SignalTrendLvl } from "@prisma/client"
+﻿import { Setup, Signal, SignalTrend, SignalTrendLvl} from "@prisma/client"
+import { MetaSignalSetup } from "./signals.types"
+
 
 type SignalStatus = "NEW" | "OPEN" | "CLOSED" | "PASSED";
 type Direction = "LONG" | "SHORT";
@@ -34,7 +36,7 @@ export const calculatePnl = ({
     } else if (status === "OPEN" || status === "NEW") {
         priceForCalc = currentPrice
     } else {
-        // NEW أو PASSED → 
+        //PASSED → 
         return { pnlAbsolute: null, pnlPercent: null }
     }
 
@@ -94,4 +96,40 @@ export const calculatePivot = (high: number, low: number, close: number): PivotL
         r3: high + 2 * (pivot - low),
         s3: low - 2 * (high - pivot),
     }
+}
+
+export const getFilteredSignals = (signalsData: Signal[], setup: Setup) => {
+
+    const setupMetaSignals = setup?.meta_signals as unknown as MetaSignalSetup
+
+    const { BTC, ETH, SOL, ALTS, LONG, SHORT } = setupMetaSignals 
+
+    const filteredSignals = signalsData.filter((signal) => {
+        const label = signal.currency_label.toUpperCase()
+
+        // Category filter
+        let categoryMatch = false
+        if (BTC && label.includes("BTC")) categoryMatch = true
+        if (ETH && label.includes("ETH")) categoryMatch = true
+        if (SOL && label.includes("SOL")) categoryMatch = true
+
+        // ALTS → means not BTC/ETH/SOL
+        if (
+            ALTS &&
+      !label.includes("BTC") &&
+      !label.includes("ETH") &&
+      !label.includes("SOL")
+        ) {
+            categoryMatch = true
+        }
+
+        // Trend filter
+        let trendMatch = false
+        if (LONG && signal.signal_trend === SignalTrend.LONG) trendMatch = true
+        if (SHORT && signal.signal_trend === SignalTrend.SHORT) trendMatch = true
+
+        return categoryMatch && trendMatch
+    })
+
+    return filteredSignals
 }
