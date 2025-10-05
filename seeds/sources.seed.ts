@@ -14,13 +14,12 @@ async function main() {
         ])
         await prisma.source.create({
             data: {
-                platform_logo: faker.image.avatar(),
+                platform_logo: PlatformName.TELEGRAM,
                 platform_user_picture: faker.image.avatar(),
-                platform_name: faker.helpers.arrayElement([
-                    PlatformName.X,
-                    PlatformName.TELEGRAM,
-                ]),
                 user_id_source: faker.internet.username(),
+                user_name_source: faker.internet.username(),
+                user_username_source: faker.internet.username(),
+                user_db_id: faker.number.int({ min: 1, max: 1000 }),
                 user_verified: faker.datatype.boolean(),
                 user_creation_date: faker.date.past().getTime() / 1000,
                 followers_count: Number(faker.number.int({ min: 100, max: 100000 })),
