@@ -3,8 +3,26 @@ import fs from "fs"
 import { client } from "./initTelegram"
 import { Api } from "telegram"
 import { agentAI_signal_analyzer } from "../AgentAI/agent.ai.service"
+import { countTokens } from "../AgentAI/ai.libs"
 // import { ChannelInfo, PlatformName } from "../../models/models"
 
+
+export const normalizeTelegramSourceId = (sourceId: string): string => {
+    if (!sourceId) return ""
+
+    // 1. Extract after last slash if it's a URL
+    let id = sourceId.trim()
+    if (id.includes("telegram.org") || id.includes("t.me")) {
+        id = id.split("#@").pop() || id.split("/").pop() || id
+    }
+  
+    // 2. Remove "@" if exists
+    if (id.startsWith("@")) {
+        id = id.slice(1)
+    }
+  
+    return id.trim()
+}
 
 function cutoffSeconds(days = 21): number {
     const d = new Date()           // now (server local time)
@@ -56,6 +74,7 @@ export async function getChannelInfo(channelName: string) {
             error: null
         }
     } catch (err: any) {
+        console.log(" 🚀   -->  err:", err)
         return {
             channelInfo: null,
             error: err.message
@@ -68,10 +87,8 @@ export async function collectChannelPosts(channelName: string, lastSavedId: numb
     
 
     const posts: any[] = []
-    const analysedPosts: any[] = []
-    
-    const offsetDate = cutoffSeconds(9)
-    
+    // const analysedPosts: any[] = []
+    const offsetDate = cutoffSeconds(31)
     // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
     for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true })) {
         if (!(message instanceof Api.Message)) continue
@@ -92,9 +109,15 @@ export async function collectChannelPosts(channelName: string, lastSavedId: numb
         //         console.log("✅ Saved new media:", fileName)
         //     }
         // }
+        const { postText, tokens } = countTokens(message.message)
+
+        console.log(" 🚀   -->  message.message:", postText, " 🚀   -->  tokens:", tokens)
+        console.log(" ")
+        if (tokens < 3) continue
+        if (tokens > 90) continue
         posts.push({
             id: message.id,
-            text: message.message,
+            text: postText,
             timestamp: message.date,
             date: new Date(message.date * 1000),
             senderId: message.senderId?.toString() || null,
@@ -104,25 +127,29 @@ export async function collectChannelPosts(channelName: string, lastSavedId: numb
     }
 
     // Analyze text signals with AI 
-    for await (const post of posts) {
-        let analysis: any = null
-        if (post.text) {
-            analysis = await agentAI_signal_analyzer(post.text)
-            // // console.log(" ")
-            // console.log(" 🚀   -->  post.text:", post.text)
-            // console.log(" 🚀   -->  analysis:", analysis)
-            // console.log(" ")
-            // console.log(" ")
-            // console.log(" ")
-            if (analysis.type === "Irrelevant") continue
-            if (analysis.timeframe !== "Swing") continue
-        }
-        // keep only needed data
-        analysedPosts.push({
-            ...post,
-            analysis,
-        })
+    // for await (const post of posts) {
+    //     let analysis: any = null
+    //     if (post.text) {
+    //         analysis = await agentAI_signal_analyzer(post.text)
+    //         if (analysis.type === "Irrelevant") continue
+    //         if (analysis.timeframe !== "Swing") continue
+    //     }
+    //     // keep only needed data
+    //     analysedPosts.push({
+    //         ...post,
+    //         analysis,
+    //     })
 
-    }
+    // }
+    const analyses = await Promise.all(
+        posts.map(p => agentAI_signal_analyzer(p.text))
+    )
+
+    // console.log(" 🚀   -->  analyses:", analyses)
+      
+    const analysedPosts = posts
+        .map((post, i) => ({ ...post, analysis: analyses[i] }))
+        // .filter(p => p.analysis.type !== "Irrelevant" && p.analysis.timeframe === "Swing")
+        .filter(p => p.analysis.type !== "Irrelevant")
     return analysedPosts
 }

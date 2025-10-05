@@ -4,7 +4,7 @@ import { sourcesQueue } from "../../jobs/sources.job"
 import { SourceStatus, User } from "@prisma/client"
 import { getIO } from "../../config/socket"
 import { ChannelInfo } from "../../models/models"
-import { getChannelInfo } from "../../services/telegram/telegram.service"
+import { getChannelInfo, normalizeTelegramSourceId } from "../../services/telegram/telegram.service"
 
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
@@ -41,7 +41,7 @@ export const getSourceByIdService = async (id: string, currentUser: User) => {
                 where: { 
                     id: sourceId,
                     user_db_id: currentUser.id,
-                    source_status: SourceStatus.VALIDE,
+                    // source_status: SourceStatus.VALIDE,
                 },
             })
         } else {
@@ -77,9 +77,10 @@ export const getSourceByIdService = async (id: string, currentUser: User) => {
 export const addSourceService = async (source: any, currentUser: User) => {
 
     try {
+        const normalizedSourceId = normalizeTelegramSourceId(source.sourceId)
         const sourceExists = await prisma.source.findFirst({
             where: {
-                user_username_source: source.sourceId,
+                user_username_source: normalizedSourceId,
                 user_db_id: currentUser.id,
                 source_status: SourceStatus.VALIDE,
             },
@@ -90,7 +91,7 @@ export const addSourceService = async (source: any, currentUser: User) => {
                 message: "Source already exists"
             }
         }
-        const { channelInfo }: { channelInfo: ChannelInfo | null } = await getChannelInfo(source.sourceId)
+        const { channelInfo }: { channelInfo: ChannelInfo | null } = await getChannelInfo(normalizedSourceId)
         if (!channelInfo) {
             return {
                 status: false,

@@ -37,47 +37,48 @@ enum SourceMessageType {
 }
 
 model User {
-  id            Int       @id @default(autoincrement())
-  email         String    @unique
-  login         String
-  password      String
-  isAdmin       Boolean   @default(false)
-  isBanned      Boolean   @default(false)
-  bannedAt      DateTime?
-  lastLogin     DateTime?
-  refreshToken  String?
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  login        String
+  password     String
+  isAdmin      Boolean   @default(false)
+  isBanned     Boolean   @default(false)
+  bannedAt     DateTime?
+  lastLogin    DateTime?
+  refreshToken String?
 
-  emailVerified     Boolean   @default(false)
+  emailVerified Boolean @default(false)
 
-  twoFactorAuthEnabled     Boolean   @default(false)
-  twoFactorAuthSecret     String?
-  twoFactorAuthMethod     String? @default("AUTH_APP")
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt()
-  Source        Source[]
-  Signal        Signal[]
+  twoFactorAuthEnabled Boolean @default(false)
+  twoFactorAuthSecret  String?
+  twoFactorAuthMethod  String? @default("AUTH_APP")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt()
+  Source    Source[]
+  Signal    Signal[]
+  Setup     Setup[]
 }
 
 model Source {
   id         Int @id @default(autoincrement())
   user_db_id Int
 
-  source_status                   SourceStatus @default(PROCESSING)
-  
+  source_status SourceStatus @default(PROCESSING)
+
   platform_logo                   String
   platform_user_picture           String
   user_name_source                String
   user_username_source            String
   user_id_source                  String
-  user_verified                   Boolean      @default(false)
+  user_verified                   Boolean     @default(false)
   user_creation_date              Int
-  followers_count                 Int          @default(0)
-  source_price                    SourcePrice  @default(FREE)
+  followers_count                 Int         @default(0)
+  source_price                    SourcePrice @default(FREE)
   source_price_value              String?
   price                           Int?
-  source_activated                Boolean      @default(false)
-  source_reverse_signal_activated Boolean      @default(false)
+  source_activated                Boolean     @default(false)
+  source_reverse_signal_activated Boolean     @default(false)
 
   source_total_quantity_signals Int?
   source_global_probility       Int?
@@ -184,4 +185,18 @@ model Signal {
   User       User       @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
   SourcePost SourcePost @relation(fields: [source_post_id], references: [id], onDelete: Cascade)
   Source     Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model Setup {
+  id         Int    @id @default(autoincrement())
+  user_db_id Int
+  name       String
+
+  sources Json?
+  meta_signals Json?
+  trading Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User     @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
 }

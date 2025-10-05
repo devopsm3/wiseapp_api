@@ -11,7 +11,7 @@ export const client = new TelegramClient(stringSession, Number(config.TELEGRAM_A
 
 export async function initTelegram() {
     if (!client.connected) {
-        console.log("Connecting to Telegram...")
+        // console.log("Connecting to Telegram...")
         await client.start({
             phoneNumber: async () => await input.text("📱 Enter phone number: "),
             password: async () => await input.text("🔑 Enter 2FA password: "),

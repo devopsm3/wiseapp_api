@@ -41,22 +41,23 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
             return res.status(401).json({ status: false, message: "Invalid email or password" })
         }
 
-        if (!user.twoFactorAuthEnabled) {
-            return res.status(401).json({ status: false, message: "2fa_not_enabled" })
-        }
+        // if (!user.twoFactorAuthEnabled) {
+        //     return res.status(401).json({ status: false, message: "2fa_not_enabled" })
+        // }
 
-        if (!req.body.code2fa) {
-            return res.status(401).json({ status: false, message: "F2A code required" })
-        }
-        const codeVerified = speakeasy.totp.verify({
-            secret: user.twoFactorAuthSecret!,
-            encoding: "base32",
-            token: req.body.code2fa
-        })
+        // if (!req.body.code2fa) {
+        //     return res.status(401).json({ status: false, message: "F2A code required" })
+        // }
+
+        // const codeVerified = speakeasy.totp.verify({
+        //     secret: user.twoFactorAuthSecret!,
+        //     encoding: "base32",
+        //     token: req.body.code2fa
+        // })
           
-        if (!codeVerified) {
-            return res.status(401).json({ status: false, message: "Invalid F2A code" })
-        }
+        // if (!codeVerified) {
+        //     return res.status(401).json({ status: false, message: "Invalid F2A code" })
+        // }
         const { accessToken, refreshToken } = generateTokens(user.id)
 
         // set last login
@@ -86,35 +87,39 @@ export const register = async (req: Request, res: Response) => {
     try {
         const hashedPassword = await bcrypt.hash(req.body.password, 10)
 
-        const user = await prisma.user.create({
+        await prisma.user.create({
             data: {
                 email: req.body.email,
                 login: req.body.login,
                 password: hashedPassword,
-                twoFactorAuthEnabled: false,
+                twoFactorAuthEnabled: true,
             },
         })
 
-        const { accessToken, refreshToken } = generateTokens(user.id)
+        // const { accessToken, refreshToken } = generateTokens(user.id)
 
         // set last login
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                lastLogin: new Date(),
-                refreshToken
-            },
+        // await prisma.user.update({
+        //     where: { id: user.id },
+        //     data: {
+        //         lastLogin: new Date(),
+        //         refreshToken
+        //     },
+        // })
+        // res.cookie("refreshToken", refreshToken, {
+        //     httpOnly: true,
+        //     secure: process.env.NODE_ENV === "production",
+        //     sameSite: "strict",
+        // }).json({
+        //     status: true,
+        //     token: accessToken,
+        //     twoFactorAuthEnabled: false,
+        //     isAdmin: false
+        // })
+        return res.status(200).json({
+            status: true
         })
-        res.cookie("refreshToken", refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-        }).json({
-            status: true,
-            token: accessToken,
-            twoFactorAuthEnabled: false,
-            isAdmin: false
-        })
+
     } catch (error: any) {
         return res.status(400).json({
             status: false,

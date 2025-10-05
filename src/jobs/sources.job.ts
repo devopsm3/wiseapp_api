@@ -14,7 +14,7 @@ export const sourcesWorker = new Worker("sources", async (job) => {
     console.log("👷 Processing sources job:", job.name)
     if (job.name === "createSource") {
         const createdSource = await createSourceService(job.data.channelInfo, job.data.source, job.data.currentUser)
-        console.log(" 🏁 SOURCE_CREATED 🏁")
+        console.log(" 🏁 SOURCE_CREATING JOB DONE 🏁")
         getIO().emit("sources_creating_finished", createdSource)
     }
 },

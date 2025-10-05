@@ -5,6 +5,7 @@ import { coingeckoApiServiceMarket } from "../../services/Coingecko/coingecko.ap
 import { calculatePnl, calculateSignalTrendLevel } from "../../services/signals/calculs/libs"
 import { formatDateTime, formatTimeFromNow } from "../../utils/libs"
 import { signalFront } from "../../models/models"
+import { getFilteredSignals } from "../../services/signals/libs"
 
 export const getSignalsService = async (currentUser: User) => {
     try {
@@ -15,10 +16,22 @@ export const getSignalsService = async (currentUser: User) => {
                 user_db_id: currentUser.id,
             },
         })
-        const signalsInfo: signalFront[] = []
 
-        for (let i = 0; i < signalsData.length; i++) {
-            const signal = signalsData[i]
+        const setup = await prisma.setup.findFirst({
+            where: {
+                user_db_id: currentUser.id,
+            },
+        })
+
+        // const setupMetaSignals = setup?.meta_signals as unknown as MetaSignalSetup
+        let filteredSignals = signalsData
+        if (setup) {
+            filteredSignals = getFilteredSignals(signalsData, setup)
+        }
+        
+        const signalsInfo: signalFront[] = []
+        for (let i = 0; i < filteredSignals.length; i++) {
+            const signal = filteredSignals[i]
             const coinInfo = await coingeckoApiServiceMarket(signal.currency_label.toLowerCase())
             if (coinInfo && coinInfo.length) {
                 const currencyLabel = signal.currency_label.toLowerCase() as keyof typeof coinImages

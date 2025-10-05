@@ -29,15 +29,27 @@ export interface ChannelInfo {
   };
 }
 
+// export interface SourcePostAnalysis {
+//   type: "Signal" | "directSignal" | "conditionalSignal" | "Irrelevant";
+//   token: string;
+//   condition: string;
+//   direction: "bullish" | "bearish";
+//   target: number;
+//   unit: string;
+//   timeframe: "Swing" | "Intraday" | "Scalping";
+// }
 export interface SourcePostAnalysis {
-  type: "directSignal" | "conditionalSignal" | "Irrelevant";
-  token: string;
-  condition: string;
-  direction: "bullish" | "bearish";
-  target: number;
-  unit: string;
-  timeframe: "Swing" | "Intraday" | "Scalping";
+  type: "Signal" | "directSignal" | "conditionalSignal" | "Irrelevant";
+  token: string,
+  currency: string | null,
+  direction: "bullish" | "bearish" | null,
+  entry_price: number | null,
+  exit_price: number | null,
+  target: number[] | null,
+  stop_loss: number | null,
+  leverage: number[] | null,
 }
+
 
 export type signalFront = Partial<Signal> & {
   currency_logo: string;
@@ -46,3 +58,12 @@ export type signalFront = Partial<Signal> & {
   timeFromNow: string;
   readableDate: string;
 };
+
+export interface MetaSignalSetup {
+  BTC: boolean,
+  ETH: boolean,
+  SOL: boolean,
+  ALTS: boolean,
+  LONG: boolean,
+  SHORT: boolean,
+}
