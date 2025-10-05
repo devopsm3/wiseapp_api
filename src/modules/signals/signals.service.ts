@@ -9,12 +9,17 @@ import { signalFront } from "../../providers/signals/signals.types"
 
 export const getSignalsService = async (currentUser: User) => {
     try {
-        // wait 4 secs
-        // await new Promise((resolve) => setTimeout(resolve, 4000))
         const signalsData = await prisma.signal.findMany({
             where: {
                 user_db_id: currentUser.id,
             },
+            include: {
+                Source: {
+                    select: {
+                        platform_logo: true,
+                    }
+                }
+            }
         })
 
         const setup = await prisma.setup.findFirst({
@@ -23,7 +28,6 @@ export const getSignalsService = async (currentUser: User) => {
             },
         })
 
-        // const setupMetaSignals = setup?.meta_signals as unknown as MetaSignalSetup
         let filteredSignals = signalsData
         if (setup) {
             filteredSignals = getFilteredSignals(signalsData, setup)
@@ -59,18 +63,9 @@ export const getSignalsService = async (currentUser: User) => {
                     pnlPercent: pnlPercent,
                     timeFromNow: signal.entry_timestamp ? formatTimeFromNow(signal.entry_timestamp) : "",
                     readableDate: signal.entry_timestamp ? formatDateTime(signal.entry_timestamp) : "",
-                    // signal_trend_level: calculateSignalTrendLevel(i, signal.signal_trend),
                 })
             }
         }
-        // const signals2 = await prisma.sourcePost.findMany({
-        //     where: {
-        //         analysis: {
-        //             path: "$.type",
-        //             equals: "PreSignal",
-        //         },
-        //     },
-        // })
         return signalsInfo
     } catch (error) {
 
@@ -87,15 +82,22 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
                 id: id,
                 user_db_id: currentUser.id,
             },
+            include: {
+                Source: {
+                    select: {
+                        platform_logo: true,
+                    }
+                }
+            }
         })
         if (!signal) {
             return null
         }
         const coinInfo = await coingeckoApiServiceMarket(signal.currency_label.toLowerCase())
-        const currencyLabel = signal.currency_label.toLowerCase() as keyof typeof coinImages
-        const currencyLogo = coinImages[currencyLabel] || coinImages.altcoin
         if (coinInfo && coinInfo.length && signal.entry_price) {
-            const entryPrice = signal.entry_price?.toNumber() || 0
+            const currencyLabel = signal.currency_label.toLowerCase() as keyof typeof coinImages
+            const currencyLogo = coinImages[currencyLabel] || coinInfo[0].image || coinImages.altcoin
+            const entryPrice = signal.entry_price?.toNumber() || coinInfo[0].current_price || 0
             const exitPrice = signal.exit_price?.toNumber() || 0
             const amount = 1 // Question
             // const fees = 0 // Question

@@ -118,9 +118,9 @@ model SourcePost {
   sourceType   PlatformName
   timestamp    Int?
   date         DateTime?
-  originalId   Int
+  originalId   BigInt
   mediaType    SourceMessageType
-  senderId     String?
+  senderId     String?           @db.MediumText
   originalText String            @db.MediumText
   text         String            @db.MediumText
   analysis     Json

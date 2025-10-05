@@ -1,33 +1,9 @@
 ﻿import { User } from "@prisma/client"
 import { prisma } from "../../prisma"
 
-// import { getUserTweets } from "../sources/twitter.service";
-
 // get all users
 export const getUsersService = async () => {
     try {
-
-        // const url = `https://api.x.com/2/users/1509883733905743886`
-        // const response = await fetch(url, {
-        //     method: 'GET',
-        //     headers: {
-        //         'Content-Type': 'application/json',
-        //         'Authorization': `Bearer ${process.env.X_BAREAR_TOKEN}`,
-        //     },
-
-        // });
-
-        // const user = await client.v2.userByUsername('goalsside', { 
-        //     "user.fields": ['created_at', 'description', 'entities', 'location', 'name', 'protected', 'url', 'username', 'verified', 'verified_type']});
-        // console.log(' 🚀   -->  userTimeline:', user.data)
-
-
-
-        // const tweets = await getUserTweets("centredevils")
-        // const msgs = await getChannelMessages("sada18")
-        // const msgs = await getChannelMessages("Crypto_Signals_Original1")
-        // const msgs = await getChannelMessages("guebli_me")
-        // const { messages } = await getChannelMessages("abdussalamhawwa")
         const users = await prisma.user.findMany({
             where: {
                 isAdmin: false, 

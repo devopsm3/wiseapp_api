@@ -1,4 +1,4 @@
-﻿import { Setup, Signal, SignalTrend, SignalTrendLvl} from "@prisma/client"
+﻿import { Setup, SignalTrend, SignalTrendLvl} from "@prisma/client"
 import { MetaSignalSetup } from "./signals.types"
 
 
@@ -98,7 +98,7 @@ export const calculatePivot = (high: number, low: number, close: number): PivotL
     }
 }
 
-export const getFilteredSignals = (signalsData: Signal[], setup: Setup) => {
+export const getFilteredSignals = (signalsData: any[], setup: Setup) => {
 
     const setupMetaSignals = setup?.meta_signals as unknown as MetaSignalSetup
 

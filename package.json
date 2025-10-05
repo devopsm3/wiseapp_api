@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
+    "@twitter-api-v2/plugin-rate-limit": "^1.1.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.59.0",
     "cookie-parser": "^1.4.7",

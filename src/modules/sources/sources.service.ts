@@ -84,7 +84,7 @@ export const addSourceService = async (source: any, currentUser: User) => {
             where: {
                 user_username_source: normalizedSourceId,
                 user_db_id: currentUser.id,
-                platform_logo: source.platform_logo,
+                platform_logo: source.sourceType,
                 source_status: SourceStatus.VALIDE,
             },
         })
@@ -95,11 +95,11 @@ export const addSourceService = async (source: any, currentUser: User) => {
             }
         }
         let channelInfo: SourceType | null = null
-        if (source.platform_logo === PlatformName.TELEGRAM) {
+        if (source.sourceType === PlatformName.TELEGRAM) {
             const channel = await getTelegramChannelInfo(normalizedSourceId)
             channelInfo = channel.channelInfo
         }
-        if (source.platform_logo === PlatformName.X) {
+        if (source.sourceType === PlatformName.X) {
             const channel = await getTwitterChannelInfo(normalizedSourceId)
             channelInfo = channel.channelInfo
         }

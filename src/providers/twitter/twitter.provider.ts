@@ -1,56 +1,85 @@
-﻿import { TwitterApi } from "twitter-api-v2"
+﻿ 
+import { PlatformName } from "@prisma/client"
+import { TweetV2, TwitterApi } from "twitter-api-v2"
+import { getStartTimeISO_LocalMidnight } from "./twitter.helpers"
+import { countTokens } from "../AgentAI/agentai.helpers"
+import { agentAI_signal_analyzer } from "../AgentAI/agentai.provider"
 
 const client = new TwitterApi(process.env.X_BAREAR_TOKEN!)
-
-// const client = new TwitterApi({
-//     appKey: "DldttdqvNBaIyyrdgjEnztwd4",
-//     appSecret: "U0lnk1tMXD0VkNvTlGH3H8fCd5dhCeD3gdniybRgofC4IBPEqZ",
-//     accessToken: "1724832837906677760-4vv2OtJSzWRDc7sQE57lb6UE6QoSzY",
-//     accessSecret: "StFRKlLLHPjzvybL8HxJKeOzhR79xr2zY7Z71ii7oCeEX",
-// });
-// const user = await client.v2.userTimeline('1724832837906677760', {max_results: 10});
-export const getUserTweets = async (username: string) => {
-    try {
-        const user = await client.v2.userByUsername(username)
-        const userId = user.data.id
-
-        const tweets = await client.v2.userTimeline(userId, {
-            max_results: 5,
-            "tweet.fields": ["created_at", "text"],
-        })
-
-        return tweets.data
-    } catch (error) {
-        console.error("Error fetching tweets:", error)
-        return null
-    }
-}
+const readOnlyClient = client.readOnly
 
 export async function getTwitterChannelInfo(username: string) {
 
     try {
-        console.log(" 🚀   -->  username:", username)
-       
+        const fields = [
+            "username",  "created_at", "description", "id", "profile_banner_url", "profile_image_url", "verified", "public_metrics",
+            "location", "name", "verified_type", "url"
+        ].join(",")
 
-        // const channelInfo = {
-        //     platform_logo: PlatformName.TELEGRAM,
-        //     platform_user_picture: `storage/telegram/sources/${channelName}/channelPic.jpg`,
-        //     user_name_source: (channel as Api.Channel).title,
-        //     user_username_source: (channel as Api.Channel).username || "",
-        //     user_id_source: (channel as Api.Channel).id.toString(),
-        //     user_verified: (channel as Api.Channel).verified || false,
-        //     followers_count: (channel as Api.Channel).participantsCount || 0,
-        //     user_creation_date: creationDate,
-        //     metadata: {
-        //         title: (channel as Api.Channel).title,
-        //         username: (channel as Api.Channel).username || "",
-        //         broadcast: (channel as Api.Channel).broadcast || false,
-        //         megagroup: (channel as Api.Channel).megagroup || false,
+
+        const user = await readOnlyClient.v2.userByUsername(username, {
+            "user.fields": fields
+        })
+
+        if (user.errors) {
+            return {
+                channelInfo: null,
+                error: user?.errors?.[0]?.detail
+            }
+        }
+        const userInfo = user.data
+
+        if (!userInfo) {
+            return {
+                channelInfo: null,
+                error: "User not found"
+            }
+        }
+        // const userInfo = {
+        //     "description": "This account is for sale",
+        //     "profile_banner_url": "https://pbs.twimg.com/profile_banners/371027604/1625304362",
+        //     "name": "Andrew Griffiths",
+        //     "verified": false,
+        //     "created_at": "2011-09-10T02:19:48.000Z",
+        //     "profile_image_url": "https://pbs.twimg.com/profile_images/1411253688954494977/PQKpfmZx_normal.jpg",
+        //     "public_metrics": {
+        //         "followers_count": 26579,
+        //         "following_count": 2457,
+        //         "tweet_count": 155548,
+        //         "listed_count": 11,
+        //         "like_count": 121989,
+        //         "media_count": 84037
         //     },
+        //     "id": "371027604",
+        //     "location": "Birmingham, England",
+        //     "verified_type": "none",
+        //     "username": "AndrewGriUK",
+        //     "url": "https://twitter.com/AndrewGriUK"
         // }
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        const userCreationDate = userInfo.created_at
+            ? Math.floor(new Date(userInfo.created_at).getTime() / 1000)
+            : 0
+
+        const channelInfo = {
+            platform_logo: PlatformName.X,
+            platform_user_picture: userInfo.profile_image_url as string,
+            user_name_source: userInfo.name as string,
+            user_username_source: userInfo.username as string,
+            user_id_source: userInfo.id as string,
+            user_verified: userInfo.verified as boolean,
+            followers_count: userInfo?.public_metrics?.followers_count as number,
+            user_creation_date: userCreationDate,
+            metadata: {
+                description: userInfo.description as string,
+                profile_banner_url: userInfo.profile_banner_url as string,
+                location: userInfo.location as string,
+                verified_type: userInfo.verified_type as string,
+                url: userInfo?.url ? userInfo?.url : null,
+                public_metrics: userInfo.public_metrics
+            },
+        }
         return {
-            channelInfo: null,
+            channelInfo,
             error: null
         }
     } catch (err: any) {
@@ -62,39 +91,56 @@ export async function getTwitterChannelInfo(username: string) {
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function getTwitterChannelPosts(channelName: string, lastSavedId: number = 0) {
-    
+export const getTwitterChannelPosts = async (userId: string) => {
+    try {
+        // const daysAgo = 0
+        const daysAgo = Number(process.env.FETCH_DAYS_AGO) || 5
+        const startTime = getStartTimeISO_LocalMidnight(daysAgo)
+        const tweets = await readOnlyClient.v2.userTimeline(userId, {
+            max_results: 10,
+            "tweet.fields": ["created_at", "text", "id", "author_id"],
+            "start_time": startTime
+        })
+        // const meta = tweets.data.meta
+        const tweetsData: TweetV2[] = tweets.data.data
+        const posts: any[] = []
 
-    const posts: any[] = []
+        for (let index = 0; index < tweetsData.length; index++) {
+            const message = tweetsData[index]
 
-    const analyses: any[] = [
-        {
-            type: "Signal",
-            token: "BTC",
-            currency: "USDT",
-            direction: "bullish",
-            entry_price: 12.74,
-            exit_price: null,
-            target: [ 12.82, 13.01, 13.2 ],
-            stop_loss: 12.49,
-            leverage: null
-        },
-        {
-            type: "Signal",
-            token: "ICX",
-            currency: "USDT",
-            direction: "bullish",
-            entry_price: 0.119,
-            exit_price: null,
-            target: [ 0.1198, 0.1215, 0.1233 ],
-            stop_loss: 0.1167,
-            leverage: null
+            const { postText, tokens } = countTokens(message.text)
+
+
+            console.log(" -------------------------------------------------------------- ----------------------- ")
+            console.log(" 🚀   -->  message.message:", message.text)
+            console.log(" 🚀   -->  message.message:", postText, " 🚀   -->  tokens:", tokens)
+            console.log(" ")
+            console.log(" ")
+            console.log(" ")
+            if (tokens < 3) continue
+            if (tokens > 90) continue
+            posts.push({
+                id: message.id,
+                text: postText,
+                originalText: message.text,
+                timestamp: message?.created_at ? Math.floor(new Date(message?.created_at).getTime() / 1000) : null,
+                date: message?.created_at,
+                senderId: message?.author_id || null,
+                mediaType: "text",
+            })
         }
-    ]
-       
-    const analysedPosts = posts
-        .map((post, i) => ({ ...post, analysis: analyses[i] }))
-        .filter(p => p?.analysis?.type !== "Irrelevant")
-    return analysedPosts
+
+        const analyses = await Promise.all(
+            posts.map(p => agentAI_signal_analyzer(p.text))
+        )
+        const analysedPosts = posts
+            .map((post, i) => ({ ...post, analysis: analyses[i] }))
+            .filter(p => p?.analysis?.type !== "Irrelevant")
+
+        return analysedPosts
+
+    } catch (error) {
+        console.error("Error fetching tweets:", error)
+        return []
+    }
 }

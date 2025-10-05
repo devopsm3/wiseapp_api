@@ -3,14 +3,23 @@
 
     // 1. Extract after last slash if it's a URL
     let id = sourceId.trim()
-    if (id.includes("telegram.org") || id.includes("t.me")) {
+
+    // --- 1️⃣ Handle Telegram URLs ---
+    if (id.includes("t.me") || id.includes("telegram.org")) {
         id = id.split("#@").pop() || id.split("/").pop() || id
     }
-  
-    // 2. Remove "@" if exists
+
+    else if (
+        id.includes("twitter.com") ||
+        id.includes("x.com")
+    ) {
+        const parts = id.split("/")
+        id = parts.pop() || id
+    }
+
     if (id.startsWith("@")) {
         id = id.slice(1)
     }
-  
+
     return id.trim()
 }
