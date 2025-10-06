@@ -58,6 +58,9 @@ export const getSignalsService = async (currentUser: User) => {
                 const signalTrendLevel = getSignalTrendLevel(signal.signal_trend === "LONG" ? "bullish" : "bearish", signal.sources_nbr || 1, alignmentPostsForMetaSignals)
                 signalsInfo.push({
                     ...signal,
+                    coinUrl: `https://www.coingecko.com/en/coins/${coinInfo[0].id}`,
+                    entry_price: Number(signal.entry_price).toFixed(2),
+                    exit_price: signal.exit_price ? Number(signal.exit_price).toFixed(2) : null,
                     signal_trend_level: signalTrendLevel,
                     pnlAbsolute: pnlAbsolute,
                     pnlPercent: pnlPercent,
@@ -106,10 +109,10 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
         const alignmentPostsForMetaSignals = (setup?.meta_signals as unknown as MetaSignalSetup)?.alignment_posts_for_meta_signals || 3
         if (setup) {
             filteredSignal = getFilteredSignals([signal], setup)
-        }
-        filteredSignal = filteredSignal[0]
-        if (!filteredSignal) {
-            return null
+            filteredSignal = filteredSignal[0]
+            if (!filteredSignal) {
+                return null
+            }
         }
         const coinInfo = await coingeckoApiServiceMarket(signal.currency_label.toLowerCase())
         
@@ -125,9 +128,12 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
                 status: signal.status,
             })
             const signalTrendLevel = getSignalTrendLevel(signal.signal_trend === "LONG" ? "bullish" : "bearish", signal.sources_nbr || 1, alignmentPostsForMetaSignals)
-
+            
             return {
                 ...signal,
+                coinInfo: coinInfo[0],
+                entry_price: Number(signal.entry_price).toFixed(2),
+                exit_price: signal.exit_price ? Number(signal.exit_price).toFixed(2) : null,
                 signal_trend_level: signalTrendLevel,
                 pnlAbsolute: pnlAbsolute,
                 pnlPercent: pnlPercent,

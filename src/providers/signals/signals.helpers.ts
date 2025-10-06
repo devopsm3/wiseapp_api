@@ -136,3 +136,24 @@ export const getSignalTrendLevel = (direction: "bullish" | "bearish", signalSum:
 
     return isLong ? SignalTrendLvl.VTC : SignalTrendLvl.RTC
 }
+
+export const normalizeToken = (token: string): string => {
+    if (!token) return ""
+  
+    const map: Record<string, string> = {
+        bitcoin: "btc",
+        btc: "btc",
+  
+        ethereum: "eth",
+        ether: "eth",
+        eth: "eth",
+  
+        solana: "sol",
+        sol: "sol",
+    }
+  
+    const key = token.trim().toLowerCase()
+    return map[key] || key.toLowerCase()
+}
+  
+  

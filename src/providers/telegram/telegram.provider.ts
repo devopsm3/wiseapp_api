@@ -4,7 +4,7 @@ import { client } from "../../config/initTelegram"
 import { Api } from "telegram"
 import { countTokens } from "../AgentAI/agentai.helpers"
 import { PlatformName } from "@prisma/client"
-import { getDaysAgoTimestamp } from "../../utils/global.helpers"
+// import { getDaysAgoTimestamp } from "../../utils/global.helpers"
 import { agentAI_signal_analyzer } from "../AgentAI/agentai.provider"
 
 
@@ -66,10 +66,11 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
         
 
         const posts: any[] = []
-        const daysAgo = Number(process.env.FETCH_DAYS_AGO) || 5
-        const offsetDate = getDaysAgoTimestamp(daysAgo)
+        // const daysAgo = Number(process.env.FETCH_DAYS_AGO) || 5
+        // const offsetDate = getDaysAgoTimestamp(daysAgo)
         // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
-        for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true, limit: 30 })) {
+        // for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true, limit: 30 })) {
+        for await (const message of client.iterMessages(channelName, { limit: 30 })) {
             if (!(message instanceof Api.Message)) continue
             if (!message.message) continue
             // if (!message.message && !message.photo) continue
@@ -93,7 +94,7 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
         
             // console.log(" -------------------------------------------------------------- ----------------------- ")
             // console.log(" 🚀   -->  message.message:", message.message)
-            // console.log(" 🚀   -->  message.message:", postText, " 🚀   -->  tokens:", tokens)
+            console.log(" 🚀   -->  message.message:", postText, " 🚀   -->  tokens:", tokens)
     
             // console.log(" ")
             // console.log(" ")
@@ -116,7 +117,9 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
         )      
         const analysedPosts = posts
             .map((post, i) => ({ ...post, analysis: analyses[i] }))
-            .filter(p => p?.analysis?.type !== "Irrelevant")
+            // .filter(p => p?.analysis?.type !== "Irrelevant")
+            .filter(p => p?.analysis?.type === "Signal" && p?.analysis?.token)
+        console.log(" 🚀   -->  analysedPosts:", analysedPosts)
         return analysedPosts
 
     } catch (error) {

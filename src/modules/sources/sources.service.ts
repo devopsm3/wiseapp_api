@@ -5,8 +5,8 @@ import { PlatformName, SourceStatus, User } from "@prisma/client"
 import { getIO } from "../../config/socket"
 import { getTelegramChannelInfo } from "../../providers/telegram/telegram.provider"
 import { getTwitterChannelInfo } from "../../providers/twitter/twitter.provider"
-import { normalizeSourceId } from "../../providers/telegram/telegram.helpers"
 import { SourceType } from "../../providers/sources/sources.types"
+import { normalizeSourceId } from "../../utils/global.helpers"
 
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
@@ -91,7 +91,7 @@ export const addSourceService = async (source: any, currentUser: User) => {
         if (sourceExists) {
             return {
                 status: false,
-                message: "Source already exists"
+                message: "Source already exists in your account"
             }
         }
         let channelInfo: SourceType | null = null
@@ -106,7 +106,10 @@ export const addSourceService = async (source: any, currentUser: User) => {
         if (!channelInfo) {
             return {
                 status: false,
-                message: "Channel not found"
+                message:
+                source.sourceType === PlatformName.TELEGRAM
+                    ? `Telegram channel '${source.sourceId}' could not be found or is inaccessible.`
+                    : `User '${source.sourceId}' could not be found or the profile is unavailable.`
             }
         }
 

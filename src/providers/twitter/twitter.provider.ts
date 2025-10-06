@@ -83,7 +83,6 @@ export async function getTwitterChannelInfo(username: string) {
             error: null
         }
     } catch (err: any) {
-        // console.log(" 🚀   -->  err:", err)
         return {
             channelInfo: null,
             error: err.message
@@ -103,7 +102,6 @@ export const getTwitterChannelPosts = async (userId: string) => {
             "media.fields": ["url", "preview_image_url", "type"],
         })
         // const meta = tweets.data.meta
-        console.log(" 🚀   -->  tweets. META :", tweets.data.meta)
         const tweetsData = tweets.data.data || []
 
         const tweetsMedia  = tweets.data?.includes?.media || []
@@ -285,11 +283,133 @@ export const getTwitterChannelPosts = async (userId: string) => {
         const analyses = await Promise.all(
             posts.map(p => agentAI_signal_analyzer(p.text, p.mediaPhotos))
         )
-
+        // const posts  = [
+        //     {
+        //         id: "1970155600098050533",
+        //         text: "test 1",
+        //         originalText: "test 1",
+        //         timestamp: 1758556673,
+        //         date: "2025-09-22T15:57:53.000Z",
+        //         senderId: "1378977444342939648",
+        //         mediaType: "photo",
+        //         analysis: {
+        //             type: "Signal",
+        //             token: "BTC",
+        //             currency: "USDT",
+        //             direction: "bullish",
+        //             entry_price: null,
+        //             exit_price: null,
+        //             target: null,
+        //             stop_loss: null,
+        //             leverage: null
+        //         }
+        //     },
+        //     {
+        //         id: "1970155600098050534",
+        //         text: "test 2",
+        //         originalText: "test 2",
+        //         timestamp: 1758556673,
+        //         date: "2025-09-23T15:57:53.000Z",
+        //         senderId: "1378977444342939648",
+        //         mediaType: "photo",
+        //         analysis: {
+        //             type: "Signal",
+        //             token: "BTC",
+        //             currency: "USDT",
+        //             direction: "bullish",
+        //             entry_price: 200,
+        //             exit_price: 210,
+        //             target: null,
+        //             stop_loss: null,
+        //             leverage: null
+        //         }
+        //     },
+        //     {
+        //         id: "1970155600098050535",
+        //         text: "test 3",
+        //         originalText: "test 3",
+        //         timestamp: 1758556673,
+        //         date: "2025-09-24T15:57:53.000Z",
+        //         senderId: "1378977444342939648",
+        //         mediaType: "photo",
+        //         analysis: {
+        //             type: "Signal",
+        //             token: "ETH",
+        //             currency: "USDT",
+        //             direction: "bullish",
+        //             entry_price: 10,
+        //             exit_price: 15,
+        //             target: null,
+        //             stop_loss: null,
+        //             leverage: null
+        //         }
+        //     },
+        //     {
+        //         id: "1970155600098050536",
+        //         text: "test 4",
+        //         originalText: "test 4",
+        //         timestamp: 1758556673,
+        //         date: "2025-09-25T15:57:53.000Z",
+        //         senderId: "1378977444342939648",
+        //         mediaType: "photo",
+        //         analysis: {
+        //             type: "Signal",
+        //             token: "ETH",
+        //             currency: "USDT",
+        //             direction: "bullish",
+        //             entry_price: null,
+        //             exit_price: null,
+        //             target: null,
+        //             stop_loss: null,
+        //             leverage: null
+        //         }
+        //     },
+        //     {
+        //         id: "1970155600098050536",
+        //         text: "test 4",
+        //         originalText: "test 4",
+        //         timestamp: 1758556673,
+        //         date: "2025-09-25T15:57:53.000Z",
+        //         senderId: "1378977444342939648",
+        //         mediaType: "photo",
+        //         analysis: {
+        //             type: "Signal",
+        //             token: "",
+        //             currency: "USDT",
+        //             direction: "bullish",
+        //             entry_price: null,
+        //             exit_price: null,
+        //             target: null,
+        //             stop_loss: null,
+        //             leverage: null
+        //         }
+        //     },
+        //     {
+        //         id: "1970155600098050537",
+        //         text: "test 5",
+        //         originalText: "test 5",
+        //         timestamp: 1758556673,
+        //         date: "2025-09-25T15:57:53.000Z",
+        //         senderId: "1378977444342939648",
+        //         mediaType: "photo",
+        //         analysis: {
+        //             type: "Signal",
+        //             token: null,
+        //             currency: null,
+        //             direction: "bullish",
+        //             entry_price: null,
+        //             exit_price: null,
+        //             target: null,
+        //             stop_loss: null,
+        //             leverage: null
+        //         }
+        //     },
+        // ]
         const analysedPosts = posts
             .map((post, i) => ({ ...post, analysis: analyses[i] }))
-            .filter(p => p?.analysis?.type !== "Irrelevant")
-        
+            .filter(p => p?.analysis?.type === "Signal" && p?.analysis?.token)
+        // .filter(p => p?.analysis?.type !== "Irrelevant")
+
         console.log(" 🚀   -->  analysedPosts:", analysedPosts)
         return analysedPosts
 

@@ -29,11 +29,11 @@ export const checkExistedSignalWithinTimeHorizon = async (currentUserId: number,
             user_db_id: currentUserId,
             status,
             currency_label: analysis.token,
-            signal_trend: trend,
+            signal_trend: trend
             // entry_timestamp: {
             //     gte: timeframe_for_meta_signals_ago,
             // },
-        },
+        }
     })   
     return { existingSignal }
 }
@@ -61,9 +61,8 @@ export const createOrUpdateSignal = async ({
   exitPrice?: any;
   entryTimestamp: Date;
 })  => {
-
     let timeframe_for_meta_signals_hours = 21
-    
+
     const setup = await prisma.setup.findFirst({
         where: {
             user_db_id: currentUserId,
@@ -78,23 +77,42 @@ export const createOrUpdateSignal = async ({
     twentyOneDaysAgo.setUTCDate(now.getUTCDate() - timeframe_for_meta_signals_hours)
     twentyOneDaysAgo.setUTCHours(0, 0, 0, 0)
     
-    const status =  entryTimestamp >= twentyOneDaysAgo ? "NEW" : "PASSED"
+    const status =  entryTimestamp.getTime() >= twentyOneDaysAgo.getTime() ? "NEW" : "PASSED"
 
     const { existingSignal } = await checkExistedSignalWithinTimeHorizon(currentUserId, analysis, status)
 
     if (existingSignal) {
         console.log(" ------------------ Updating existing signal ------------------")
-        const alignmentPostsForMetaSignals = (setup?.meta_signals as unknown as MetaSignalSetup)?.alignment_posts_for_meta_signals || 3
-        const signalTrendLevel = getSignalTrendLevel(analysis.direction, existingSignal.sources_nbr || 1, alignmentPostsForMetaSignals)
-
-        await prisma.signal.update({
-            where: { id: existingSignal.id },
-            data: {
-                sources_nbr: { increment: 1 },
-                signal_trend_level: signalTrendLevel,
-                updated_at: new Date(),
-            },
-        })
+        const existingSignalSourceIds = JSON.parse(existingSignal.sourceIds || "[]")
+        const isIncluded = Array.isArray(existingSignalSourceIds) && existingSignalSourceIds.includes(Number(newSourceId))
+        if (!isIncluded) {
+            const alignmentPostsForMetaSignals = (setup?.meta_signals as unknown as MetaSignalSetup)?.alignment_posts_for_meta_signals || 3
+            const signalTrendLevel = getSignalTrendLevel(analysis.direction, existingSignal.sources_nbr || 1, alignmentPostsForMetaSignals)
+            await prisma.signal.update({
+                where: { id: existingSignal.id },
+                data: {
+                    sources_nbr: { increment: 1 },
+                    signal_trend_level: signalTrendLevel,
+                    sourceIds: JSON.stringify([...existingSignalSourceIds, Number(newSourceId)]),
+                    updated_at: new Date()
+                }
+            })
+        }
+        // how to calculate new pnl
+        // else {
+        //     await prisma.signal.update({
+        //         where: { id: existingSignal.id },
+        //         data: {
+        //             source_post_id: postCreatedId,
+        //             pnlA: pnlAbsolute, // for now
+        //             pnlP: pnlPercent, // for now
+        //             entry_price: entryPrice,
+        //             exit_price: exitPrice,
+        //             entry_timestamp: entryTimestamp,
+        //             updated_at: new Date()
+        //         }
+        //     })
+        // }
 
         console.log(
             `Updated existing signal for ${analysis.token} (${analysis.direction}) - incremented sources_nbr.`
@@ -105,6 +123,7 @@ export const createOrUpdateSignal = async ({
         const newSignal = await prisma.signal.create({
             data: {
                 sourceId: newSourceId,
+                sourceIds: JSON.stringify([newSourceId]),
                 user_db_id: currentUserId,
                 source_post_id: postCreatedId,
                 signal_trend_level: analysis.direction === "bullish" ? "VTC" : "RTC",
@@ -119,7 +138,7 @@ export const createOrUpdateSignal = async ({
                 entry_price: entryPrice,
                 exit_price: exitPrice,
                 sources_nbr: 1,
-            },
+            }
         })
 
         console.log(`Created new signal for ${analysis.token} (${analysis.direction})`)

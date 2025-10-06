@@ -11,7 +11,7 @@ export const agentAI_signal_analyzer = async (postText: string, images: string[]
         {
             role: "system",
             content: `
-            You are an AI that extracts and converts crypto trading signals (from text or image) into valid JSON.
+            You are an AI that extracts and converts crypto trading signals (from text or image) and ignore Liquidations, updates, or news or any other text that has relation with trading signals.
           
             Return ONLY valid, parsable JSON — no extra text, no markdown, no explanations, no labels.
           

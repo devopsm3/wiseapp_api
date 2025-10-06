@@ -1,7 +1,7 @@
 ﻿import { PlatformName, SignalTrend, SourcePost, SourcePrice, SourceStatus, User } from "@prisma/client"
 import { coingeckoApiServiceMarket, getOHLC } from "../Coingecko/coingecko.provider"
 import { coinImages } from "../Coingecko/constants"
-import { calculatePivot, calculatePnl } from "../signals/signals.helpers"
+import { calculatePivot, calculatePnl, normalizeToken } from "../signals/signals.helpers"
 import { prisma } from "../../prisma"
 import { SourcePostAnalysis, SourceType } from "./sources.types"
 import { getTelegramChannelPosts } from "../telegram/telegram.provider"
@@ -14,21 +14,23 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         if (!channelInfo) {
             return {
                 status: false,
-                message: "Channel not found"
+                message: source.sourceType === PlatformName.TELEGRAM
+                    ? `Telegram channel '${source.sourceId}' could not be found or is inaccessible.`
+                    : `User '${source.sourceId}' could not be found or the profile is unavailable.`
             }
         }
 
         if (!messages.length) {
             return {
                 status: false,
-                message: "Source is invalid, can not be accepted"
+                message: `No valid signals detected for the source '${source.sourceId}'`
             }
         }
         const signalsPosts = messages.filter((m) => m.analysis.type === "Signal" || m.analysis.type === "directSignal")
         if (!signalsPosts.length) {
             return {
-                status: false,
-                message: "Source is invalid, can not be accepted"
+                status: false, 
+                message: `No valid signals detected for the source '${source.sourceId}'`
             }
         }
         const newSource = await prisma.source.create({
@@ -50,74 +52,78 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             const element = signalsPosts[index]
             const analysis = element.analysis as unknown as SourcePostAnalysis
 
-
-            const coinInfo = await coingeckoApiServiceMarket(analysis.token.toLowerCase())
-            if (coinInfo.length) {
-                const postCreated = await prisma.sourcePost.create({
-                    data: {
-                        sourceId: newSource.id,
-                        sourceType: channelInfo.platform_logo as PlatformName,
-                        date: element.date,
-                        timestamp: element.timestamp,
-                        originalId: Number(element.id),
-                        mediaType: element.mediaType,
-                        senderId: element.senderId,
-                        text: element.text,
-                        originalText: element.originalText,
-                        analysis: element.analysis!,
-                    }
-                })
-                const coinDetails = coinInfo[0]
-                const currencyLogo = coinDetails.image || coinImages.altcoin
-                let entryPrice: number
-                if (analysis.entry_price) {
-                    entryPrice = Number(analysis.entry_price)
-                } else {
-                    const targetDate = new Date(element.date!)
-                    const today = new Date()
-                    const isToday =
+            if (analysis?.token && analysis?.type === "Signal") {
+                const normalizedToken = normalizeToken(analysis.token)
+                const coinInfo = await coingeckoApiServiceMarket(normalizedToken)
+                if (coinInfo.length) {
+                    const postCreated = await prisma.sourcePost.create({
+                        data: {
+                            sourceId: newSource.id,
+                            sourceType: channelInfo.platform_logo as PlatformName,
+                            date: element.date,
+                            timestamp: element.timestamp,
+                            originalId: Number(element.id),
+                            mediaType: element.mediaType,
+                            senderId: element.senderId,
+                            text: element.text,
+                            originalText: element.originalText,
+                            analysis: element.analysis!,
+                        }
+                    })
+                    const coinDetails = coinInfo[0]
+                    const currencyLogo = coinDetails.image || coinImages.altcoin
+                    let entryPrice: number
+                    if (analysis.entry_price) {
+                        entryPrice = Number(analysis.entry_price)
+                    } else {
+                        const targetDate = new Date(element.date!)
+                        const today = new Date()
+                        const isToday =
                             targetDate.getFullYear() === today.getFullYear() &&
                             targetDate.getMonth() === today.getMonth() &&
                             targetDate.getDate() === today.getDate()
-                    const ohlc = await getOHLC(coinDetails.id, targetDate)
-                    if (isToday) {
-                        entryPrice = ohlc?.close || ohlc?.high || ohlc?.open || ohlc?.low || coinDetails.current_price || 0
-                    } else {
-                        const pivotLevels = calculatePivot(ohlc?.high || 0, ohlc?.low || 0, ohlc?.close || 0)
-                        entryPrice = pivotLevels.pivot || 0
+                        const ohlc = await getOHLC(coinDetails.id, targetDate)
+                        if (isToday) {
+                            entryPrice = ohlc?.close || ohlc?.high || ohlc?.open || ohlc?.low || coinDetails.current_price || 0
+                        } else {
+                            const pivotLevels = calculatePivot(ohlc?.high || 0, ohlc?.low || 0, ohlc?.close || 0)
+                            entryPrice = pivotLevels.pivot || 0
+                        }
                     }
-                }
-                const targets = analysis?.target || []
-                const exitPrice =
+                    const targets = analysis?.target || []
+                    const exitPrice =
                         analysis?.exit_price ??
                         (targets.length ? targets[targets.length - 1] : null)
 
-                const { pnlAbsolute, pnlPercent } = calculatePnl({
-                    currentPrice: coinDetails.current_price,
-                    entryPrice,
-                    exitPrice,
-                    direction: analysis.direction === "bullish" ? SignalTrend.LONG : SignalTrend.SHORT,
-                    leverage: 1,
-                    quantity: 1,
-                    fees: 0,
-                    status: "NEW",
-                })
-                await createOrUpdateSignal({
-                    analysis: {
-                        direction: analysis.direction!,
-                        token: analysis.token,
-                    },
-                    newSourceId: newSource.id,
-                    postCreatedId: postCreated.id,
-                    currentUserId: currentUser.id,
-                    currencyLogo,
-                    pnlAbsolute,
-                    pnlPercent,
-                    entryPrice,
-                    exitPrice,
-                    entryTimestamp: new Date(element.date!),
-                })
-                verifiedPosts.push(postCreated.id)
+                    const { pnlAbsolute, pnlPercent } = calculatePnl({
+                        currentPrice: coinDetails.current_price,
+                        entryPrice,
+                        exitPrice,
+                        direction: analysis.direction === "bullish" ? SignalTrend.LONG : SignalTrend.SHORT,
+                        leverage: 1,
+                        quantity: 1,
+                        fees: 0,
+                        status: "NEW",
+                    })
+                    await createOrUpdateSignal({
+                        analysis: {
+                            direction: analysis.direction!,
+                            token: normalizedToken.toUpperCase(),
+                        },
+                        newSourceId: newSource.id,
+                        postCreatedId: postCreated.id,
+                        currentUserId: currentUser.id,
+                        currencyLogo,
+                        pnlAbsolute,
+                        pnlPercent,
+                        entryPrice,
+                        exitPrice,
+                        entryTimestamp: new Date(element.date!),
+                    })
+                    verifiedPosts.push(postCreated.id)
+                } else {
+                    console.log(`Token ${analysis.token} not found in Coingecko API`)
+                }   
             } else {
                 console.log(`Token ${analysis.token} not found in Coingecko API`)
             }   
@@ -128,22 +134,22 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             })
             return {
                 status: false,
-                message: "Source is invalid, can not be accepted"
+                message: `No valid signals detected for the source '${source.sourceId}'`
             }
         }
         // save last message id
         const metadata = newSource?.metadata as any
         metadata.last_message_id = messages[messages.length - 1].id
 
-        const btc_total_quantity = messages.filter((m) => (m.analysis as any).token?.includes("BTC")).length || 0
-        const eth_total_quantity = messages.filter((m) => (m.analysis as any).token?.includes("ETH")).length || 0
-        const sol_total_quantity = messages.filter((m) => (m.analysis as any).token?.includes("SOL")).length || 0
+        const btc_total_quantity = messages.filter((m) => normalizeToken((m.analysis as any).token) === "BTC").length || 0
+        const eth_total_quantity = messages.filter((m) => normalizeToken((m.analysis as any).token) === "ETH").length || 0
+        const sol_total_quantity = messages.filter((m) => normalizeToken((m.analysis as any).token) === "SOL").length || 0
         const alts_total_quantity = messages.filter(
             (m) =>
-                (m.analysis as any).token &&
-                (m.analysis as any).token !== "BTC" &&
-                (m.analysis as any).token !== "ETH" &&
-                (m.analysis as any).token !== "SOL"
+                normalizeToken((m.analysis as any).token) &&
+                normalizeToken((m.analysis as any).token) !== "BTC" &&
+                normalizeToken((m.analysis as any).token) !== "ETH" &&
+                normalizeToken((m.analysis as any).token) !== "SOL"
         ).length || 0
         await prisma.source.update({
             where: {
@@ -280,6 +286,7 @@ export const createSourceService = async (channelInfo: SourceType, source: any, 
         //         originalId: 0
         //     }
         // ]
+        // let messages: any[] = []
         let messages: SourcePost[] = []
         if (source.sourceType === PlatformName.TELEGRAM) {
             messages = await getTelegramChannelPosts(channelInfo?.user_id_source)

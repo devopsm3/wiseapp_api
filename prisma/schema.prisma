@@ -160,10 +160,11 @@ enum ManualOverride {
 }
 
 model Signal {
-  id             Int @id @default(autoincrement())
+  id             Int   @id @default(autoincrement())
   user_db_id     Int
   sourceId       Int
   source_post_id Int
+  sourceIds      String @default("[]")
 
   signal_trend_level SignalTrendLvl
   signal_trend       SignalTrend
