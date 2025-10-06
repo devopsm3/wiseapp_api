@@ -69,7 +69,7 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
         const daysAgo = Number(process.env.FETCH_DAYS_AGO) || 5
         const offsetDate = getDaysAgoTimestamp(daysAgo)
         // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
-        for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true, limit: 20 })) {
+        for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true, limit: 30 })) {
             if (!(message instanceof Api.Message)) continue
             if (!message.message) continue
             // if (!message.message && !message.photo) continue
@@ -91,13 +91,13 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
             const { postText, tokens } = countTokens(message.message)
 
         
-            console.log(" -------------------------------------------------------------- ----------------------- ")
-            console.log(" 🚀   -->  message.message:", message.message)
-            console.log(" 🚀   -->  message.message:", postText, " 🚀   -->  tokens:", tokens)
+            // console.log(" -------------------------------------------------------------- ----------------------- ")
+            // console.log(" 🚀   -->  message.message:", message.message)
+            // console.log(" 🚀   -->  message.message:", postText, " 🚀   -->  tokens:", tokens)
     
-            console.log(" ")
-            console.log(" ")
-            console.log(" ")
+            // console.log(" ")
+            // console.log(" ")
+            // console.log(" ")
             if (tokens < 3) continue
             if (tokens > 90) continue
             posts.push({

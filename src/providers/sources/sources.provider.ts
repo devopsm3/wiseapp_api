@@ -6,6 +6,7 @@ import { prisma } from "../../prisma"
 import { SourcePostAnalysis, SourceType } from "./sources.types"
 import { getTelegramChannelPosts } from "../telegram/telegram.provider"
 import { getTwitterChannelPosts } from "../twitter/twitter.provider"
+import { createOrUpdateSignal } from "../signals/signals.provider"
 
 
 const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User) => {
@@ -13,14 +14,21 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         if (!channelInfo) {
             return {
                 status: false,
-                message: "channel_not_found"
+                message: "Channel not found"
             }
         }
-       
-        if(!messages.length) {
+
+        if (!messages.length) {
             return {
                 status: false,
-                message: "Source is invalid"
+                message: "Source is invalid, can not be accepted"
+            }
+        }
+        const signalsPosts = messages.filter((m) => m.analysis.type === "Signal" || m.analysis.type === "directSignal")
+        if (!signalsPosts.length) {
+            return {
+                status: false,
+                message: "Source is invalid, can not be accepted"
             }
         }
         const newSource = await prisma.source.create({
@@ -37,86 +45,105 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 alts_total_quantity: 0,
             },
         })
-        for (let index = 0; index < messages.length; index++) {
-            const element = messages[index]
+        const verifiedPosts: any[] = []
+        for (let index = 0; index < signalsPosts.length; index++) {
+            const element = signalsPosts[index]
             const analysis = element.analysis as unknown as SourcePostAnalysis
-            const postCreated = await prisma.sourcePost.create({
-                data: {
-                    sourceId: newSource.id,
-                    sourceType: channelInfo.platform_logo as PlatformName,
-                    date: element.date,
-                    timestamp: element.timestamp,
-                    originalId: Number(element.id),
-                    mediaType: element.mediaType,
-                    senderId: element.senderId,
-                    text: element.text,
-                    originalText: element.originalText,
-                    analysis: element.analysis!,
-                }
-            })
-            if (analysis.type === "Signal" || analysis.type === "directSignal") {
-        
-                const coinInfo = await coingeckoApiServiceMarket(analysis.token.toLowerCase())
-                if (coinInfo && coinInfo.length) {
-                    const coinDetails= coinInfo[0]
-                               
-                    const currencyLogo = coinDetails.image || coinImages.altcoin
-                               
-                    const ohlc = await getOHLC(coinDetails.id, element.date!.toString())
-                    const pivotLevels = calculatePivot(ohlc?.high || 0, ohlc?.low || 0, ohlc?.close || 0)
-                    const entryPrice = analysis.entry_price || pivotLevels.pivot || 0
-                    const targets = analysis?.target || []
-                    const exitPrice =
-                            analysis?.exit_price ??
-                            (targets.length ? targets[targets.length - 1] : null)
 
-                    const { pnlAbsolute, pnlPercent } = calculatePnl({
-                        currentPrice: coinDetails.current_price,
-                        entryPrice,
-                        exitPrice,
-                        direction: analysis.direction === "bullish" ? SignalTrend.LONG : SignalTrend.SHORT,
-                        leverage: undefined,
-                        quantity: 1,
-                        status: "NEW",
-                    })
-                    await prisma.signal.create({
-                        data: {
-                            sourceId: newSource.id,
-                            user_db_id: currentUser.id,
-                            source_post_id: postCreated.id,
-                            signal_trend_level: analysis.direction === "bullish" ? "VTC" : "RTC", // for now
-                            signal_trend: analysis.direction === "bullish" ? SignalTrend.LONG : SignalTrend.SHORT,
-                            currency_label: analysis.token,
-                            currency_logo: currencyLogo,
-                            status: "NEW",
-                                    
-                            pnlA: pnlAbsolute, // for now
-                            time_frame: "", // for now
-                            entry_timestamp: element.date!,
-                            entry_price: entryPrice,
-                            exit_price: exitPrice,
-                            pnlP: pnlPercent,
-                            sources_nbr: 1, // for now
-                        }
-                    })
+
+            const coinInfo = await coingeckoApiServiceMarket(analysis.token.toLowerCase())
+            if (coinInfo.length) {
+                const postCreated = await prisma.sourcePost.create({
+                    data: {
+                        sourceId: newSource.id,
+                        sourceType: channelInfo.platform_logo as PlatformName,
+                        date: element.date,
+                        timestamp: element.timestamp,
+                        originalId: Number(element.id),
+                        mediaType: element.mediaType,
+                        senderId: element.senderId,
+                        text: element.text,
+                        originalText: element.originalText,
+                        analysis: element.analysis!,
+                    }
+                })
+                const coinDetails = coinInfo[0]
+                const currencyLogo = coinDetails.image || coinImages.altcoin
+                let entryPrice: number
+                if (analysis.entry_price) {
+                    entryPrice = Number(analysis.entry_price)
+                } else {
+                    const targetDate = new Date(element.date!)
+                    const today = new Date()
+                    const isToday =
+                            targetDate.getFullYear() === today.getFullYear() &&
+                            targetDate.getMonth() === today.getMonth() &&
+                            targetDate.getDate() === today.getDate()
+                    const ohlc = await getOHLC(coinDetails.id, targetDate)
+                    if (isToday) {
+                        entryPrice = ohlc?.close || ohlc?.high || ohlc?.open || ohlc?.low || coinDetails.current_price || 0
+                    } else {
+                        const pivotLevels = calculatePivot(ohlc?.high || 0, ohlc?.low || 0, ohlc?.close || 0)
+                        entryPrice = pivotLevels.pivot || 0
+                    }
                 }
-            }
-        
+                const targets = analysis?.target || []
+                const exitPrice =
+                        analysis?.exit_price ??
+                        (targets.length ? targets[targets.length - 1] : null)
+
+                const { pnlAbsolute, pnlPercent } = calculatePnl({
+                    currentPrice: coinDetails.current_price,
+                    entryPrice,
+                    exitPrice,
+                    direction: analysis.direction === "bullish" ? SignalTrend.LONG : SignalTrend.SHORT,
+                    leverage: 1,
+                    quantity: 1,
+                    fees: 0,
+                    status: "NEW",
+                })
+                await createOrUpdateSignal({
+                    analysis: {
+                        direction: analysis.direction!,
+                        token: analysis.token,
+                    },
+                    newSourceId: newSource.id,
+                    postCreatedId: postCreated.id,
+                    currentUserId: currentUser.id,
+                    currencyLogo,
+                    pnlAbsolute,
+                    pnlPercent,
+                    entryPrice,
+                    exitPrice,
+                    entryTimestamp: new Date(element.date!),
+                })
+                verifiedPosts.push(postCreated.id)
+            } else {
+                console.log(`Token ${analysis.token} not found in Coingecko API`)
+            }   
         }
-        
+        if (!verifiedPosts.length) {
+            await prisma.source.delete({
+                where: { id: newSource.id },
+            })
+            return {
+                status: false,
+                message: "Source is invalid, can not be accepted"
+            }
+        }
         // save last message id
         const metadata = newSource?.metadata as any
         metadata.last_message_id = messages[messages.length - 1].id
-        
+
         const btc_total_quantity = messages.filter((m) => (m.analysis as any).token?.includes("BTC")).length || 0
         const eth_total_quantity = messages.filter((m) => (m.analysis as any).token?.includes("ETH")).length || 0
         const sol_total_quantity = messages.filter((m) => (m.analysis as any).token?.includes("SOL")).length || 0
         const alts_total_quantity = messages.filter(
             (m) =>
                 (m.analysis as any).token &&
-                            (m.analysis as any).token !== "BTC" &&
-                            (m.analysis as any).token !== "ETH" &&
-                            (m.analysis as any).token !== "SOL"
+                (m.analysis as any).token !== "BTC" &&
+                (m.analysis as any).token !== "ETH" &&
+                (m.analysis as any).token !== "SOL"
         ).length || 0
         await prisma.source.update({
             where: {
@@ -127,24 +154,24 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 metadata: metadata,
                 source_total_quantity_signals: messages.length,
                 source_global_probility: 0, // after trade
-        
+
                 source_bullish_total_quantity: messages.filter((m) => (m.analysis as any)?.direction === "bullish").length || 0,
                 source_bullish_percentage: (messages.filter((m) => (m.analysis as any)?.direction === "bullish").length / messages.length) * 100 || 0,
                 source_bullish_probility: 0, // after trade
-        
+
                 source_bearish_total_quantity: messages.filter((m) => (m.analysis as any)?.direction === "bearish").length || 0,
                 source_bearish_percentage: (messages.filter((m) => (m.analysis as any)?.direction === "bearish").length / messages.length) * 100 || 0,
                 source_bearish_probility: 0, // after trade
-        
+
                 btc_total_quantity: btc_total_quantity,
                 btc_probility: 0, // after trade
-        
+
                 eth_total_quantity: eth_total_quantity,
                 eth_probility: 0, // after trade
-        
+
                 sol_total_quantity: sol_total_quantity,
                 sol_probility: 0, // after trade
-        
+
                 alts_total_quantity: alts_total_quantity,
                 alts_probility: 0, // after trade
             },
@@ -153,9 +180,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             status: true,
             id: newSource.user_username_source
         }
-        
     } catch (error: any) {
-
         console.log(" 🚀   -->  error:", error)
         return {
             status: false,
@@ -166,7 +191,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 
 export const createSourceService = async (channelInfo: SourceType, source: any, currentUser: User) => {
     try {
-    
+
         // const messages: SourcePost[] = [
         //     {
         //         id: 31,
@@ -257,9 +282,9 @@ export const createSourceService = async (channelInfo: SourceType, source: any, 
         // ]
         let messages: SourcePost[] = []
         if (source.sourceType === PlatformName.TELEGRAM) {
-            messages = await getTelegramChannelPosts(channelInfo?.user_id_source)        
+            messages = await getTelegramChannelPosts(channelInfo?.user_id_source)
         } else {
-            messages = await getTwitterChannelPosts(channelInfo?.user_id_source)        
+            messages = await getTwitterChannelPosts(channelInfo?.user_id_source)
         }
         return createSource(channelInfo, source, messages, currentUser)
     } catch (error: any) {

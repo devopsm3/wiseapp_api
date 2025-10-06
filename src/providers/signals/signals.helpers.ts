@@ -12,6 +12,7 @@ interface PnlInput {
     direction: Direction;
     leverage?: number;
     quantity: number;
+    fees?: number;
     status: SignalStatus;
 }
 
@@ -25,8 +26,9 @@ export const calculatePnl = ({
     entryPrice,
     exitPrice,
     direction,
-    leverage,
+    leverage = 1,
     quantity,
+    fees = 0,
     status,
 }: PnlInput): PnlResult => {
     let priceForCalc: number
@@ -45,7 +47,7 @@ export const calculatePnl = ({
             ? priceForCalc - entryPrice
             : entryPrice - priceForCalc
 
-    let pnl = priceDiff * quantity
+    let pnl = (priceDiff * quantity) - fees
 
     if (leverage) {
         pnl *= leverage
@@ -59,19 +61,6 @@ export const calculatePnl = ({
     const pnlAbsolute = Number(pnl.toFixed(2))
 
     return { pnlAbsolute, pnlPercent }
-}
-
-
-// signal_trend_level calculate
-export const calculateSignalTrendLevel = (signalPostsCount: number, signalTrend: SignalTrend): SignalTrendLvl => {
-    const alignmentPostsForMetaSignals = 3
-    if (signalPostsCount <= alignmentPostsForMetaSignals) {
-        return signalTrend === "LONG" ? "VTC" : "RTC"
-    }
-    if (signalPostsCount > alignmentPostsForMetaSignals && signalPostsCount < alignmentPostsForMetaSignals * 2) {
-        return signalTrend === "LONG" ? "VC" : "RC"
-    }
-    return signalTrend === "LONG" ? "V100" : "R100"
 }
 
 type PivotLevels = {
@@ -132,4 +121,18 @@ export const getFilteredSignals = (signalsData: any[], setup: Setup) => {
     })
 
     return filteredSignals
+}
+
+export const getSignalTrendLevel = (direction: "bullish" | "bearish", signalSum: number, A: number): SignalTrendLvl => {
+    const isLong = direction === "bullish"
+
+    if (signalSum === A) {
+        return isLong ? SignalTrendLvl.VTC : SignalTrendLvl.RTC
+    } else if (signalSum > A && signalSum < A * 2) {
+        return isLong ? SignalTrendLvl.VC : SignalTrendLvl.RC
+    } else if (signalSum >= A * 2) {
+        return isLong ? SignalTrendLvl.V100 : SignalTrendLvl.R100
+    }
+
+    return isLong ? SignalTrendLvl.VTC : SignalTrendLvl.RTC
 }

@@ -1,7 +1,6 @@
 ﻿import { NextFunction, Request, Response } from "express"
-import { getSignalsService, getSignalByIdService } from "./signals.service"
-import { getStartTimeISO_LocalMidnight } from "../../providers/twitter/twitter.helpers"
-import { TwitterApi } from "twitter-api-v2"
+import { getSignalsService, getSignalByIdService, openSignalService } from "./signals.service"
+import { createOrUpdateSignal } from "../../providers/signals/signals.provider"
 
 export const getSignals = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -33,24 +32,41 @@ export const getSignalById = async (req: Request, res: Response, next: NextFunct
         next(error)
     }
 }
+
+export const openSignal = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const signal = await openSignalService(Number(req.params.id), req.user!)
+        if (!signal) {
+            return res.status(404).json({ status: false, message: "Signal not found" })
+        }
+        return res.status(200).json({
+            status: true
+        })
+    } catch (error) {
+        next(error)
+    }
+}
 export const test = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const client = new TwitterApi(process.env.X_BAREAR_TOKEN!)
-        const readOnlyClient = client.readOnly
-        const daysAgo = Number(process.env.FETCH_DAYS_AGO) || 5
-        const startTime = getStartTimeISO_LocalMidnight(daysAgo)
-        const tweets = await readOnlyClient.v2.userTimeline("371027604", {
-            max_results: 5,
-            "tweet.fields": ["created_at", "text", "id", "author_id", "attachments", ],
-            "start_time": startTime,
-            expansions: ["attachments.media_keys", "attachments.poll_ids"], // 👈 expands attached media
-            "media.fields": ["url", "preview_image_url", "type", "width", "height", "alt_text"],
+        // const ohlc = await getOHLC(req.query.coin as string, new Date(req.query.date as string))
+        
+        await createOrUpdateSignal({
+            analysis: {
+                direction: "bullish",
+                token: "BTC",
+            },
+            newSourceId: 23,
+            postCreatedId: 52,
+            currentUserId: 1,
+            currencyLogo: "BTC",
+            pnlAbsolute: 1,
+            pnlPercent: 1,
+            entryPrice: 1,
+            exitPrice: 1,
+            entryTimestamp: new Date(req.query.date as string),
         })
-        // const meta = tweets.data.meta
-        const tweetsData = tweets
         return res.status(200).json({
             status: true,
-            data: tweetsData
         })
     } catch (error) {
 

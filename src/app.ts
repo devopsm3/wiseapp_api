@@ -31,9 +31,26 @@ app.use(
     express.static(path.join(__dirname, "../storage"))
 )
 
-app.get("/health", (req: Request, res: Response) => {
-    res.status(200).send("healthy")
+app.get("/", (req: Request, res: Response) => {
+    res.send(`
+        <html>
+            <head><title>Server Status</title></head>
+            <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+                <h1>🚀 Server is running!</h1>
+                <p>Visit <a href="/health">/health</a> to check API status.</p>
+            </body>
+        </html>
+    `)
 })
+
+// Health route — returns JSON
+app.get("/health", (req: Request, res: Response) => {
+    res.status(200).json({
+        success: true,
+        message: "healthy",
+    })
+})
+app.get("/favicon.ico", (req: Request, res: Response) => res.status(204).end())
 
 // Routes
 app.use("/api/v1", apiRouter)
