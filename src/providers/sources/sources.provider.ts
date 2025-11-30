@@ -75,6 +75,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                     let entryPrice: number
                     if (analysis.entry_price) {
                         entryPrice = Number(analysis.entry_price)
+                        // COMPARAISON ENTRY PRICE OF POST WITH
                     } else {
                         const targetDate = new Date(element.date!)
                         const today = new Date()
@@ -94,6 +95,13 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                     const exitPrice =
                         analysis?.exit_price ??
                         (targets.length ? targets[targets.length - 1] : null)
+
+                    if (analysis.direction === "bullish" && (exitPrice && exitPrice < entryPrice)) {
+                        continue
+                    }
+                    if (analysis.direction === "bearish" && (exitPrice && exitPrice > entryPrice)) {
+                        continue
+                    }
 
                     const { pnlAbsolute, pnlPercent } = calculatePnl({
                         currentPrice: coinDetails.current_price,

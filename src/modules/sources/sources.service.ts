@@ -113,7 +113,7 @@ export const addSourceService = async (source: any, currentUser: User) => {
             }
         }
 
-        getIO().emit("sources_creating_init")
+        getIO().to("user_" + currentUser.id.toString()).emit("sources_creating_init")
         await sourcesQueue.add("createSourceJob", { channelInfo, source, currentUser })
         return {
             status: true

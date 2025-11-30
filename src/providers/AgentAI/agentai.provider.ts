@@ -1,6 +1,9 @@
 ﻿import config from "../../config/config"
 
-export const agentAI_signal_analyzer = async (postText: string, images: string[] = []) => {
+export const agentAI_signal_analyzer = async (
+    postText: string,
+    images: string[] = []
+) => {
     const url = "https://openrouter.ai/api/v1/chat/completions"
     const headers = {
         Authorization: `Bearer ${config.OPENROUTER_API_KEY}`,
@@ -11,8 +14,12 @@ export const agentAI_signal_analyzer = async (postText: string, images: string[]
         {
             role: "system",
             content: `
-            You are an AI that extracts and converts crypto trading signals (from text or image) and ignore Liquidations, updates, or news or any other text that has relation with trading signals.
-          
+            BTC WILL RAISE
+            You are an AI AGENT of crypto trading signals extraction and conversion from text or text extracted from image to trading signals.
+            Ignore Liquidations, updates, or news or any other text that has relation with trading signals.
+            Extract any valid data about trading, crypto, signal, etc.
+            - Ignore toute phrase ou post qui exprime uniquement un objectif de prix, une prédiction vague ou une exclamation ("Send BTC to 137k!", "ETH to the moon!", "100x soon!").
+
             Return ONLY valid, parsable JSON — no extra text, no markdown, no explanations, no labels.
           
             JSON format:
@@ -27,41 +34,50 @@ export const agentAI_signal_analyzer = async (postText: string, images: string[]
               "stop_loss": number | null,
               "leverage": number[] | null
             }
-            `
+            `,
         },
         {
             role: "user",
             content: [
                 {
                     type: "text",
-                    text: "Analyze the following trading signal and respond ONLY with JSON."
-                }
+                    text: "Analyze the following trading signal and respond ONLY with JSON.",
+                },
             ],
         },
     ]
 
     if (postText?.trim()) {
         messages[1].content.push({
-            type: "text",
+            type: "text",   
             text: postText,
         })
     }
     if (images.length) {
-        images.forEach((el: string) => (
+        images.forEach((el: string) =>
             messages[1].content.push({
                 type: "image_url",
-                image_url: el
+                image_url: el,
             })
-        ))
+        )
     }
 
+    // const payload = {
+    //     model: process.env.OPENROUTER_API_MODEL || "openai/chatgpt-4o-latest",
+    //     messages: messages,
+    //     temperature: 0,
+    //     user: "user_wise_app",
+    // }
     const payload = {
-        model: process.env.OPENROUTER_API_MODEL || "openai/chatgpt-4o-latest",
+    // model: "moonshotai/kimi-k2:free", no images
+    // model: "meta-llama/llama-4-maverick:free",
+    // model: "qwen/qwen2.5-vl-72b-instruct:free",
+        model: "openai/chatgpt-4o-latest",
+        // model: process.env.OPENROUTER_API_MODEL || "openai/chatgpt-4o-latest",
         messages: messages,
         temperature: 0,
         user: "user_wise_app",
     }
-
     try {
         const response = await fetch(url, {
             method: "POST",

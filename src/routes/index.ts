@@ -8,7 +8,6 @@ import SignalsRouter from "./signals.route"
 import SetupsRouter from "./setups.route"
 
 const apiRouter = Router()
-// const prefix = '/api/v1';   
 
 apiRouter.use("/auth", AuthRouter)
 

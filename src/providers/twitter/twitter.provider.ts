@@ -1,6 +1,5 @@
-﻿ 
-import { PlatformName } from "@prisma/client"
-import {  TwitterApi } from "twitter-api-v2"
+﻿import { PlatformName } from "@prisma/client"
+import { TwitterApi } from "twitter-api-v2"
 import { getStartTimeISO_LocalMidnight } from "./twitter.helpers"
 import { countTokens } from "../AgentAI/agentai.helpers"
 import { agentAI_signal_analyzer } from "../AgentAI/agentai.provider"
@@ -9,13 +8,21 @@ const client = new TwitterApi(process.env.X_BAREAR_TOKEN!)
 const readOnlyClient = client.readOnly
 
 export async function getTwitterChannelInfo(username: string) {
-
     try {
         const fields = [
-            "username",  "created_at", "description", "id", "profile_banner_url", "profile_image_url", "verified", "public_metrics",
-            "location", "name", "verified_type", "url"
+            "username",
+            "created_at",
+            "description",
+            "id",
+            "profile_banner_url",
+            "profile_image_url",
+            "verified",
+            "public_metrics",
+            "location",
+            "name",
+            "verified_type",
+            "url",
         ].join(",")
-
 
         const user = await readOnlyClient.v2.userByUsername(username, {
             "user.fields": fields
@@ -96,14 +103,13 @@ export const getTwitterChannelPosts = async (userId: string) => {
         const startTime = getStartTimeISO_LocalMidnight(daysAgo)
         const tweets = await readOnlyClient.v2.userTimeline(userId, {
             max_results: 30,
-            "tweet.fields": ["created_at", "text", "id", "author_id", "attachments", ],
-            "start_time": startTime,
+            "tweet.fields": ["created_at", "text", "id", "author_id", "attachments"],
+            start_time: startTime,
             expansions: ["attachments.media_keys"],
             "media.fields": ["url", "preview_image_url", "type"],
         })
         // const meta = tweets.data.meta
         const tweetsData = tweets.data.data || []
-
         const tweetsMedia  = tweets.data?.includes?.media || []
         // const tweetsData = [
         //     {
@@ -254,35 +260,40 @@ export const getTwitterChannelPosts = async (userId: string) => {
         //         "url": "https://pbs.twimg.com/media/G2dqkrMXcAA_rPI.jpg"
         //     }
         // ]
-
-        const mediaMap = new Map((tweetsMedia || []).map(m => [m.media_key, m]))
+        const mediaMap = new Map((tweetsMedia || []).map((m) => [m.media_key, m]))
         const posts: any[] = []
+
         for (let index = 0; index < tweetsData.length; index++) {
             const message = tweetsData[index]
             const { postText, tokens } = countTokens(message.text)
 
             const mediaKeys = message?.attachments?.media_keys || []
-            
+
             if (tokens < 2 || mediaKeys.length === 0) continue
             if (tokens > 100) continue
-        
-            const media = mediaKeys.map(key => mediaMap.get(key)).filter(Boolean)
+
+            const media = mediaKeys.map((key) => mediaMap.get(key)).filter(Boolean)
 
             posts.push({
                 id: message.id,
                 text: postText,
                 originalText: message.text,
-                timestamp: message?.created_at ? Math.floor(new Date(message?.created_at).getTime() / 1000) : null,
+                timestamp: message?.created_at
+                    ? Math.floor(new Date(message?.created_at).getTime() / 1000)
+                    : null,
                 date: message?.created_at,
                 senderId: message?.author_id || null,
                 mediaType: media.length ? "photo" : "text",
-                mediaPhotos: media.length ? media.filter(m => m?.type === "photo").map(m => m?.url) : []
+                mediaPhotos: media.length
+                    ? media.filter((m) => m?.type === "photo").map((m) => m?.url)
+                    : [],
             })
         }
 
         const analyses = await Promise.all(
-            posts.map(p => agentAI_signal_analyzer(p.text, p.mediaPhotos))
+            posts.map((p) => agentAI_signal_analyzer(p.text, p.mediaPhotos))
         )
+
         // const posts  = [
         //     {
         //         id: "1970155600098050533",
@@ -405,14 +416,14 @@ export const getTwitterChannelPosts = async (userId: string) => {
         //         }
         //     },
         // ]
-        const analysedPosts = posts
-            .map((post, i) => ({ ...post, analysis: analyses[i] }))
-            .filter(p => p?.analysis?.type === "Signal" && p?.analysis?.token)
+
+        const analysedPosts = posts.map((post, i) => ({ ...post, analysis: analyses[i] }))
+        const analysedPostsFiltered = analysedPosts.filter(
+            (p) => p?.analysis?.type === "Signal" && p?.analysis?.token
+        )
         // .filter(p => p?.analysis?.type !== "Irrelevant")
 
-        console.log(" 🚀   -->  analysedPosts:", analysedPosts)
-        return analysedPosts
-
+        return analysedPostsFiltered
     } catch (error) {
         console.error("Error fetching tweets:", error)
         return []

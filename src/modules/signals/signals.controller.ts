@@ -1,6 +1,7 @@
 ﻿import { NextFunction, Request, Response } from "express"
 import { getSignalsService, getSignalByIdService, openSignalService } from "./signals.service"
-import { createOrUpdateSignal } from "../../providers/signals/signals.provider"
+import { agentAI_signal_analyzer } from "../../providers/AgentAI/agentai.provider"
+// import { createOrUpdateSignal } from "../../providers/signals/signals.provider"
 
 export const getSignals = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -48,25 +49,15 @@ export const openSignal = async (req: Request, res: Response, next: NextFunction
 }
 export const test = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // const ohlc = await getOHLC(req.query.coin as string, new Date(req.query.date as string))
-        
-        await createOrUpdateSignal({
-            analysis: {
-                direction: "bullish",
-                token: "BTC",
-            },
-            newSourceId: 23,
-            postCreatedId: 52,
-            currentUserId: 1,
-            currencyLogo: "BTC",
-            pnlAbsolute: 1,
-            pnlPercent: 1,
-            entryPrice: 1,
-            exitPrice: 1,
-            entryTimestamp: new Date(req.query.date as string),
-        })
+
+        const analyses = await agentAI_signal_analyzer("what on the picture: ", ["https://images.pexels.com/photos/7896697/pexels-photo-7896697.jpeg"])
+        // const url = "https://openrouter.ai/api/v1/models"
+        // const options = {method: "GET"}
+        // const response = await fetch(url, options)
+        // const data = await response.json()
         return res.status(200).json({
             status: true,
+            data: analyses
         })
     } catch (error) {
 

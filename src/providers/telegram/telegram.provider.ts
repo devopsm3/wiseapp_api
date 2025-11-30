@@ -117,10 +117,8 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
         )      
         const analysedPosts = posts
             .map((post, i) => ({ ...post, analysis: analyses[i] }))
-            // .filter(p => p?.analysis?.type !== "Irrelevant")
-            .filter(p => p?.analysis?.type === "Signal" && p?.analysis?.token)
-        console.log(" 🚀   -->  analysedPosts:", analysedPosts)
-        return analysedPosts
+        const analysedPostsFiltered = analysedPosts.filter(p => p?.analysis?.type === "Signal" && p?.analysis?.token)
+        return analysedPostsFiltered
 
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
