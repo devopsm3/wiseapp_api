@@ -24,6 +24,6 @@ export interface SourcePostAnalysis {
   entry_price: number | null,
   exit_price: number | null,
   target: number[] | null,
-  stop_loss: number | null,
-  leverage: number[] | null,
+  // stop_loss: number | null,
+  // leverage: number[] | null,
 }

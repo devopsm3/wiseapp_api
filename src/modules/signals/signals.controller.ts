@@ -47,10 +47,12 @@ export const openSignal = async (req: Request, res: Response, next: NextFunction
         next(error)
     }
 }
+
 export const test = async (req: Request, res: Response, next: NextFunction) => {
     try {
 
-        const analyses = await agentAI_signal_analyzer("what on the picture: ", ["https://images.pexels.com/photos/7896697/pexels-photo-7896697.jpeg"])
+        const analyses = await agentAI_signal_analyzer("what on the picture: ",
+            ["https://pbs.twimg.com/media/G6nDSO5XcAAu6gh?format=jpg&name=large"])
         // const url = "https://openrouter.ai/api/v1/models"
         // const options = {method: "GET"}
         // const response = await fetch(url, options)

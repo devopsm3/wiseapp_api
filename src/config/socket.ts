@@ -34,7 +34,7 @@ export function initSocket(server: any) {
             if (user) {
                 socket.join("user_" + user.id)
                 io.to(socket.id).emit("user_connected", socket.id)
-                console.log("User reconnected:", user.email, socket.id)
+                console.log("User connected:", user.email, socket.id)
             } else {
                 console.log("Invalid refreshToken:", refreshToken)
                 socket.disconnect(true)

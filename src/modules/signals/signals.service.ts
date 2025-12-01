@@ -4,7 +4,6 @@ import { coingeckoApiServiceMarket } from "../../providers/Coingecko/coingecko.p
 import { calculatePnl, getSignalTrendLevel } from "../../providers/signals/signals.helpers"
 import { formatDateTime, formatTimeFromNow } from "../../utils/global.helpers"
 import { getFilteredSignals } from "../../providers/signals/signals.helpers"
-import { SourcePostAnalysis } from "../../providers/sources/sources.types"
 import { MetaSignalSetup } from "../../providers/signals/signals.types"
 
 export const getSignalsService = async (currentUser: User) => {
@@ -50,7 +49,8 @@ export const getSignalsService = async (currentUser: User) => {
                     entryPrice: Number(signal.entry_price),
                     exitPrice: signal.exit_price ? Number(signal.exit_price) : null,
                     direction: signal.signal_trend!,
-                    leverage: (signal.SourcePost.analysis! as unknown as SourcePostAnalysis).leverage?.[0] || 1,
+                    // leverage: (signal.SourcePost.analysis! as unknown as SourcePostAnalysis).leverage?.[0] || 1,
+                    leverage: 1,
                     quantity: 1,
                     fees: 0,
                     status: signal.status,
@@ -122,7 +122,8 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
                 entryPrice: Number(signal.entry_price),
                 exitPrice: signal.exit_price ? Number(signal.exit_price) : null,
                 direction: signal.signal_trend,
-                leverage: (signal.SourcePost.analysis! as unknown as SourcePostAnalysis).leverage?.[0] || 1,
+                // leverage: (signal.SourcePost.analysis! as unknown as SourcePostAnalysis).leverage?.[0] || 1,
+                leverage: 1,
                 quantity: 1,
                 fees: 0,
                 status: signal.status,

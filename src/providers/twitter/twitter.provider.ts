@@ -1,7 +1,6 @@
 ﻿import { PlatformName } from "@prisma/client"
 import { TwitterApi } from "twitter-api-v2"
 import { getStartTimeISO_LocalMidnight } from "./twitter.helpers"
-import { countTokens } from "../AgentAI/agentai.helpers"
 import { agentAI_signal_analyzer } from "../AgentAI/agentai.provider"
 
 const client = new TwitterApi(process.env.X_BAREAR_TOKEN!)
@@ -102,7 +101,7 @@ export const getTwitterChannelPosts = async (userId: string) => {
         const daysAgo = Number(process.env.FETCH_DAYS_AGO) || 5
         const startTime = getStartTimeISO_LocalMidnight(daysAgo)
         const tweets = await readOnlyClient.v2.userTimeline(userId, {
-            max_results: 30,
+            max_results: 100,
             "tweet.fields": ["created_at", "text", "id", "author_id", "attachments"],
             start_time: startTime,
             expansions: ["attachments.media_keys"],
@@ -265,18 +264,17 @@ export const getTwitterChannelPosts = async (userId: string) => {
 
         for (let index = 0; index < tweetsData.length; index++) {
             const message = tweetsData[index]
-            const { postText, tokens } = countTokens(message.text)
-
             const mediaKeys = message?.attachments?.media_keys || []
+            // const { postText, tokens } = countTokens(message.text)
 
-            if (tokens < 2 || mediaKeys.length === 0) continue
-            if (tokens > 100) continue
+            // if (tokens < 2 || mediaKeys.length === 0) continue
+            // if (tokens > 100) continue
 
             const media = mediaKeys.map((key) => mediaMap.get(key)).filter(Boolean)
-
             posts.push({
                 id: message.id,
-                text: postText,
+                text: message.text,
+
                 originalText: message.text,
                 timestamp: message?.created_at
                     ? Math.floor(new Date(message?.created_at).getTime() / 1000)

@@ -71,26 +71,28 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                         }
                     })
                     const coinDetails = coinInfo[0]
+
                     const currencyLogo = coinDetails.image || coinImages.altcoin
                     let entryPrice: number
-                    if (analysis.entry_price) {
-                        entryPrice = Number(analysis.entry_price)
-                        // COMPARAISON ENTRY PRICE OF POST WITH
-                    } else {
-                        const targetDate = new Date(element.date!)
-                        const today = new Date()
-                        const isToday =
+                    // if (analysis.entry_price) {
+                    //     entryPrice = Number(analysis.entry_price)
+                        
+                    //     // COMPARAISON ENTRY PRICE OF POST WITH
+                    // } else {
+                    const targetDate = new Date(element.date!)
+                    const today = new Date()
+                    const isToday =
                             targetDate.getFullYear() === today.getFullYear() &&
                             targetDate.getMonth() === today.getMonth() &&
                             targetDate.getDate() === today.getDate()
-                        const ohlc = await getOHLC(coinDetails.id, targetDate)
-                        if (isToday) {
-                            entryPrice = ohlc?.close || ohlc?.high || ohlc?.open || ohlc?.low || coinDetails.current_price || 0
-                        } else {
-                            const pivotLevels = calculatePivot(ohlc?.high || 0, ohlc?.low || 0, ohlc?.close || 0)
-                            entryPrice = pivotLevels.pivot || 0
-                        }
+                    const ohlc = await getOHLC(coinDetails.id, targetDate)
+                    if (isToday) {
+                        entryPrice = ohlc?.close || ohlc?.high || ohlc?.open || ohlc?.low || coinDetails.current_price || 0
+                    } else {
+                        const pivotLevels = calculatePivot(ohlc?.high || 0, ohlc?.low || 0, ohlc?.close || 0)
+                        entryPrice = pivotLevels.pivot || 0
                     }
+                    // }
                     const targets = analysis?.target || []
                     const exitPrice =
                         analysis?.exit_price ??
@@ -204,6 +206,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 }
 
 export const createSourceService = async (channelInfo: SourceType, source: any, currentUser: User) => {
+
+    console.log(" 🚀   -->  channelInfo:", channelInfo)
     try {
 
         // const messages: SourcePost[] = [

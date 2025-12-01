@@ -14,7 +14,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         return res.status(401).json({ error: "Invalid Authorization header format" })
     }
     const token = authHeader.split(" ")[1]
-
     if (!token) return res.status(401).json({ error: "Access denied" })
 
     try {

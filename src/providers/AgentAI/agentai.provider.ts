@@ -14,28 +14,32 @@ export const agentAI_signal_analyzer = async (
         {
             role: "system",
             content: `
-            BTC WILL RAISE
-            You are an AI AGENT of crypto trading signals extraction and conversion from text or text extracted from image to trading signals.
-            Ignore Liquidations, updates, or news or any other text that has relation with trading signals.
-            Extract any valid data about trading, crypto, signal, etc.
-            - Ignore toute phrase ou post qui exprime uniquement un objectif de prix, une prédiction vague ou une exclamation ("Send BTC to 137k!", "ETH to the moon!", "100x soon!").
+                    You are an expert Crypto Trading Signal Analyst/Parser. Return ONLY valid JSON.
+                    Your goal: Identify from the post text/images if it is a valid signal that refers to a crypto trading and if so,
+                    extract the TOKEN, the DIRECTION, and the STOP LOSS value. and make sure it is a valid signal.
+                    
+                    TASK:
+                    - Extract Token Symbol (e.g. BTC, ETH, SOL, etc.) and Currency (e.g. USDT).
+                    - Determine Direction: "LONG" (Buy/bullish/or any meaning of buy) or "SHORT" (Sell/bearish/or any meaning of sell).
+                    - Extract Stop Loss (SL) as a number. Ignore percentages.
+                    
+                    CONSTRAINTS:
+                    - If no Token or no Direction is found, return type: "Irrelevant".
+                    - Ignore Entry prices.
+                    - Ignore any mention of Leverage.
 
-            Return ONLY valid, parsable JSON — no extra text, no markdown, no explanations, no labels.
-          
-            JSON format:
-            {
-              "type": "Signal" | "Irrelevant",
-              "token": string | null,
-              "currency": string | null,
-              "direction": "bullish" | "bearish" | null,
-              "entry_price": number | null,
-              "exit_price": number | null,
-              "target": number[] | null,
-              "stop_loss": number | null,
-              "leverage": number[] | null
-            }
-            `,
+                    
+                    JSON SCHEMA:
+                    {
+                    "type": "Signal" | "Irrelevant",
+                    "token": "string",
+                    "currency": "string", 
+                    "direction": "LONG" | "SHORT",
+                    "stop_loss": number | null
+                    }
+                    `,
         },
+
         {
             role: "user",
             content: [
@@ -49,7 +53,7 @@ export const agentAI_signal_analyzer = async (
 
     if (postText?.trim()) {
         messages[1].content.push({
-            type: "text",   
+            type: "text",
             text: postText,
         })
     }
@@ -62,21 +66,12 @@ export const agentAI_signal_analyzer = async (
         )
     }
 
-    // const payload = {
-    //     model: process.env.OPENROUTER_API_MODEL || "openai/chatgpt-4o-latest",
-    //     messages: messages,
-    //     temperature: 0,
-    //     user: "user_wise_app",
-    // }
     const payload = {
-    // model: "moonshotai/kimi-k2:free", no images
-    // model: "meta-llama/llama-4-maverick:free",
-    // model: "qwen/qwen2.5-vl-72b-instruct:free",
-        model: "openai/chatgpt-4o-latest",
-        // model: process.env.OPENROUTER_API_MODEL || "openai/chatgpt-4o-latest",
+        model: process.env.OPENROUTER_API_MODEL || "openai/chatgpt-4o-latest",
         messages: messages,
         temperature: 0,
         user: "user_wise_app",
+        response_format: { type: "json_object" }
     }
     try {
         const response = await fetch(url, {
@@ -88,28 +83,23 @@ export const agentAI_signal_analyzer = async (
         // return JSON.parse(data.choices[0].message.content)
         // return data.choices[0].message.content
         const raw = data.choices?.[0]?.message?.content
-        if (!raw) {
-            return {
-                type: "Irrelevant",
-                token: null,
-                currency: null,
-                // condition: null,
-                // direction: null,
-                entry_price: null,
-                exit_price: null,
-                target: null,
-                stop_loss: null,
-                // unit: null,
-                leverage: null,
-                // timeframe: null
-            }
-        }
         const clean = raw
             .replace(/```json/g, "")
             .replace(/```/g, "")
             .trim()
 
         const reply = JSON.parse(clean)
+
+        if (reply.type === "Signal") {
+            // If AI found 'BTC' but missed 'USDT', default to USDT
+            if (reply.token && !reply.currency) {
+                reply.currency = "USDT"
+            }
+            // Ensure token is Uppercase
+            if (reply.token) reply.token = reply.token.toUpperCase()
+            if (reply.currency) reply.currency = reply.currency.toUpperCase()
+        }
+
         return reply
     } catch (error: any) {
         console.log(" 🚀   -->  error:", error)
@@ -122,9 +112,9 @@ export const agentAI_signal_analyzer = async (
             entry_price: null,
             exit_price: null,
             target: null,
-            stop_loss: null,
+            // stop_loss: null,
             // unit: null,
-            leverage: null,
+            // leverage: null,
             // timeframe: null
         }
     }
