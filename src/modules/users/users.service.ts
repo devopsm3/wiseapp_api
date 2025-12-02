@@ -31,7 +31,7 @@ export const getUsersService = async () => {
     }
 }
 
-// get user by id
+// get user by id:
 export const getUserByIdService = async (id: number) => {
     try {
         const user = await prisma.user.findUnique({
