@@ -81,6 +81,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                     const entryPrice = pivotResult?.priceAtStart || 0
                     const meta = pivotResult!.meta
                     await createOrUpdateSignal({
+                        coinId: coinInfo.id,
                         analysis: {
                             direction: analysis.direction!,
                             token: normalizedToken.toUpperCase(),

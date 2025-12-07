@@ -39,10 +39,11 @@ export const checkExistedSignalWithinTimeHorizon = async (currentUserId: number,
 
 interface CreateOrUpdateSignalProps {
     analysis: { direction: "LONG" | "SHORT"; token: string; token_id: string };
+    coinId: number;
     newSourceId: number;
     postCreatedId: number;
     currentUserId: number;
-    currencyLogo?: string;
+    currencyLogo: string;
     pnlAbsolute?: any;
     pnlPercent?: any;
     entryPrice?: any;
@@ -54,6 +55,7 @@ interface CreateOrUpdateSignalProps {
 }
 export const createOrUpdateSignal = async ({
     analysis,
+    coinId,
     newSourceId,
     postCreatedId,
     currentUserId,
@@ -129,6 +131,7 @@ export const createOrUpdateSignal = async ({
                 entry_price: entryPrice,
                 exit_price: exitPrice,
                 sources_nbr: 1,
+                coin_id: coinId,
                 meta: meta as any,
                 isComplete,
                 pivot_calc_days: pivotCalcDays

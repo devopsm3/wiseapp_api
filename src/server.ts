@@ -4,6 +4,7 @@ import config from "./config/config"
 import { initTelegram } from "./config/initTelegram"
 import http from "http"
 import { initSocket } from "./config/socket"
+import { scheduleSignalPivotUpdate } from "./jobs/updateSignalPivots.job"
 
 declare global {
     interface BigInt {
@@ -27,6 +28,8 @@ const server = http.createServer(app)
 
 initSocket(server)
 
+// Start BullMQ jobs
+scheduleSignalPivotUpdate()
 
 server.listen(config.port, () => {
     console.log(`🚀 Server running on http://localhost:${config.port}`)

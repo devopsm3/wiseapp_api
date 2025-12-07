@@ -171,15 +171,16 @@ model Signal {
   status             SignalStatus
   manual_override    ManualOverride?
 
-  currency_logo   String?
+  currency_logo   String
   currency_label  String
-  pnlA            Decimal?  @db.Decimal(20, 8)
-  pnlP            Decimal?  @db.Decimal(20, 8)
-  time_frame      String
-  entry_timestamp DateTime?
-  entry_price     Decimal?  @db.Decimal(20, 8)
-  exit_price      Decimal?  @db.Decimal(20, 8)
-  sources_nbr     Int       @default(1)
+  pnlA            Float    @default(0)
+  pnlP            Float    @default(0)
+  coin_id         Int? // CoinMarketCap coin ID
+  time_frame      String?
+  entry_timestamp DateTime
+  entry_price     Float    @default(0)
+  exit_price      Float?
+  sources_nbr     Int      @default(1)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
