@@ -1,7 +1,7 @@
-﻿import { PlatformName, SignalTrend, SourcePost, SourcePrice, SourceStatus, User } from "@prisma/client"
-import { coingeckoApiServiceMarket, getOHLC } from "../Coingecko/coingecko.provider"
+﻿import { PlatformName, SourcePost, SourcePrice, SourceStatus, User } from "@prisma/client"
+import { coingeckoApiServiceMarket } from "../Coingecko/coingecko.provider"
 import { coinImages } from "../Coingecko/constants"
-import { calculatePivot, calculatePnl, normalizeToken } from "../signals/signals.helpers"
+import { normalizeToken } from "../signals/signals.helpers"
 import { prisma } from "../../prisma"
 import { SourcePostAnalysis, SourceType } from "./sources.types"
 import { getTelegramChannelPosts } from "../telegram/telegram.provider"
@@ -56,6 +56,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 const normalizedToken = normalizeToken(analysis.token)
                 const coinInfo = await coingeckoApiServiceMarket(normalizedToken)
                 if (coinInfo.length) {
+                    const coinDetails = coinInfo[0]
                     const postCreated = await prisma.sourcePost.create({
                         data: {
                             sourceId: newSource.id,
@@ -70,64 +71,23 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                             analysis: element.analysis!,
                         }
                     })
-                    const coinDetails = coinInfo[0]
-
                     const currencyLogo = coinDetails.image || coinImages.altcoin
-                    let entryPrice: number
-                    // if (analysis.entry_price) {
-                    //     entryPrice = Number(analysis.entry_price)
-                        
-                    //     // COMPARAISON ENTRY PRICE OF POST WITH
-                    // } else {
                     const targetDate = new Date(element.date!)
-                    const today = new Date()
-                    const isToday =
-                            targetDate.getFullYear() === today.getFullYear() &&
-                            targetDate.getMonth() === today.getMonth() &&
-                            targetDate.getDate() === today.getDate()
-                    const ohlc = await getOHLC(coinDetails.id, targetDate)
-                    if (isToday) {
-                        entryPrice = ohlc?.close || ohlc?.high || ohlc?.open || ohlc?.low || coinDetails.current_price || 0
-                    } else {
-                        const pivotLevels = calculatePivot(ohlc?.high || 0, ohlc?.low || 0, ohlc?.close || 0)
-                        entryPrice = pivotLevels.pivot || 0
-                    }
-                    // }
-                    const targets = analysis?.target || []
-                    const exitPrice =
-                        analysis?.exit_price ??
-                        (targets.length ? targets[targets.length - 1] : null)
-
-                    if (analysis.direction === "bullish" && (exitPrice && exitPrice < entryPrice)) {
-                        continue
-                    }
-                    if (analysis.direction === "bearish" && (exitPrice && exitPrice > entryPrice)) {
-                        continue
-                    }
-
-                    const { pnlAbsolute, pnlPercent } = calculatePnl({
-                        currentPrice: coinDetails.current_price,
-                        entryPrice,
-                        exitPrice,
-                        direction: analysis.direction === "bullish" ? SignalTrend.LONG : SignalTrend.SHORT,
-                        leverage: 1,
-                        quantity: 1,
-                        fees: 0,
-                        status: "NEW",
-                    })
+                    // const ohlc = await getOHLC(coinDetails.id, targetDate)
                     await createOrUpdateSignal({
                         analysis: {
                             direction: analysis.direction!,
                             token: normalizedToken.toUpperCase(),
+                            token_id: coinDetails.id,
                         },
                         newSourceId: newSource.id,
                         postCreatedId: postCreated.id,
                         currentUserId: currentUser.id,
                         currencyLogo,
-                        pnlAbsolute,
-                        pnlPercent,
-                        entryPrice,
-                        exitPrice,
+                        pnlAbsolute: 0,
+                        pnlPercent: 0,
+                        entryPrice: 0,
+                        exitPrice: null,
                         entryTimestamp: new Date(element.date!),
                     })
                     verifiedPosts.push(postCreated.id)
@@ -206,8 +166,6 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 }
 
 export const createSourceService = async (channelInfo: SourceType, source: any, currentUser: User) => {
-
-    console.log(" 🚀   -->  channelInfo:", channelInfo)
     try {
 
         // const messages: SourcePost[] = [

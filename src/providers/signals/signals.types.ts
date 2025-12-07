@@ -21,9 +21,11 @@ export interface MetaSignalSetup {
 
 
 export interface OHLC {
-    time: Date;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
+  time: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  pivot: number,
+  data: any[]
 }

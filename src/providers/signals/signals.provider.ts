@@ -38,6 +38,18 @@ export const checkExistedSignalWithinTimeHorizon = async (currentUserId: number,
     return { existingSignal }
 }
 
+interface CreateOrUpdateSignalProps {
+    analysis: { direction: "bullish" | "bearish"; token: string; token_id: string };
+    newSourceId: number;
+    postCreatedId: number;
+    currentUserId: number;
+    currencyLogo?: string;
+    pnlAbsolute?: any;
+    pnlPercent?: any;
+    entryPrice?: any;
+    exitPrice?: any;
+    entryTimestamp: Date;
+}
 export const createOrUpdateSignal = async ({
     analysis,
     newSourceId,
@@ -49,37 +61,27 @@ export const createOrUpdateSignal = async ({
     entryPrice,
     exitPrice,
     entryTimestamp,
-}: {
-  analysis: { direction: "bullish" | "bearish"; token: string };
-  newSourceId: number;
-  postCreatedId: number;
-  currentUserId: number;
-  currencyLogo?: string;
-  pnlAbsolute?: any;
-  pnlPercent?: any;
-  entryPrice?: any;
-  exitPrice?: any;
-  entryTimestamp: Date;
-})  => {
-    let timeframe_for_meta_signals_hours = 21
+}: CreateOrUpdateSignalProps) => {
+    // let timeframe_for_meta_signals_hours = 21
 
-    const setup = await prisma.setup.findFirst({
-        where: {
-            user_db_id: currentUserId,
-        },
-    })
-    if (setup) {
-        timeframe_for_meta_signals_hours = (setup?.meta_signals as unknown as MetaSignalSetup)?.timeframe_for_meta_signals
-    }
+    // const setup = await prisma.setup.findFirst({
+    //     where: {
+    //         user_db_id: currentUserId,
+    //     },
+    // })
+    // if (setup) {
+    //     timeframe_for_meta_signals_hours = (setup?.meta_signals as unknown as MetaSignalSetup)?.timeframe_for_meta_signals
+    // }
     
-    const now = new Date()
-    const twentyOneDaysAgo = new Date(now)
-    twentyOneDaysAgo.setUTCDate(now.getUTCDate() - timeframe_for_meta_signals_hours)
-    twentyOneDaysAgo.setUTCHours(0, 0, 0, 0)
+    // const now = new Date()
+    // const twentyOneDaysAgo = new Date(now)
+    // twentyOneDaysAgo.setUTCDate(now.getUTCDate() - timeframe_for_meta_signals_hours)
+    // twentyOneDaysAgo.setUTCHours(0, 0, 0, 0)
     
-    const status =  entryTimestamp.getTime() >= twentyOneDaysAgo.getTime() ? "NEW" : "PASSED"
+    // const status =  entryTimestamp.getTime() >= twentyOneDaysAgo.getTime() ? "NEW" : "PASSED"
 
-    const { existingSignal } = await checkExistedSignalWithinTimeHorizon(currentUserId, analysis, status)
+    // const { existingSignal } = await checkExistedSignalWithinTimeHorizon(currentUserId, analysis, status)
+    const existingSignal = false
 
     if (existingSignal) {
         console.log(" ------------------ Updating existing signal ------------------")
@@ -98,22 +100,6 @@ export const createOrUpdateSignal = async ({
                 }
             })
         }
-        // how to calculate new pnl
-        // else {
-        //     await prisma.signal.update({
-        //         where: { id: existingSignal.id },
-        //         data: {
-        //             source_post_id: postCreatedId,
-        //             pnlA: pnlAbsolute, // for now
-        //             pnlP: pnlPercent, // for now
-        //             entry_price: entryPrice,
-        //             exit_price: exitPrice,
-        //             entry_timestamp: entryTimestamp,
-        //             updated_at: new Date()
-        //         }
-        //     })
-        // }
-
         console.log(
             `Updated existing signal for ${analysis.token} (${analysis.direction}) - incremented sources_nbr.`
         )
@@ -130,7 +116,7 @@ export const createOrUpdateSignal = async ({
                 signal_trend: analysis.direction === "bullish" ? SignalTrend.LONG : SignalTrend.SHORT,
                 currency_label: analysis.token,
                 currency_logo: currencyLogo,
-                status,
+                status: "NEW",
                 pnlA: pnlAbsolute, // for now
                 pnlP: pnlPercent, // for now
                 time_frame: "",

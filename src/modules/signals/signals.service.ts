@@ -42,32 +42,34 @@ export const getSignalsService = async (currentUser: User) => {
 
         for (let i = 0; i < filteredSignals.length; i++) {
             const signal = filteredSignals[i]
-            const coinInfo = await coingeckoApiServiceMarket(signal.currency_label!.toLowerCase())
-            if (coinInfo.length) {
-                const { pnlAbsolute, pnlPercent } = calculatePnl({
-                    currentPrice: coinInfo[0].current_price,
-                    entryPrice: Number(signal.entry_price),
-                    exitPrice: signal.exit_price ? Number(signal.exit_price) : null,
-                    direction: signal.signal_trend!,
-                    // leverage: (signal.SourcePost.analysis! as unknown as SourcePostAnalysis).leverage?.[0] || 1,
-                    leverage: 1,
-                    quantity: 1,
-                    fees: 0,
-                    status: signal.status,
-                })
-                const signalTrendLevel = getSignalTrendLevel(signal.signal_trend === "LONG" ? "bullish" : "bearish", signal.sources_nbr || 1, alignmentPostsForMetaSignals)
-                signalsInfo.push({
-                    ...signal,
-                    coinUrl: `https://www.coingecko.com/en/coins/${coinInfo[0].id}`,
-                    entry_price: Number(signal.entry_price).toFixed(2),
-                    exit_price: signal.exit_price ? Number(signal.exit_price).toFixed(2) : null,
-                    signal_trend_level: signalTrendLevel,
-                    pnlAbsolute: pnlAbsolute,
-                    pnlPercent: pnlPercent,
-                    timeFromNow: signal.entry_timestamp ? formatTimeFromNow(signal.entry_timestamp) : "",
-                    readableDate: signal.entry_timestamp ? formatDateTime(signal.entry_timestamp) : "",
-                })
-            }
+
+            // const coinInfo = await coingeckoApiServiceMarket(signal.currency_label!.toLowerCase())
+            // if (coinInfo.length) {
+            // const { pnlAbsolute, pnlPercent } = calculatePnl({
+            //     currentPrice: coinInfo[0].current_price,
+            //     entryPrice: Number(signal.entry_price),
+            //     exitPrice: signal.exit_price ? Number(signal.exit_price) : null,
+            //     direction: signal.signal_trend!,
+            //     // leverage: (signal.SourcePost.analysis! as unknown as SourcePostAnalysis).leverage?.[0] || 1,
+            //     leverage: 1,
+            //     quantity: 1,
+            //     fees: 0,
+            //     status: signal.status,
+            // })
+            const signalTrendLevel = getSignalTrendLevel(signal.signal_trend === "LONG" ? "bullish" : "bearish", signal.sources_nbr || 1, alignmentPostsForMetaSignals)
+            signalsInfo.push({
+                ...signal,
+                coinUrl: `https://www.coingecko.com/en/coins/${signal.currency_label}`,
+                // coinUrl: `https://www.coingecko.com/en/coins/${coinInfo[0].id}`,
+                entry_price: Number(signal.entry_price).toFixed(2),
+                exit_price: signal.exit_price ? Number(signal.exit_price).toFixed(2) : null,
+                signal_trend_level: signalTrendLevel,
+                pnlAbsolute: signal.pnlA ? Number(signal.pnlA).toFixed(2) : null,
+                pnlPercent: signal.pnlP ? Number(signal.pnlP).toFixed(2) : null,
+                timeFromNow: signal.entry_timestamp ? formatTimeFromNow(signal.entry_timestamp) : "",
+                readableDate: signal.entry_timestamp ? formatDateTime(signal.entry_timestamp) : "",
+            })
+            // }
         }
         return signalsInfo
     } catch (error) {
