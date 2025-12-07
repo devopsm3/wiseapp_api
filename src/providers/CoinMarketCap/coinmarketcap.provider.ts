@@ -1,0 +1,328 @@
+import { PivotCalculationResult, CoinMarketCapOHLC, CoinInfoResponse } from "./coinmarketcap.types"
+
+interface CachedCoinInfo {
+    id: number;
+    logo: string;
+    name: string;
+    symbol: string;
+}
+
+const coinInfoCache = new Map<string, CachedCoinInfo>()
+
+const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY || "a6986257-1eea-4411-a0ce-4670856da266"
+const COINMARKETCAP_API_URL = process.env.COINMARKETCAP_API_URL || "https://pro-api.coinmarketcap.com"
+
+
+export const getCoinMarketCapSymbolId = (symbol: string): number | null => {
+    const normalizedSymbol = symbol.toUpperCase()
+    
+    if (coinInfoCache.has(normalizedSymbol)) {
+        return coinInfoCache.get(normalizedSymbol)!.id
+    }
+
+    return null
+}
+
+export const getCoinInfo = async (symbol: string): Promise<{ id: number; logo: string; name: string; symbol: string } | null> => {
+    const normalizedSymbol = symbol.toUpperCase()
+    const a = false
+    if (a) {
+        coinInfoCache.set("ETH", {
+            id: 1027,
+            logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
+            name: "Ethereum",
+            symbol: "ETH"
+        })
+        return {
+            id: 1027,
+            logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
+            name: "Ethereum",
+            symbol: "ETH"
+        }
+    }
+    if (coinInfoCache.has(normalizedSymbol)) {
+        const cached = coinInfoCache.get(normalizedSymbol)!
+        if (cached.logo) {
+            return {
+                id: cached.id,
+                logo: cached.logo,
+                name: cached.name,
+                symbol: cached.symbol
+            }
+        }
+    }
+
+    const url = `${COINMARKETCAP_API_URL}/v2/cryptocurrency/info?symbol=${normalizedSymbol}`
+    const options = {
+        method: "GET",
+        headers: {
+            "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
+            "Accept": "application/json"
+        }
+    }
+
+    try {
+        const response = await fetch(url, options)
+        const data: CoinInfoResponse = await response.json()
+
+        if (data.data && data.data[normalizedSymbol] && data.data[normalizedSymbol].length > 0) {
+            const coinData = data.data[normalizedSymbol][0]
+            // Cache the full coin info
+            coinInfoCache.set(normalizedSymbol, {
+                id: coinData.id,
+                logo: coinData.logo,
+                name: coinData.name,
+                symbol: coinData.symbol
+            })
+            return {
+                id: coinData.id,
+                logo: coinData.logo,
+                name: coinData.name,
+                symbol: coinData.symbol
+            }
+        }
+
+        console.warn(`No cryptocurrency info found for symbol: ${symbol}`)
+        return null
+    } catch (error) {
+        console.error(`Error fetching cryptocurrency info for ${symbol}:`, error)
+        return null
+    }
+}
+
+export const getTokenPriceAtDate = async (symbol: string, targetDate: Date): Promise<number | null> => {
+    const coinId = getCoinMarketCapSymbolId(symbol)
+    if (!coinId) {
+        return null
+    }
+
+    const timeStart = new Date(targetDate)
+    // timeStart.setUTCHours(0, 0, 0, 0)
+
+    // Set time_end to end of target day (UTC)
+    const timeEnd = new Date(targetDate)
+    timeEnd.setUTCHours(23, 59, 59, 999)
+
+    const url = `${COINMARKETCAP_API_URL}/v3/cryptocurrency/quotes/historical`
+    const params = new URLSearchParams({
+        id: coinId.toString(),
+        time_start: timeStart.toISOString(),
+        time_end: timeEnd.toISOString(),
+        interval: "5m",
+        convert: "USD"
+    })
+
+    console.log(" 🚀   -->  params price at date:", params)
+
+    const options = {
+        method: "GET",
+        headers: {
+            "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
+            "Accept": "application/json"
+        }
+    }
+
+    try {
+        const response = await fetch(`${url}?${params}`, options)
+        const data: any = await response.json()        
+        if (data.data && data.data[coinId.toString()]
+            && data.data[coinId.toString()].quotes
+            && data.data[coinId.toString()].quotes.length > 0) {
+            const price = data.data[coinId.toString()].quotes[0].quote.USD.price 
+            return price 
+        }
+
+        console.warn(`No price data found for ${symbol} on ${targetDate.toISOString()}`)
+        return null
+    } catch (error) {
+        console.error(`Error fetching price for ${symbol} at ${targetDate}:`, error)
+        return null
+    }
+}
+
+export const getOHLCVData = async (
+    coinId: number,
+    startDate: Date,
+    endDate: Date
+): Promise<any[] | null> => {
+    const timeStart = new Date(startDate)
+    timeStart.setUTCHours(0, 0, 0, 0)
+
+    const timeEnd = new Date(endDate)
+    timeEnd.setUTCHours(23, 59, 59, 999)
+
+    const url = `${COINMARKETCAP_API_URL}/v2/cryptocurrency/ohlcv/historical`
+    const params = new URLSearchParams({
+        id: coinId.toString(),
+        time_start: timeStart.toISOString(),
+        time_end: timeEnd.toISOString(),
+        interval: "daily",
+        convert: "USD"
+    })
+
+    console.log(" 🚀   -->  params OHLCV:", params)
+
+    const options = {
+        method: "GET",
+        headers: {
+            "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
+            "Accept": "application/json"
+        }
+    }
+
+    try {
+        const response = await fetch(`${url}?${params}`, options)
+        const data: any = await response.json()
+
+        if (!data.data || !data.data.quotes || data.data.quotes.length === 0) {
+            console.warn(`No OHLC data found from ${startDate.toISOString()} to ${endDate.toISOString()}`)
+            return null
+        }
+
+        return data.data.quotes
+    } catch (error) {
+        console.error("Error fetching OHLCV data:", error)
+        return null
+    }
+}
+
+/**
+ * Calculate pivot values for the next 21 days from the start date
+ * Returns the maximum and minimum pivot values and validates signal success
+ * 
+ * Logic:
+ * 1. Get the price at the post creation date (startDate)
+ * 2. Fetch OHLC data for the next 21 days from startDate
+ * 3. Calculate pivot for each day: pivot = (high + low + close) / 3
+ * 4. Track both maximum and minimum pivot values
+ * 5. Validate signal success:
+ *    - LONG (LONG): Success if max pivot > entry price
+ *    - SHORT (SHORT): Success if min pivot < entry price
+ * 6. Determine if signal is complete (21 days have passed)
+ */
+export const calculateMaxPivotFrom21Days = async (
+    symbol: string,
+    startDate: Date,
+    direction: "LONG" | "SHORT"
+): Promise<PivotCalculationResult | null> => {
+
+    const coinId = getCoinMarketCapSymbolId(symbol)
+    if (!coinId) {
+        console.warn(`Could not find CoinMarketCap ID for ${symbol}`)
+        return null
+    }
+
+    // const priceAtStart = 200
+    const priceAtStart = await getTokenPriceAtDate(symbol, startDate)
+    if (!priceAtStart) {
+        console.warn(`Could not fetch price for ${symbol} at ${startDate.toISOString()}`)
+        return null
+    }
+
+    const endDate = new Date(startDate)
+    endDate.setUTCDate(endDate.getUTCDate() + 21)
+
+    const quotes = await getOHLCVData(coinId, startDate, endDate)
+    
+    if (!quotes || quotes.length === 0) {
+        console.warn(`No OHLC data found for ${symbol} from ${startDate.toISOString()}`)
+        return null 
+    }
+
+    const pivotData: CoinMarketCapOHLC[] = []
+    let maxPivot = priceAtStart 
+    let maxPivotDate: Date | null = null
+    let minPivot = priceAtStart 
+    let minPivotDate: Date | null = null
+
+    for (const quote of quotes) {
+        const quoteDate = new Date(quote.time_open)
+
+        const usdQuote = quote.quote.USD
+        const pivot = (usdQuote.high + usdQuote.low + usdQuote.close) / 3
+        const pivotDataElement = {
+            time: quoteDate,
+            open: usdQuote.open,
+            high: usdQuote.high,
+            low: usdQuote.low,
+            close: usdQuote.close,
+            pivot: pivot
+        }
+        pivotData.push(pivotDataElement)
+
+        if (pivot > maxPivot) {
+            maxPivot = pivot
+            maxPivotDate = quoteDate
+        }
+        
+        if (pivot < minPivot) {
+            minPivot = pivot
+            minPivotDate = quoteDate
+        }
+    }
+
+    const now = new Date()
+    const daysSinceSignal = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    const isComplete = daysSinceSignal >= 21
+
+
+    let theoreticalProfitAbsolute = 0
+    let theoreticalProfitPercent = 0
+    
+    if (direction === "LONG") {
+        // For LONG: Check if price actually went UP
+        if (maxPivot > priceAtStart) {
+            // Signal was CORRECT - price went up, show profit
+            theoreticalProfitAbsolute = maxPivot - priceAtStart
+            theoreticalProfitPercent = ((maxPivot - priceAtStart) / priceAtStart) * 100
+        } else {
+            // Signal was WRONG - price went down, show loss using minPivot
+            theoreticalProfitAbsolute = minPivot - priceAtStart  // Will be negative
+            theoreticalProfitPercent = ((minPivot - priceAtStart) / priceAtStart) * 100
+        }
+    } else {
+        // For SHORT: Check if price actually went DOWN
+        if (minPivot < priceAtStart) {
+            // Signal was CORRECT - price went down, show profit
+            theoreticalProfitAbsolute = priceAtStart - minPivot
+            theoreticalProfitPercent = ((priceAtStart - minPivot) / priceAtStart) * 100
+        } else {
+            // Signal was WRONG - price went up, show loss using maxPivot
+            theoreticalProfitAbsolute = -(maxPivot - priceAtStart)  // Negative to show loss
+            theoreticalProfitPercent = -((maxPivot - priceAtStart) / priceAtStart) * 100
+        }
+    }
+
+    let signalSuccess: boolean | null = null
+    
+    if (isComplete) {
+        if (direction === "LONG") {
+            signalSuccess = maxPivot > priceAtStart
+        } else {
+            signalSuccess = minPivot < priceAtStart
+        }
+    }
+
+    const successEmoji = signalSuccess === true ? "✅" : signalSuccess === false ? "❌" : "⏳"
+    const profitEmoji = theoreticalProfitPercent > 0 ? "📈" : "📉"
+    console.log(`📊 ${successEmoji} ${symbol} (${direction}): ${pivotData.length} days
+        Entry: $${priceAtStart.toFixed(2)}
+        Max: $${maxPivot.toFixed(2)} | Min: $${minPivot.toFixed(2)}
+        ${profitEmoji} Theoretical Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
+        Success: ${signalSuccess === null ? "PENDING" : signalSuccess}`)
+    return {
+        priceAtStart,
+        validDays: pivotData.length,
+        isComplete,
+        theoreticalProfitAbsolute,
+        theoreticalProfitPercent,   
+        meta: {
+            signalSuccess,
+            maxPivot,
+            maxPivotDate,
+            minPivot,
+            minPivotDate,
+            pivotData
+        }
+    }
+}

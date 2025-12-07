@@ -8,3 +8,5 @@ node_modules
 .vscode
 src/allowList.ts
 tel_api.session
+
+./dist

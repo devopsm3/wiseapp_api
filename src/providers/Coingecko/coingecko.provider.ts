@@ -57,18 +57,18 @@ export const getOHLC = async (coinId: string, targetDate: Date): Promise<OHLC | 
         }, data[0])
 
         console.log(" 🚀   -->  entry:", entry)
-        // if (days === 1) {            
-        //     entry = data.reduce((prev: any, curr: any) => {
-        //         return Math.abs(curr[0] - targetTime) < Math.abs(prev[0] - targetTime)
-        //             ? curr
-        //             : prev
-        //     }, data[0])
+        if (days === 1) {            
+            entry = data.reduce((prev: any, curr: any) => {
+                return Math.abs(curr[0] - targetTime) < Math.abs(prev[0] - targetTime)
+                    ? curr
+                    : prev
+            }, data[0])
             
-        // } else {
-        //     entry = data.find(([time]: any) =>
-        //         Math.abs(time - targetTime) < tolerance
-        //     )    
-        // }
+        } else {
+            entry = data.find(([time]: any) =>
+                Math.abs(time - targetTime) < tolerance
+            )    
+        }
 
         return entry
             ? {

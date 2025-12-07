@@ -1,10 +1,9 @@
 ﻿import { SignalStatus, SignalTrend } from "@prisma/client"
 import { prisma } from "../../prisma"
-import { getSignalTrendLevel } from "./signals.helpers"
-import { MetaSignalSetup } from "./signals.types"
+import { PivotCalculationMeta } from "../CoinMarketCap/coinmarketcap.types"
 
 
-export const checkExistedSignalWithinTimeHorizon = async (currentUserId: number, analysis: { direction: "bullish" | "bearish"; token: string }, status: SignalStatus) => {
+export const checkExistedSignalWithinTimeHorizon = async (currentUserId: number, analysis: { direction: "LONG" | "SHORT"; token: string }, status: SignalStatus) => {
     
     // let timeframe_for_meta_signals_hours = 21
     
@@ -22,7 +21,7 @@ export const checkExistedSignalWithinTimeHorizon = async (currentUserId: number,
     // timeframe_for_meta_signals_ago.setUTCDate(now.getUTCDate() - (timeframe_for_meta_signals_hours))
     // timeframe_for_meta_signals_ago.setUTCHours(0, 0, 0, 0)
 
-    const trend = analysis.direction === "bullish" ? SignalTrend.LONG : SignalTrend.SHORT
+    const trend = analysis.direction === "LONG" ? SignalTrend.LONG : SignalTrend.SHORT
 
     const existingSignal = await prisma.signal.findFirst({
         where: {
@@ -39,7 +38,7 @@ export const checkExistedSignalWithinTimeHorizon = async (currentUserId: number,
 }
 
 interface CreateOrUpdateSignalProps {
-    analysis: { direction: "bullish" | "bearish"; token: string; token_id: string };
+    analysis: { direction: "LONG" | "SHORT"; token: string; token_id: string };
     newSourceId: number;
     postCreatedId: number;
     currentUserId: number;
@@ -48,7 +47,10 @@ interface CreateOrUpdateSignalProps {
     pnlPercent?: any;
     entryPrice?: any;
     exitPrice?: any;
+    isComplete?: boolean;
     entryTimestamp: Date;
+    pivotCalcDays?: number;
+    meta?: PivotCalculationMeta;
 }
 export const createOrUpdateSignal = async ({
     analysis,
@@ -61,6 +63,9 @@ export const createOrUpdateSignal = async ({
     entryPrice,
     exitPrice,
     entryTimestamp,
+    pivotCalcDays,
+    meta,
+    isComplete
 }: CreateOrUpdateSignalProps) => {
     // let timeframe_for_meta_signals_hours = 21
 
@@ -85,21 +90,21 @@ export const createOrUpdateSignal = async ({
 
     if (existingSignal) {
         console.log(" ------------------ Updating existing signal ------------------")
-        const existingSignalSourceIds = JSON.parse(existingSignal.sourceIds || "[]")
-        const isIncluded = Array.isArray(existingSignalSourceIds) && existingSignalSourceIds.includes(Number(newSourceId))
-        if (!isIncluded) {
-            const alignmentPostsForMetaSignals = (setup?.meta_signals as unknown as MetaSignalSetup)?.alignment_posts_for_meta_signals || 3
-            const signalTrendLevel = getSignalTrendLevel(analysis.direction, existingSignal.sources_nbr || 1, alignmentPostsForMetaSignals)
-            await prisma.signal.update({
-                where: { id: existingSignal.id },
-                data: {
-                    sources_nbr: { increment: 1 },
-                    signal_trend_level: signalTrendLevel,
-                    sourceIds: JSON.stringify([...existingSignalSourceIds, Number(newSourceId)]),
-                    updated_at: new Date()
-                }
-            })
-        }
+        // const existingSignalSourceIds = JSON.parse(existingSignal.sourceIds || "[]")
+        // const isIncluded = Array.isArray(existingSignalSourceIds) && existingSignalSourceIds.includes(Number(newSourceId))
+        // if (!isIncluded) {
+        //     const alignmentPostsForMetaSignals = (setup?.meta_signals as unknown as MetaSignalSetup)?.alignment_posts_for_meta_signals || 3
+        //     const signalTrendLevel = getSignalTrendLevel(analysis.direction, existingSignal.sources_nbr || 1, alignmentPostsForMetaSignals)
+        //     await prisma.signal.update({
+        //         where: { id: existingSignal.id },
+        //         data: {
+        //             sources_nbr: { increment: 1 },
+        //             signal_trend_level: signalTrendLevel,
+        //             sourceIds: JSON.stringify([...existingSignalSourceIds, Number(newSourceId)]),
+        //             updated_at: new Date()
+        //         }
+        //     })
+        // }
         console.log(
             `Updated existing signal for ${analysis.token} (${analysis.direction}) - incremented sources_nbr.`
         )
@@ -112,18 +117,21 @@ export const createOrUpdateSignal = async ({
                 sourceIds: JSON.stringify([newSourceId]),
                 user_db_id: currentUserId,
                 source_post_id: postCreatedId,
-                signal_trend_level: analysis.direction === "bullish" ? "VTC" : "RTC",
-                signal_trend: analysis.direction === "bullish" ? SignalTrend.LONG : SignalTrend.SHORT,
+                signal_trend_level: analysis.direction === "LONG" ? "VTC" : "RTC",
+                signal_trend: analysis.direction === "LONG" ? SignalTrend.LONG : SignalTrend.SHORT,
                 currency_label: analysis.token,
                 currency_logo: currencyLogo,
                 status: "NEW",
-                pnlA: pnlAbsolute, // for now
-                pnlP: pnlPercent, // for now
+                pnlA: pnlAbsolute,
+                pnlP: pnlPercent,
                 time_frame: "",
                 entry_timestamp: entryTimestamp,
                 entry_price: entryPrice,
                 exit_price: exitPrice,
                 sources_nbr: 1,
+                meta: meta as any,
+                isComplete,
+                pivot_calc_days: pivotCalcDays
             }
         })
 

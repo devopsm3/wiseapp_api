@@ -1,11 +1,13 @@
-﻿import { PlatformName, SourcePost, SourcePrice, SourceStatus, User } from "@prisma/client"
-import { coingeckoApiServiceMarket } from "../Coingecko/coingecko.provider"
-import { coinImages } from "../Coingecko/constants"
+﻿import { PlatformName, SourcePrice, SourceStatus, User } from "@prisma/client"
+// import { coingeckoApiServiceMarket } from "../Coingecko/coingecko.provider"
+// import { coinImages } from "../Coingecko/constants"
 import { normalizeToken } from "../signals/signals.helpers"
 import { prisma } from "../../prisma"
 import { SourcePostAnalysis, SourceType } from "./sources.types"
-import { getTelegramChannelPosts } from "../telegram/telegram.provider"
-import { getTwitterChannelPosts } from "../twitter/twitter.provider"
+// import { getTelegramChannelPosts } from "../telegram/telegram.provider"
+// import { getTwitterChannelPosts } from "../twitter/twitter.provider"
+// import { createOrUpdateSignal } from "../signals/signals.provider"
+import { calculateMaxPivotFrom21Days, getCoinInfo } from "../CoinMarketCap/coinmarketcap.provider"
 import { createOrUpdateSignal } from "../signals/signals.provider"
 
 
@@ -54,9 +56,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 
             if (analysis?.token && analysis?.type === "Signal") {
                 const normalizedToken = normalizeToken(analysis.token)
-                const coinInfo = await coingeckoApiServiceMarket(normalizedToken)
-                if (coinInfo.length) {
-                    const coinDetails = coinInfo[0]
+                const coinInfo = await getCoinInfo(normalizedToken)
+                if (coinInfo) {
                     const postCreated = await prisma.sourcePost.create({
                         data: {
                             sourceId: newSource.id,
@@ -71,31 +72,40 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                             analysis: element.analysis!,
                         }
                     })
-                    const currencyLogo = coinDetails.image || coinImages.altcoin
+                    const currencyLogo = coinInfo.logo
                     const targetDate = new Date(element.date!)
-                    // const ohlc = await getOHLC(coinDetails.id, targetDate)
+                    
+                    const pivotResult = await calculateMaxPivotFrom21Days(normalizedToken, targetDate, analysis.direction!)
+
+                    console.log(" 🚀   -->  pivotResult:", pivotResult)
+                    const entryPrice = pivotResult?.priceAtStart || 0
+                    const meta = pivotResult!.meta
                     await createOrUpdateSignal({
                         analysis: {
                             direction: analysis.direction!,
                             token: normalizedToken.toUpperCase(),
-                            token_id: coinDetails.id,
+                            token_id: coinInfo.id.toString(),
                         },
                         newSourceId: newSource.id,
                         postCreatedId: postCreated.id,
                         currentUserId: currentUser.id,
                         currencyLogo,
-                        pnlAbsolute: 0,
-                        pnlPercent: 0,
-                        entryPrice: 0,
+                        pnlAbsolute: pivotResult?.theoreticalProfitAbsolute || 0,
+                        pnlPercent: pivotResult?.theoreticalProfitPercent || 0,
+                        entryPrice,
                         exitPrice: null,
                         entryTimestamp: new Date(element.date!),
+                        isComplete: pivotResult?.isComplete || false,
+                        pivotCalcDays: pivotResult?.validDays || 0,
+                        meta
                     })
                     verifiedPosts.push(postCreated.id)
+                    
                 } else {
-                    console.log(`Token ${analysis.token} not found in Coingecko API`)
+                    console.log(`Token ${analysis.token} not found in CoinMarketCap API`)
                 }   
             } else {
-                console.log(`Token ${analysis.token} not found in Coingecko API`)
+                console.log(`Token ${analysis.token} not found in CoinMarketCap API`)
             }   
         }
         if (!verifiedPosts.length) {
@@ -131,12 +141,12 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 source_total_quantity_signals: messages.length,
                 source_global_probility: 0, // after trade
 
-                source_bullish_total_quantity: messages.filter((m) => (m.analysis as any)?.direction === "bullish").length || 0,
-                source_bullish_percentage: (messages.filter((m) => (m.analysis as any)?.direction === "bullish").length / messages.length) * 100 || 0,
+                source_bullish_total_quantity: messages.filter((m) => (m.analysis as any)?.direction === "LONG").length || 0,
+                source_bullish_percentage: (messages.filter((m) => (m.analysis as any)?.direction === "LONG").length / messages.length) * 100 || 0,
                 source_bullish_probility: 0, // after trade
 
-                source_bearish_total_quantity: messages.filter((m) => (m.analysis as any)?.direction === "bearish").length || 0,
-                source_bearish_percentage: (messages.filter((m) => (m.analysis as any)?.direction === "bearish").length / messages.length) * 100 || 0,
+                source_bearish_total_quantity: messages.filter((m) => (m.analysis as any)?.direction === "SHORT").length || 0,
+                source_bearish_percentage: (messages.filter((m) => (m.analysis as any)?.direction === "SHORT").length / messages.length) * 100 || 0,
                 source_bearish_probility: 0, // after trade
 
                 btc_total_quantity: btc_total_quantity,
@@ -167,102 +177,45 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 
 export const createSourceService = async (channelInfo: SourceType, source: any, currentUser: User) => {
     try {
-
-        // const messages: SourcePost[] = [
-        //     {
-        //         id: 31,
-        //         text: "SIGNAL #INJ #INJUSDT :  Buy now At or Under 12.74 Target1= 12.82 Target2= 13.01 Target3= 13.2  Stop Loss= 12.49  Quick signal We are going to hit a new #ATH very soon #SPOT #Crypto #Blockchain Take part of our wonderful family now, PM ME!",
-        //         originalText: "SIGNAL #INJ #INJUSDT :\n" +
-        //             "\n" +
-        //             "▶ Buy now At or Under 12.74\n" +
-        //             "\n" +
-        //             "✅Target1= 12.82\n" +
-        //             "\n" +
-        //             "✅Target2= 13.01\n" +
-        //             "\n" +
-        //             "✅Target3= 13.2\n" +
-        //             "\n" +
-        //             "⛔ Stop Loss= 12.49\n" +
-        //             "\n" +
-        //             "⚠ Quick signal\n" +
-        //             "\n" +
-        //             "We are going to hit a new #ATH very soon\n" +
-        //             "\n" +
-        //             "#SPOT #Crypto #Blockchain\n" +
-        //             "\n" +
-        //             "Take part of our wonderful family now, PM ME!",
-        //         timestamp: 1759506388,
-        //         date: new Date("2025-10-03T15:46:28.000Z"),
-        //         senderId: "-1002940466200",
-        //         mediaType: "text",
-        //         analysis: {
-        //             type: "Signal",
-        //             token: "BTC",
-        //             currency: "USDT",
-        //             direction: "bullish",
-        //             entry_price: 12.74,
-        //             exit_price: null,
-        //             target: [12.82, 13.01, 13.2],
-        //             stop_loss: 12.49,
-        //             leverage: null
-        //         },
-        //         createdAt: new Date(),
-        //         updatedAt: new Date(),
-        //         sourceId: 0,
-        //         sourceType: "X",
-        //         originalId: 0
-        //     },
-        //     {
-        //         id: 32,
-        //         text: "SIGNAL #ICX #ICXUSDT :  Buy now At or Under 0.119 Target1= 0.1198 Target2= 0.1215 Target3= 0.1233  Stop Loss= 0.1167  Be patient Trust me y'all aren't ready for what's coming  #SPOT #Bitcoin #Blockchain Take part of our wonderful family now, PM ME!",
-        //         originalText: "SIGNAL #ICX #ICXUSDT :\n" +
-        //             "\n" +
-        //             "▶ Buy now At or Under 0.119\n" +
-        //             "\n" +
-        //             "✅Target1= 0.1198\n" +
-        //             "\n" +
-        //             "✅Target2= 0.1215\n" +
-        //             "\n" +
-        //             "✅Target3= 0.1233\n" +
-        //             "\n" +
-        //             "⛔ Stop Loss= 0.1167\n" +
-        //             "\n" +
-        //             "⚠ Be patient\n" +
-        //             "\n" +
-        //             "Trust me y'all aren't ready for what's coming 👽\n" +
-        //             "\n" +
-        //             "#SPOT #Bitcoin #Blockchain\n" +
-        //             "\n" +
-        //             "Take part of our wonderful family now, PM ME!",
-        //         timestamp: 1759506388,
-        //         date: new Date("2025-10-03T15:46:28.000Z"),
-        //         senderId: "-1002940466200",
-        //         mediaType: "text",
-        //         analysis: {
-        //             type: "Signal",
-        //             token: "ICX",
-        //             currency: "USDT",
-        //             direction: "bullish",
-        //             entry_price: 0.119,
-        //             exit_price: null,
-        //             target: [0.1198, 0.1215, 0.1233],
-        //             stop_loss: 0.1167,
-        //             leverage: null
-        //         },
-        //         createdAt: new Date(),
-        //         updatedAt: new Date(),
-        //         sourceId: 0,
-        //         sourceType: "X",
-        //         originalId: 0
-        //     }
-        // ]
-        // let messages: any[] = []
-        let messages: SourcePost[] = []
-        if (source.sourceType === PlatformName.TELEGRAM) {
-            messages = await getTelegramChannelPosts(channelInfo?.user_id_source)
-        } else {
-            messages = await getTwitterChannelPosts(channelInfo?.user_id_source)
-        }
+        // let messages: SourcePost[] = []
+        // if (source.sourceType === PlatformName.TELEGRAM) {
+        //     messages = await getTelegramChannelPosts(channelInfo?.user_id_source)
+        // } else {
+        //     messages = await getTwitterChannelPosts(channelInfo?.user_id_source)
+        // }
+        const messages = [
+            {
+                id: "1974728009732284646",
+                text: "SIGNAL #SOL #SOLUSDT : ▶ Buy now",
+                originalText: "SIGNAL #SOL #SOLUSDT : ▶ Buy now",
+                timestamp: 1761979620,
+                date: "2025-11-30T06:47:00.000Z",
+                senderId: "371027604",
+                mediaType: "text",
+                analysis: {
+                    type: "Signal",
+                    token: "SOL",
+                    direction: "LONG",
+                    currency: "USDT"
+                }
+            },
+            // {
+            //     id: "1974728009732284646",
+            //     text: "SIGNAL #ETH #ETHUSDT : ▶ Sell now",
+            //     originalText: "SIGNAL #ETH #ETHUSDT : ▶ Sell now",
+            //     timestamp: 1762325220,
+            //     date: "2025-11-05T06:47:00.000Z",
+            //     senderId: "371027604",
+            //     mediaType: "text",
+            //     analysis: {
+            //         type: "Signal",
+            //         token: "ETH",
+            //         direction: "SHORT",
+            //         currency: "USDT"
+            //     }
+            // }
+            
+        ]
         return createSource(channelInfo, source, messages, currentUser)
     } catch (error: any) {
         return {

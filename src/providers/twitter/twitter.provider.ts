@@ -116,8 +116,17 @@ export const getTwitterChannelPosts = async (userId: string) => {
                     "1974728009732284646"
                 ],
                 "id": "1974728009732284646",
-                "text": "SIGNAL #ETH #ETHUSDT :\n\n▶ Buy now At or Under 13.56\n\n✅Target1= 13.65\n\n✅Target2= 13.85\n\n✅Target3= 14.05\n\n⛔ Stop Loss= 13.3\n\n⚠ Incredible signal\n\nBuy the dip with brain, not #FOMO 🚀\n\n#SPOT #BTC #比特币\n\nTake part of our wonderful group now, PM ME! https://t.co/yK6Ov9jQ3G",
-                "created_at": "2025-10-05T06:47:00.000Z"
+                "text": "SIGNAL #ETH #ETHUSDT : ▶ Sell now",
+                "created_at": "2025-11-05T06:47:00.000Z"
+            },
+            {
+                "author_id": "371027604",
+                "edit_history_tweet_ids": [
+                    "1974728009732284646"
+                ],
+                "id": "1974728009732284646",
+                "text": "SIGNAL #SOL #SOLUSDT : ▶ Buy now",
+                "created_at": "2025-11-01T06:47:00.000Z"
             },
             // {
             //     "author_id": "371027604",

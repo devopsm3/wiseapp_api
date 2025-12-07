@@ -20,7 +20,7 @@ export interface SourcePostAnalysis {
   type: "Signal" | "directSignal" | "conditionalSignal" | "Irrelevant";
   token: string,
   currency: string | null,
-  direction: "bullish" | "bearish" | null,
+  direction: "LONG" | "SHORT" | null,
   entry_price: number | null,
   exit_price: number | null,
   target: number[] | null,

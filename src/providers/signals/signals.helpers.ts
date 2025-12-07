@@ -141,19 +141,19 @@ export const normalizeToken = (token: string): string => {
     if (!token) return ""
   
     const map: Record<string, string> = {
-        bitcoin: "btc",
-        btc: "btc",
+        bitcoin: "BTC",
+        btc: "BTC",
   
-        ethereum: "eth",
-        ether: "eth",
-        eth: "eth",
+        ethereum: "ETH",
+        ether: "ETH",
+        eth: "ETH",
   
-        solana: "sol",
-        sol: "sol",
+        solana: "SOL",
+        sol: "SOL",
     }
   
-    const key = token.trim().toLowerCase()
-    return map[key] || key.toLowerCase()
+    const key = token.trim().toUpperCase()
+    return map[key] || key
 }
   
   

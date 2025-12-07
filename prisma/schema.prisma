@@ -160,7 +160,7 @@ enum ManualOverride {
 }
 
 model Signal {
-  id             Int   @id @default(autoincrement())
+  id             Int    @id @default(autoincrement())
   user_db_id     Int
   sourceId       Int
   source_post_id Int
@@ -184,9 +184,12 @@ model Signal {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  User       User       @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
-  SourcePost SourcePost @relation(fields: [source_post_id], references: [id], onDelete: Cascade)
-  Source     Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  User            User       @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
+  SourcePost      SourcePost @relation(fields: [source_post_id], references: [id], onDelete: Cascade)
+  Source          Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  meta            Json?
+  isComplete      Boolean    @default(false)
+  pivot_calc_days Int        @default(0)
 }
 
 model Setup {

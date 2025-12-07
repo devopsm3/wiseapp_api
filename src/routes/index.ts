@@ -13,8 +13,8 @@ apiRouter.use("/auth", AuthRouter)
 
 apiRouter.use("/users", authMiddleware, UsersRouter)
 apiRouter.use("/sources", authMiddleware, SourceRouter)
-apiRouter.use("/signals", SignalsRouter)
-// apiRouter.use("/signals", authMiddleware, SignalsRouter)
+// apiRouter.use("/signals", SignalsRouter)
+apiRouter.use("/signals", authMiddleware, SignalsRouter)
 apiRouter.use("/setups", authMiddleware, SetupsRouter)
 
 export default apiRouter
