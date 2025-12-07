@@ -201,8 +201,9 @@ export const signalPivotWorker = new Worker("signalPivots", async () => {
     }
 }, {
     connection: connection,
-    settings: {
-        attempts: 3 // Retry up to 3 times
+    limiter: {
+        max: 1,
+        duration: 60000 // 1 job per minute
     }
 })
 
@@ -225,7 +226,7 @@ export const scheduleSignalPivotUpdate = async () => {
         {},
         {
             repeat: {
-                pattern: "0 1 * * *", // Cron: Every day at 1:00 AM
+                pattern: "23 17 * * *", // Cron: Every day at 1:00 AM
             },
             removeOnComplete: {
                 age: 86400 * 7, // Keep logs for 7 days
