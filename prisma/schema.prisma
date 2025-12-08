@@ -118,7 +118,7 @@ model SourcePost {
   sourceType   PlatformName
   timestamp    Int?
   date         DateTime?
-  originalId   BigInt
+  originalId   String
   mediaType    SourceMessageType
   senderId     String?           @db.MediumText
   originalText String            @db.MediumText

@@ -1,12 +1,11 @@
-﻿import { PlatformName, SourcePrice, SourceStatus, User } from "@prisma/client"
+﻿import { PlatformName, SourcePost, SourcePrice, SourceStatus, User } from "@prisma/client"
 // import { coingeckoApiServiceMarket } from "../Coingecko/coingecko.provider"
 // import { coinImages } from "../Coingecko/constants"
 import { normalizeToken } from "../signals/signals.helpers"
 import { prisma } from "../../prisma"
 import { SourcePostAnalysis, SourceType } from "./sources.types"
-// import { getTelegramChannelPosts } from "../telegram/telegram.provider"
-// import { getTwitterChannelPosts } from "../twitter/twitter.provider"
-// import { createOrUpdateSignal } from "../signals/signals.provider"
+import { getTelegramChannelPosts } from "../telegram/telegram.provider"
+import { getTwitterChannelPosts } from "../twitter/twitter.provider"
 import { calculateMaxPivotFrom21Days, getCoinInfo } from "../CoinMarketCap/coinmarketcap.provider"
 import { createOrUpdateSignal } from "../signals/signals.provider"
 
@@ -64,7 +63,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                             sourceType: channelInfo.platform_logo as PlatformName,
                             date: element.date,
                             timestamp: element.timestamp,
-                            originalId: Number(element.id),
+                            originalId: String(element.id),
                             mediaType: element.mediaType,
                             senderId: element.senderId,
                             text: element.text,
@@ -178,45 +177,45 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 
 export const createSourceService = async (channelInfo: SourceType, source: any, currentUser: User) => {
     try {
-        // let messages: SourcePost[] = []
-        // if (source.sourceType === PlatformName.TELEGRAM) {
-        //     messages = await getTelegramChannelPosts(channelInfo?.user_id_source)
-        // } else {
-        //     messages = await getTwitterChannelPosts(channelInfo?.user_id_source)
-        // }
-        const messages = [
-            {
-                id: "1974728009732284646",
-                text: "SIGNAL #SOL #SOLUSDT : ▶ Buy now",
-                originalText: "SIGNAL #SOL #SOLUSDT : ▶ Buy now",
-                timestamp: 1761979620,
-                date: "2025-11-30T06:47:00.000Z",
-                senderId: "371027604",
-                mediaType: "text",
-                analysis: {
-                    type: "Signal",
-                    token: "SOL",
-                    direction: "LONG",
-                    currency: "USDT"
-                }
-            },
-            // {
-            //     id: "1974728009732284646",
-            //     text: "SIGNAL #ETH #ETHUSDT : ▶ Sell now",
-            //     originalText: "SIGNAL #ETH #ETHUSDT : ▶ Sell now",
-            //     timestamp: 1762325220,
-            //     date: "2025-11-05T06:47:00.000Z",
-            //     senderId: "371027604",
-            //     mediaType: "text",
-            //     analysis: {
-            //         type: "Signal",
-            //         token: "ETH",
-            //         direction: "SHORT",
-            //         currency: "USDT"
-            //     }
-            // }
+        let messages: SourcePost[] = []
+        if (source.sourceType === PlatformName.TELEGRAM) {
+            messages = await getTelegramChannelPosts(channelInfo?.user_id_source)
+        } else {
+            messages = await getTwitterChannelPosts(channelInfo?.user_id_source)
+        }
+        // const messages = [
+        //     {
+        //         id: "1974728009732284646",
+        //         text: "SIGNAL #SOL #SOLUSDT  : ▶ Buy now",
+        //         originalText: "SIGNAL #SOL #SOLUSDT : ▶ Buy now",
+        //         timestamp: 1761979620,
+        //         date: "2025-11-15T13:02:00.000Z",
+        //         senderId: "371027604",
+        //         mediaType: "text",
+        //         analysis: {
+        //             type: "Signal",
+        //             token: "SOL",
+        //             direction: "LONG",
+        //             currency: "USDT"
+        //         }
+        //     },
+        //     {
+        //         id: "1974728009732284646",
+        //         text: "SIGNAL #ETH #ETHUSDT : ▶ Sell now",
+        //         originalText: "SIGNAL #ETH #ETHUSDT : ▶ Sell now",
+        //         timestamp: 1762325220,
+        //         date: "2025-11-20T13:47:00.000Z",
+        //         senderId: "371027604",
+        //         mediaType: "text",
+        //         analysis: {
+        //             type: "Signal",
+        //             token: "ETH",
+        //             direction: "LONG",
+        //             currency: "USDT"
+        //         }
+        //     }
             
-        ]
+        // ]
         return createSource(channelInfo, source, messages, currentUser)
     } catch (error: any) {
         return {

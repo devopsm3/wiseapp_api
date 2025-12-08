@@ -22,6 +22,7 @@ export const getSignals = async (req: Request, res: Response, next: NextFunction
 export const getSignalById = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const signal = await getSignalByIdService(Number(req.params.id), req.user!)
+
         if (!signal) {
             return res.status(404).json({ status: false, message: "Signal not found" })
         }

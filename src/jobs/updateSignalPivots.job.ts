@@ -3,6 +3,7 @@ import connection from "../config/redis"
 import { prisma } from "../prisma"
 import { getOHLCVData } from "../providers/CoinMarketCap/coinmarketcap.provider"
 import { PivotCalculationMeta, CoinMarketCapOHLC } from "../providers/CoinMarketCap/coinmarketcap.types"
+import { WorkerOptions } from "worker_threads"
 
 // Create BullMQ Queue for signal pivot updates
 export const signalPivotQueue = new Queue("signalPivots", {
@@ -16,6 +17,7 @@ const updateSignalPivots = async (signal: any) => {
     const meta = signal.meta as PivotCalculationMeta
     const entryPrice = signal.entry_price
     const entryDate = new Date(signal.entry_timestamp)
+
     const direction = signal.signal_trend === "LONG" ? "LONG" : "SHORT"
     
     // Calculate the next day to fetch (entry_date + pivot_calc_days)
@@ -31,11 +33,11 @@ const updateSignalPivots = async (signal: any) => {
 
     // Get coin ID from signal
     if (!signal.coin_id) {
-        console.warn(`⚠️ Signal ${signal.id} (${signal.currency_label}): No coin_id found, skipping...`)
+        console.warn(`⚠️ Signal ${signal.id} (${signal.currency_label}): No coin_id found, skipping ...`)
         return { status: "skipped", reason: "no_coin_id" }
     }
     
-    console.log(`🔄 Updating Signal ${signal.id} (${signal.currency_label}): Day ${signal.pivot_calc_days + 1}/21`)
+    console.log(`🔄 Updating Signal   ${signal.id} (${signal.currency_label}): Day ${signal.pivot_calc_days + 1}/21`)
     
     // Fetch OHLCV data for the next day only
     const quotes = await getOHLCVData(
@@ -161,50 +163,58 @@ const updateSignalPivots = async (signal: any) => {
 }
 
 // Create BullMQ Worker
-export const signalPivotWorker = new Worker("signalPivots", async () => {
-    console.log("🕐 [BULLMQ] Processing signal pivot update job...")
-    
-    try {
-        // Fetch all incomplete signals where pivot_calc_days < 21
-        const incompleteSignals = await prisma.signal.findMany({
-            where: {
-                isComplete: false,
-                pivot_calc_days: {
-                    lt: 21
+export const signalPivotWorker = new Worker("signalPivots", async (e: WorkerOptions) => {
+
+    if (e.name === "dailyPivotUpdate") {
+        console.log("🕐 [BULLMQ] Processing signal pivot update job...")
+        try {
+            // Fetch all incomplete signals where pivot_calc_days < 21
+            const incompleteSignals = await prisma.signal.findMany({
+                where: {
+                    isComplete: false,
+                    pivot_calc_days: {
+                        lt: 21
+                    }
+                }
+            })
+
+            console.log(`📊 Found ${incompleteSignals.length} incomplete signals to update`)
+
+            console.log(" ")
+            console.log(" - - - - - - - - - - ")
+            console.log(" ")
+            const results = []
+            // Update each signal sequentially
+            for (const signal of incompleteSignals) {
+                try {
+                    const result = await updateSignalPivots(signal)
+                    console.log(" ")
+                    console.log(" - - - - - - - - - - ")
+                    console.log(" ")
+                    results.push(result)
+                } catch (error) {
+                    console.error(`❌ Error updating signal ${signal.id}:`, error)
+                    results.push({ status: "error", signalId: signal.id, error: (error as Error).message })
                 }
             }
-        })
 
-        console.log(`📊 Found ${incompleteSignals.length} incomplete signals to update`)
-
-        const results = []
-        // Update each signal sequentially
-        for (const signal of incompleteSignals) {
-            try {
-                const result = await updateSignalPivots(signal)
-                results.push(result)
-            } catch (error) {
-                console.error(`❌ Error updating signal ${signal.id}:`, error)
-                results.push({ status: "error", signalId: signal.id, error: (error as Error).message })
+            console.log("✅ [BULLMQ] Daily signal pivot update job completed!")
+            return { 
+                processed: incompleteSignals.length, 
+                results,
+                timestamp: new Date()
             }
+        } catch (error) {
+            console.error("❌ [BULLMQ] Error in daily signal pivot update job:", error)
+            throw error // Will trigger retry
         }
-
-        console.log("✅ [BULLMQ] Daily signal pivot update job completed!")
-        return { 
-            processed: incompleteSignals.length, 
-            results,
-            timestamp: new Date()
-        }
-    } catch (error) {
-        console.error("❌ [BULLMQ] Error in daily signal pivot update job:", error)
-        throw error // Will trigger retry
     }
 }, {
     connection: connection,
-    limiter: {
-        max: 1,
-        duration: 60000 // 1 job per minute
-    }
+    // limiter: {
+    //     max: 100,
+    //     duration: 60000 // 1 job per minute
+    // }
 })
 
 // Handle worker events

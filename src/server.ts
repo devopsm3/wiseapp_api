@@ -8,10 +8,10 @@ import { scheduleSignalPivotUpdate } from "./jobs/updateSignalPivots.job"
 
 declare global {
     interface BigInt {
-        toJSON(): Number;
+        toJSON(): string;
     }
 }
-BigInt.prototype.toJSON = function () { return Number(this) }
+BigInt.prototype.toJSON = function () { return this.toString() }
 
 declare global {
   namespace Express {
@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-if (process.env.TELEGRAM_API_STATUS === "activted") {
+if (process.env.TELEGRAM_API_STATUS === "activated") {
     initTelegram()
 }
 const server = http.createServer(app)

@@ -96,19 +96,20 @@ export const getTokenPriceAtDate = async (symbol: string, targetDate: Date): Pro
         return null
     }
 
-    const timeStart = new Date(targetDate)
+    // const timeStart = new Date(targetDate)
     // timeStart.setUTCHours(0, 0, 0, 0)
 
     // Set time_end to end of target day (UTC)
-    const timeEnd = new Date(targetDate)
-    timeEnd.setUTCHours(23, 59, 59, 999)
-
+    // const timeEnd = new Date(targetDate)
+    // timeEnd.setUTCHours(23, 59, 59, 999)
+    
     const url = `${COINMARKETCAP_API_URL}/v3/cryptocurrency/quotes/historical`
     const params = new URLSearchParams({
         id: coinId.toString(),
-        time_start: timeStart.toISOString(),
-        time_end: timeEnd.toISOString(),
+        time_start: new Date(targetDate).toISOString(),
+        // time_end: timeEnd.toISOString(),
         interval: "5m",
+        count: "1",
         convert: "USD"
     })
 
@@ -128,7 +129,7 @@ export const getTokenPriceAtDate = async (symbol: string, targetDate: Date): Pro
         if (data.data && data.data[coinId.toString()]
             && data.data[coinId.toString()].quotes
             && data.data[coinId.toString()].quotes.length > 0) {
-            const price = data.data[coinId.toString()].quotes[0].quote.USD.price 
+            const price = data.data[coinId.toString()].quotes[0].quote.USD.price
             return price 
         }
 
@@ -147,6 +148,14 @@ export const getOHLCVData = async (
 ): Promise<any[] | null> => {
     const timeStart = new Date(startDate)
     timeStart.setUTCHours(0, 0, 0, 0)
+
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+
+    if (timeStart.getTime() === today.getTime()) {
+        console.warn(`Skipping OHLCV data fetch for today (${timeStart.toISOString()}) as it's not yet available.`)
+        return null
+    }
 
     const timeEnd = new Date(endDate)
     timeEnd.setUTCHours(23, 59, 59, 999)
@@ -226,7 +235,21 @@ export const calculateMaxPivotFrom21Days = async (
     
     if (!quotes || quotes.length === 0) {
         console.warn(`No OHLC data found for ${symbol} from ${startDate.toISOString()}`)
-        return null 
+        return {
+            priceAtStart,
+            validDays: 0,
+            isComplete: false,
+            theoreticalProfitAbsolute: 0,
+            theoreticalProfitPercent: 0,   
+            meta: {
+                signalSuccess: false,
+                maxPivot: 0,
+                maxPivotDate: null,
+                minPivot: 0,
+                minPivotDate: null,
+                pivotData: []
+            }
+        }  
     }
 
     const pivotData: CoinMarketCapOHLC[] = []
@@ -310,6 +333,9 @@ export const calculateMaxPivotFrom21Days = async (
         Max: $${maxPivot.toFixed(2)} | Min: $${minPivot.toFixed(2)}
         ${profitEmoji} Theoretical Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
         Success: ${signalSuccess === null ? "PENDING" : signalSuccess}`)
+    console.log(" ")
+    console.log(" ")
+    console.log(" ")
     return {
         priceAtStart,
         validDays: pivotData.length,

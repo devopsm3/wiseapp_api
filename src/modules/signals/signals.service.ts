@@ -1,7 +1,7 @@
 ﻿import { User } from "@prisma/client"
 import { prisma } from "../../prisma"
-import { coingeckoApiServiceMarket } from "../../providers/Coingecko/coingecko.provider"
-import { calculatePnl, getSignalTrendLevel } from "../../providers/signals/signals.helpers"
+// import { coingeckoApiServiceMarket } from "../../providers/Coingecko/coingecko.provider"
+import {  getSignalTrendLevel } from "../../providers/signals/signals.helpers"
 import { formatDateTime, formatTimeFromNow } from "../../utils/global.helpers"
 import { getFilteredSignals } from "../../providers/signals/signals.helpers"
 import { MetaSignalSetup } from "../../providers/signals/signals.types"
@@ -42,34 +42,17 @@ export const getSignalsService = async (currentUser: User) => {
 
         for (let i = 0; i < filteredSignals.length; i++) {
             const signal = filteredSignals[i]
-
-            // const coinInfo = await coingeckoApiServiceMarket(signal.currency_label!.toLowerCase())
-            // if (coinInfo.length) {
-            // const { pnlAbsolute, pnlPercent } = calculatePnl({
-            //     currentPrice: coinInfo[0].current_price,
-            //     entryPrice: Number(signal.entry_price),
-            //     exitPrice: signal.exit_price ? Number(signal.exit_price) : null,
-            //     direction: signal.signal_trend!,
-            //     // leverage: (signal.SourcePost.analysis! as unknown as SourcePostAnalysis).leverage?.[0] || 1,
-            //     leverage: 1,
-            //     quantity: 1,
-            //     fees: 0,
-            //     status: signal.status,
-            // })
             const signalTrendLevel = getSignalTrendLevel(signal.signal_trend === "LONG" ? "bullish" : "bearish", signal.sources_nbr || 1, alignmentPostsForMetaSignals)
             signalsInfo.push({
                 ...signal,
-                coinUrl: `https://www.coingecko.com/en/coins/${signal.currency_label}`,
-                // coinUrl: `https://www.coingecko.com/en/coins/${coinInfo[0].id}`,
                 entry_price: Number(signal.entry_price).toFixed(2),
                 exit_price: signal.exit_price ? Number(signal.exit_price).toFixed(2) : null,
                 signal_trend_level: signalTrendLevel,
-                pnlAbsolute: signal.pnlA ? Number(signal.pnlA).toFixed(2) : null,
-                pnlPercent: signal.pnlP ? Number(signal.pnlP).toFixed(2) : null,
+                pnlAbsolute: signal.pnlA ? Number(signal.pnlA).toFixed(2) : 0,
+                pnlPercent: signal.pnlP ? Number(signal.pnlP).toFixed(2) : 0,
                 timeFromNow: signal.entry_timestamp ? formatTimeFromNow(signal.entry_timestamp) : "",
                 readableDate: signal.entry_timestamp ? formatDateTime(signal.entry_timestamp) : "",
             })
-            // }
         }
         return signalsInfo
     } catch (error) {
@@ -87,16 +70,18 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
                 user_db_id: currentUser.id,
             },
             include: {
-                Source: {
-                    select: {
-                        platform_logo: true,
-                    }
-                },
-                SourcePost: {
-                    select: {
-                        analysis: true,
-                    }
-                },
+                Source:true,
+                // {
+                //     select: {
+                //         platform_logo: true,
+                //     }
+                // },
+                SourcePost:true
+                // {
+                //     select: {
+                //         analysis: true,
+                //     }
+                // },
             }
         })
         if (!signal) {
@@ -116,35 +101,24 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
                 return null
             }
         }
-        const coinInfo = await coingeckoApiServiceMarket(signal.currency_label.toLowerCase())
-        
-        if (coinInfo.length) {
-            const { pnlAbsolute, pnlPercent } = calculatePnl({
-                currentPrice: coinInfo[0].current_price,
-                entryPrice: Number(signal.entry_price),
-                exitPrice: signal.exit_price ? Number(signal.exit_price) : null,
-                direction: signal.signal_trend,
-                // leverage: (signal.SourcePost.analysis! as unknown as SourcePostAnalysis).leverage?.[0] || 1,
-                leverage: 1,
-                quantity: 1,
-                fees: 0,
-                status: signal.status,
-            })
-            const signalTrendLevel = getSignalTrendLevel(signal.signal_trend === "LONG" ? "bullish" : "bearish", signal.sources_nbr || 1, alignmentPostsForMetaSignals)
+        const signalTrendLevel = getSignalTrendLevel(signal.signal_trend === "LONG" ? "bullish" : "bearish", signal.sources_nbr || 1, alignmentPostsForMetaSignals)
             
-            return {
-                ...signal,
-                coinInfo: coinInfo[0],
-                entry_price: Number(signal.entry_price).toFixed(2),
-                exit_price: signal.exit_price ? Number(signal.exit_price).toFixed(2) : null,
-                signal_trend_level: signalTrendLevel,
-                pnlAbsolute: pnlAbsolute,
-                pnlPercent: pnlPercent,
-                timeFromNow: signal.entry_timestamp ? formatTimeFromNow(signal.entry_timestamp) : "",
-                readableDate: signal.entry_timestamp ? formatDateTime(signal.entry_timestamp) : "",
-            }
+        const signalInfo = {
+            ...signal,
+            Source: {
+                ...signal.Source,
+                postId: String(signal.SourcePost.originalId)
+            },
+            entry_price: Number(signal.entry_price).toFixed(2),
+            exit_price: signal.exit_price ? Number(signal.exit_price).toFixed(2) : null,
+            signal_trend_level: signalTrendLevel,
+            pnlAbsolute: signal.pnlA ? Number(signal.pnlA).toFixed(2) : 0,
+            pnlPercent: signal.pnlP ? Number(signal.pnlP).toFixed(2) : 0,
+            timeFromNow: signal.entry_timestamp ? formatTimeFromNow(signal.entry_timestamp) : "",
+            readableDate: signal.entry_timestamp ? formatDateTime(signal.entry_timestamp) : "",
         }
-        return null
+        return signalInfo
+        
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
         return null
