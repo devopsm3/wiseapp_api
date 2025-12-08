@@ -17,9 +17,9 @@ export const getSourcesService = async (currentUser: User) => {
                 source_status: SourceStatus.VALIDE,
             },
         })
-        const sourcesData = sources.map((source) => {
 
-            
+        const sourcesData = sources.map((source) => {
+          
             let source_url = ""
 
             if (source.platform_logo === "TELEGRAM") {
@@ -44,17 +44,17 @@ export const getSourcesService = async (currentUser: User) => {
                 eth_count: source.eth_total_quantity,
                 sol_count: source.sol_total_quantity,
                 alts_count: source.alts_total_quantity,
-                profitability_m: source.source_global_probility,
+                // profitability_m: source.source_global_probility,
                 is_verified: source.user_verified,
-                profitability_d: 0,
-                profitability_w: 0,
-                profitability_y: 0,
-                profitability_3m: 0,
-                signals_count_m: source.source_total_quantity_signals,
-                signals_count_d: source.source_total_quantity_signals,
-                signals_count_w: source.source_total_quantity_signals,
-                signals_count_y: source.source_total_quantity_signals,
-                signals_count_3m: source.source_total_quantity_signals,
+                profitability_d: 1,
+                profitability_w: 2,
+                profitability_m: 3,
+                profitability_3m: 4,
+                // signals_count_m: source.source_total_quantity_signals,
+                signals_count_d: 11,
+                signals_count_w: 22,
+                signals_count_m: 33,
+                signals_count_3m: 44,
 
                 // focus
                 followers_count: source.followers_count,
@@ -254,7 +254,9 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
 
         return {
             status: true,
-            signals: formattedSignals
+            data: {
+                signals: formattedSignals
+            }
         }
     } catch (error: any) {
         return {

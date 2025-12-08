@@ -100,7 +100,7 @@ export const getSourceSignalsDetails = async (req: Request, res: Response, next:
         }
         res.status(200).json({
             status: true,
-            signals: result.signals,
+            data: result.data,
         })
     } catch (error) {
         next(error)

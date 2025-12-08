@@ -9,6 +9,6 @@ SourcesRouter.get("/get-source/:id", getSourceById)
 SourcesRouter.put("/update-source/:id", updateSourceById)
 SourcesRouter.delete("/delete-source/:id", deleteSourceById)
 SourcesRouter.put("/toggle-source-activation/:id", toggleSourceActivation)
-SourcesRouter.get("/source/:id/signals-details", getSourceSignalsDetails)
+SourcesRouter.get("/:id/signals-details", getSourceSignalsDetails)
 
 export default SourcesRouter
