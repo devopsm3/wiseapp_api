@@ -304,3 +304,32 @@ export const getTwitterChannelPosts = async (userId: string) => {
         return []
     }
 }
+
+// Check if a Twitter post (tweet) still exists
+export async function checkTwitterPostExists(tweetId: string): Promise<{
+    exists: boolean
+    error?: string
+}> {
+    try {
+        const tweet = await readOnlyClient.v2.singleTweet(tweetId, {
+            "tweet.fields": ["id"]
+        })
+
+        if (tweet.errors && tweet.errors.length > 0) {
+            const error = tweet.errors[0]
+            // Tweet not found or deleted
+            if (error.title === "Not Found Error" || error.type === "https://api.twitter.com/2/problems/resource-not-found") {
+                return { exists: false }
+            }
+            // Other errors (rate limit, auth, etc.)
+            return { exists: true, error: error.detail || error.title }
+        }
+
+        // Tweet exists if we got data back
+        return { exists: !!tweet.data }
+    } catch (err: any) {
+        // Network or other errors - assume exists to avoid false positives
+        console.error(`Error checking tweet ${tweetId}:`, err.message)
+        return { exists: true, error: err.message }
+    }
+}

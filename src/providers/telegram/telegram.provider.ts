@@ -70,7 +70,7 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
         // const offsetDate = getDaysAgoTimestamp(daysAgo)
         // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
         // for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true, limit: 30 })) {
-        for await (const message of client.iterMessages(channelName, { limit: 30 })) {
+        for await (const message of client.iterMessages(channelName, { limit: 100 })) {
             if (!(message instanceof Api.Message)) continue
             if (!message.message) continue
             // if (!message.message && !message.photo) continue
@@ -123,5 +123,43 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
         return []
+    }
+}
+
+/**
+ * Check if a Telegram post (message) still exists in a channel
+ * @param channelName - The channel username or ID
+ * @param messageId - The message ID to check
+ * @returns Object with exists boolean and optional error message
+ */
+export async function checkTelegramPostExists(
+    channelName: string,
+    messageId: number
+): Promise<{
+    exists: boolean
+    error?: string
+}> {
+    try {
+        // Try to get the specific message from the channel
+        const messages = await client.getMessages(channelName, {
+            ids: [messageId]
+        })
+
+        if (!messages || messages.length === 0) {
+            return { exists: false }
+        }
+
+        const message = messages[0]
+        
+        // Check if message is actually deleted (Telegram returns a special type)
+        if (message instanceof Api.MessageEmpty || !message) {
+            return { exists: false }
+        }
+
+        return { exists: true }
+    } catch (err: any) {
+        // Network or auth errors - assume exists to avoid false positives
+        console.error(`Error checking Telegram message ${channelName}/${messageId}:`, err.message)
+        return { exists: true, error: err.message }
     }
 }

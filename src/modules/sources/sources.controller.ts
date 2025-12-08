@@ -1,5 +1,5 @@
 ﻿import { NextFunction, Request, Response } from "express"
-import { getSourcesService, getSourceByIdService, addSourceService, updateSourceByIdService, deleteSourceByIdService } from "./sources.service"
+import { getSourcesService, getSourceByIdService, addSourceService, updateSourceByIdService, deleteSourceByIdService, toggleSourceActivationService, getSourceSignalsDetailsService } from "./sources.service"
 
 export const getSources = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -46,6 +46,22 @@ export const updateSourceById = async (req: Request, res: Response, next: NextFu
     }
 }
 
+// toggle source activation
+export const toggleSourceActivation = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const source = await toggleSourceActivationService(Number(req.params.id), req.user!, req.body)
+        if (!source) {
+            return res.status(404).json({ status: false, message: "Source not found" })
+        }
+        res.status(200).json({
+            status: true,
+            data: source,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
 export const deleteSourceById = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const source = await deleteSourceByIdService(Number(req.params.id))
@@ -70,6 +86,21 @@ export const getSourceById = async (req: Request, res: Response, next: NextFunct
         res.status(200).json({
             status: true,
             data: dt.source,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getSourceSignalsDetails = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result: any = await getSourceSignalsDetailsService(Number(req.params.id), req.user!)
+        if (!result.status) {
+            return res.status(404).json({ status: false, message: result.message })
+        }
+        res.status(200).json({
+            status: true,
+            signals: result.signals,
         })
     } catch (error) {
         next(error)

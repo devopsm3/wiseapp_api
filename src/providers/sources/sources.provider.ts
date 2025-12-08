@@ -11,6 +11,8 @@ import { createOrUpdateSignal } from "../signals/signals.provider"
 
 
 const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User) => {
+
+    console.log(" 🚀   -->  source:", source)
     try {
         if (!channelInfo) {
             return {
@@ -37,6 +39,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         const newSource = await prisma.source.create({
             data: {
                 ...channelInfo,
+                display_name: source.display_name || "",
                 user_db_id: currentUser.id,
                 source_price: source.priceType === "free" ? SourcePrice.FREE : source.priceType === "monthly" ? SourcePrice.MONTHLY : SourcePrice.LIFETIME,
                 source_price_value: source.priceType === "free" ? null : source.priceType === "monthly" ? source.price.toString() : "lifetime/12",
@@ -93,7 +96,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                         pnlAbsolute: pivotResult?.theoreticalProfitAbsolute || 0,
                         pnlPercent: pivotResult?.theoreticalProfitPercent || 0,
                         entryPrice,
-                        exitPrice: null,
+                        exitPrice: pivotResult?.bestPrice || null,
                         entryTimestamp: new Date(element.date!),
                         isComplete: pivotResult?.isComplete || false,
                         pivotCalcDays: pivotResult?.validDays || 0,

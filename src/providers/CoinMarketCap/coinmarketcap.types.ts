@@ -22,6 +22,7 @@ export interface PivotCalculationResult {
     isComplete: boolean; // true if 21 days have passed
     theoreticalProfitAbsolute: number; // dollar amount profit
     theoreticalProfitPercent: number; // percentage profit
+    bestPrice: number; // Best price reached (max for LONG, min for SHORT)
     meta: PivotCalculationMeta
 }
 

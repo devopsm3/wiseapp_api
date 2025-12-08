@@ -90,24 +90,16 @@ export const getCoinInfo = async (symbol: string): Promise<{ id: number; logo: s
     }
 }
 
-export const getTokenPriceAtDate = async (symbol: string, targetDate: Date): Promise<number | null> => {
+export const getTokenPriceAtDate = async (symbol: string, targetDate: Date, retries: number = 3): Promise<number | null> => {
     const coinId = getCoinMarketCapSymbolId(symbol)
     if (!coinId) {
         return null
     }
-
-    // const timeStart = new Date(targetDate)
-    // timeStart.setUTCHours(0, 0, 0, 0)
-
-    // Set time_end to end of target day (UTC)
-    // const timeEnd = new Date(targetDate)
-    // timeEnd.setUTCHours(23, 59, 59, 999)
     
     const url = `${COINMARKETCAP_API_URL}/v3/cryptocurrency/quotes/historical`
     const params = new URLSearchParams({
         id: coinId.toString(),
         time_start: new Date(targetDate).toISOString(),
-        // time_end: timeEnd.toISOString(),
         interval: "5m",
         count: "1",
         convert: "USD"
@@ -134,6 +126,11 @@ export const getTokenPriceAtDate = async (symbol: string, targetDate: Date): Pro
         }
 
         console.warn(`No price data found for ${symbol} on ${targetDate.toISOString()}`)
+        if (retries > 0) {
+            console.log(`Retrying for ${symbol} 10 minutes earlier. Retries left: ${retries - 1}`)
+            const newTargetDate = new Date(targetDate.getTime() - 10 * 60 * 1000) // Subtract 10 minutes
+            return getTokenPriceAtDate(symbol, newTargetDate, retries - 1)
+        }
         return null
     } catch (error) {
         console.error(`Error fetching price for ${symbol} at ${targetDate}:`, error)
@@ -223,6 +220,8 @@ export const calculateMaxPivotFrom21Days = async (
 
     // const priceAtStart = 200
     const priceAtStart = await getTokenPriceAtDate(symbol, startDate)
+
+    console.log(" 🚀   -->  priceAtStart:", priceAtStart)
     if (!priceAtStart) {
         console.warn(`Could not fetch price for ${symbol} at ${startDate.toISOString()}`)
         return null
@@ -240,7 +239,8 @@ export const calculateMaxPivotFrom21Days = async (
             validDays: 0,
             isComplete: false,
             theoreticalProfitAbsolute: 0,
-            theoreticalProfitPercent: 0,   
+            theoreticalProfitPercent: 0,
+            bestPrice: 0,
             meta: {
                 signalSuccess: false,
                 maxPivot: 0,
@@ -291,6 +291,8 @@ export const calculateMaxPivotFrom21Days = async (
 
     let theoreticalProfitAbsolute = 0
     let theoreticalProfitPercent = 0
+
+    let bestPrice = 0
     
     if (direction === "LONG") {
         // For LONG: Check if price actually went UP
@@ -298,10 +300,12 @@ export const calculateMaxPivotFrom21Days = async (
             // Signal was CORRECT - price went up, show profit
             theoreticalProfitAbsolute = maxPivot - priceAtStart
             theoreticalProfitPercent = ((maxPivot - priceAtStart) / priceAtStart) * 100
+            bestPrice = maxPivot
         } else {
             // Signal was WRONG - price went down, show loss using minPivot
             theoreticalProfitAbsolute = minPivot - priceAtStart  // Will be negative
             theoreticalProfitPercent = ((minPivot - priceAtStart) / priceAtStart) * 100
+            bestPrice = minPivot
         }
     } else {
         // For SHORT: Check if price actually went DOWN
@@ -309,10 +313,12 @@ export const calculateMaxPivotFrom21Days = async (
             // Signal was CORRECT - price went down, show profit
             theoreticalProfitAbsolute = priceAtStart - minPivot
             theoreticalProfitPercent = ((priceAtStart - minPivot) / priceAtStart) * 100
+            bestPrice = minPivot
         } else {
             // Signal was WRONG - price went up, show loss using maxPivot
             theoreticalProfitAbsolute = -(maxPivot - priceAtStart)  // Negative to show loss
             theoreticalProfitPercent = -((maxPivot - priceAtStart) / priceAtStart) * 100
+            bestPrice = maxPivot
         }
     }
 
@@ -331,6 +337,7 @@ export const calculateMaxPivotFrom21Days = async (
     console.log(`📊 ${successEmoji} ${symbol} (${direction}): ${pivotData.length} days
         Entry: $${priceAtStart.toFixed(2)}
         Max: $${maxPivot.toFixed(2)} | Min: $${minPivot.toFixed(2)}
+        Best Price: $${bestPrice.toFixed(2)}
         ${profitEmoji} Theoretical Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
         Success: ${signalSuccess === null ? "PENDING" : signalSuccess}`)
     console.log(" ")
@@ -341,7 +348,8 @@ export const calculateMaxPivotFrom21Days = async (
         validDays: pivotData.length,
         isComplete,
         theoreticalProfitAbsolute,
-        theoreticalProfitPercent,   
+        theoreticalProfitPercent,
+        bestPrice,
         meta: {
             signalSuccess,
             maxPivot,

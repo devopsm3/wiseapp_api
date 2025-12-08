@@ -26,9 +26,9 @@ export const generateTokens = (userId: number) => {
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { login, password } = req.body
+        const { email, password } = req.body
         const user = await prisma.user.findUnique({
-            where: { email: login },
+            where: { email },
         })
 
         if (!user) {
@@ -74,9 +74,17 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
             sameSite: "strict",
         }).json({
             status: true,
-            token: accessToken,
-            twoFactorAuthEnabled: user.twoFactorAuthEnabled,
-            isAdmin: user.isAdmin
+            data: {
+                token: accessToken,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    login: user.login,
+                    isAdmin: user.isAdmin,
+                    created_at: user.createdAt
+                },
+                twoFactorAuthEnabled: user.twoFactorAuthEnabled,
+            }
         })
     } catch (error) {
         next(error)
@@ -117,13 +125,15 @@ export const register = async (req: Request, res: Response) => {
         //     isAdmin: false
         // })
         return res.status(200).json({
-            status: true
+            data: {
+                status: true
+            }
         })
 
     } catch (error: any) {
         return res.status(400).json({
             status: false,
-            message: error.message
+            message: error?.code && error.code === "P2002" ? "Email already exists" : error.message
         })
     }
 }

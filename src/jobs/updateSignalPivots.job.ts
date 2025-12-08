@@ -92,22 +92,27 @@ const updateSignalPivots = async (signal: any) => {
     // Calculate theoretical profitability
     let theoreticalProfitAbsolute = 0
     let theoreticalProfitPercent = 0
+    let bestPrice = 0
     
     if (direction === "LONG") {
         if (maxPivot > entryPrice) {
             theoreticalProfitAbsolute = maxPivot - entryPrice
             theoreticalProfitPercent = ((maxPivot - entryPrice) / entryPrice) * 100
+            bestPrice = maxPivot
         } else {
             theoreticalProfitAbsolute = minPivot - entryPrice
             theoreticalProfitPercent = ((minPivot - entryPrice) / entryPrice) * 100
+            bestPrice = minPivot
         }
     } else {
         if (minPivot < entryPrice) {
             theoreticalProfitAbsolute = entryPrice - minPivot
             theoreticalProfitPercent = ((entryPrice - minPivot) / entryPrice) * 100
+            bestPrice = minPivot
         } else {
             theoreticalProfitAbsolute = -(maxPivot - entryPrice)
             theoreticalProfitPercent = -((maxPivot - entryPrice) / entryPrice) * 100
+            bestPrice = maxPivot
         }
     }
 
@@ -142,6 +147,7 @@ const updateSignalPivots = async (signal: any) => {
             isComplete,
             pnlA: theoreticalProfitAbsolute,
             pnlP: theoreticalProfitPercent,
+            exit_price: bestPrice,
             meta: updatedMeta as any,
             updated_at: new Date()
         }
@@ -150,6 +156,7 @@ const updateSignalPivots = async (signal: any) => {
     const statusEmoji = isComplete ? "✅" : "⏳"
     const profitEmoji = theoreticalProfitPercent > 0 ? "📈" : "📉"
     console.log(`${statusEmoji} Signal ${signal.id} (${signal.currency_label}): Day ${newPivotCalcDays}/21
+        Best Price: $${bestPrice.toFixed(2)}
         ${profitEmoji} Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
         Complete: ${isComplete ? "YES" : "NO"}`)
 
@@ -158,7 +165,8 @@ const updateSignalPivots = async (signal: any) => {
         signalId: signal.id, 
         day: newPivotCalcDays, 
         isComplete,
-        profit: theoreticalProfitPercent 
+        profit: theoreticalProfitPercent,
+        bestPrice
     }
 }
 
@@ -227,16 +235,15 @@ signalPivotWorker.on("failed", (job, err) => {
 })
 
 /**
- * Schedule recurring job to run daily at 1:00 AM
+ * Schedule recurring job to run daily at 4:00 AM
  */
 export const scheduleSignalPivotUpdate = async () => {
-    // Add repeatable job (runs daily at 1:00 AM)
     await signalPivotQueue.add(
         "dailyPivotUpdate",
         {},
         {
             repeat: {
-                pattern: "23 17 * * *", // Cron: Every day at 1:00 AM
+                pattern: "0 4 * * *", // Cron: Every day at 4:00 AM
             },
             removeOnComplete: {
                 age: 86400 * 7, // Keep logs for 7 days
@@ -248,5 +255,24 @@ export const scheduleSignalPivotUpdate = async () => {
         }
     )
 
-    console.log("✅ Signal pivot update job scheduled (Daily at 1:00 AM via BullMQ)")
+    console.log("✅ Signal pivot update job scheduled (Daily at 4:00 AM via BullMQ)")
+
+    // Trigger immediate signal pivot update on server startup
+    // await signalPivotQueue.add(
+    //     "dailyPivotUpdate",
+    //     {},
+    //     {
+    //         priority: 1,
+    //         removeOnComplete: {
+    //             age: 86400 * 7,
+    //             count: 10
+    //         },
+    //         removeOnFail: {
+    //             age: 86400 * 14
+    //         }
+    //     }
+    // )
+
+    // console.log("✅ Signal pivot update job triggered immediately")
+
 }

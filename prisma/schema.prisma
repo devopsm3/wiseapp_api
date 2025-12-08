@@ -67,6 +67,7 @@ model Source {
   source_status SourceStatus @default(PROCESSING)
 
   platform_logo                   String
+  display_name                    String      @default("")
   platform_user_picture           String
   user_name_source                String
   user_username_source            String
@@ -103,13 +104,21 @@ model Source {
   sol_probility      Decimal? @db.Decimal(20, 8)
 
   alts_total_quantity Int?
-  alts_probility      Decimal?     @db.Decimal(20, 8)
-  metadata            Json?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @default(now()) @updatedAt()
-  SourcePost          SourcePost[]
-  User                User         @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
-  Signal              Signal[]
+  alts_probility      Decimal? @db.Decimal(20, 8)
+
+  // Post validation & reliability metrics
+  source_validation_total_checks  Int       @default(0)
+  source_validation_deleted_count Int       @default(0)
+  source_validation_deletion_rate Decimal?  @db.Decimal(5, 2) // Percentage 0-100
+  source_validation_last_check    DateTime?
+  source_truth_score              Decimal?  @db.Decimal(5, 2) // 0-100 score
+
+  metadata   Json?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @default(now()) @updatedAt()
+  SourcePost SourcePost[]
+  User       User         @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
+  Signal     Signal[]
 }
 
 model SourcePost {
@@ -125,10 +134,25 @@ model SourcePost {
   text         String            @db.MediumText
   analysis     Json
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt()
-  Source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  Signal    Signal[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @default(now()) @updatedAt()
+  Source         Source           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  Signal         Signal[]
+  PostValidation PostValidation[]
+}
+
+model PostValidation {
+  id           Int      @id @default(autoincrement())
+  sourcePostId Int
+  checkedAt    DateTime @default(now())
+  exists       Boolean // true if post still exists, false if deleted
+  errorMessage String?  @db.Text // Error message if check failed
+  metadata     Json? // Additional info (API response, etc.)
+
+  SourcePost SourcePost @relation(fields: [sourcePostId], references: [id], onDelete: Cascade)
+
+  @@index([sourcePostId])
+  @@index([checkedAt])
 }
 
 // SIGNALS
@@ -153,12 +177,6 @@ enum SignalStatus {
   PASSED
 }
 
-enum ManualOverride {
-  OPEN
-  PASS
-  CLOSE
-}
-
 model Signal {
   id             Int    @id @default(autoincrement())
   user_db_id     Int
@@ -169,18 +187,15 @@ model Signal {
   signal_trend_level SignalTrendLvl
   signal_trend       SignalTrend
   status             SignalStatus
-  manual_override    ManualOverride?
-
-  currency_logo   String
-  currency_label  String
-  pnlA            Float    @default(0)
-  pnlP            Float    @default(0)
-  coin_id         Int? // CoinMarketCap coin ID
-  time_frame      String?
-  entry_timestamp DateTime
-  entry_price     Float    @default(0)
-  exit_price      Float?
-  sources_nbr     Int      @default(1)
+  currency_logo      String
+  currency_label     String
+  pnlA               Float          @default(0)
+  pnlP               Float          @default(0)
+  coin_id            Int? // CoinMarketCap coin ID
+  entry_timestamp    DateTime
+  entry_price        Float          @default(0)
+  exit_price         Float?
+  sources_nbr        Int            @default(1)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

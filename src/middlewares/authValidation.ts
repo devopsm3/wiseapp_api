@@ -3,9 +3,8 @@ import jwt, { JwtPayload } from "jsonwebtoken"
 import config from "../config/config"
 import { prisma } from "../prisma"
 
-interface TokenPayload extends JwtPayload {
+export interface TokenPayload extends JwtPayload {
         id: number; 
-
 }
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
