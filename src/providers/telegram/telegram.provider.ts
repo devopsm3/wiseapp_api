@@ -2,7 +2,6 @@
 import fs from "fs"
 import { client } from "../../config/initTelegram"
 import { Api } from "telegram"
-import { countTokens } from "../AgentAI/agentai.helpers"
 import { PlatformName } from "@prisma/client"
 // import { getDaysAgoTimestamp } from "../../utils/global.helpers"
 import { agentAI_signal_analyzer } from "../AgentAI/agentai.provider"
@@ -89,21 +88,12 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
             //         console.log("✅ Saved new media:", fileName)
             //     }
             // }
-            const { postText, tokens } = countTokens(message.message)
-
-        
-            // console.log(" -------------------------------------------------------------- ----------------------- ")
-            // console.log(" 🚀   -->  message.message:", message.message)
-            console.log(" 🚀   -->  message.message:", postText, " 🚀   -->  tokens:", tokens)
-    
-            // console.log(" ")
-            // console.log(" ")
-            // console.log(" ")
-            if (tokens < 3) continue
-            if (tokens > 90) continue
+            // const { postText, tokens } = countTokens(message.message)
+            // if (tokens < 3) continue
+            // if (tokens > 90) continue
             posts.push({
                 id: message.id,
-                text: postText,
+                text: message.message,
                 originalText: message.message,
                 timestamp: message.date,
                 date: new Date(message.date * 1000),
