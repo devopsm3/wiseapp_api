@@ -35,9 +35,9 @@ export const getUserById = async (req: Request, res: Response, next: NextFunctio
 
 export const addUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const user = await addUserService(req.body)
-        if (!user) {
-            return res.status(404).json({ status: false, message: "User not found" })
+        const user: any = await addUserService(req.body)
+        if (!user.status) {
+            return res.status(404).json({ status: false, message: user.message })
         }
         res.status(200).json({
             status: true,
@@ -50,9 +50,9 @@ export const addUser = async (req: Request, res: Response, next: NextFunction) =
 
 export const updateUserById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const user = await updateUserByIdService(Number(req.params.id), req.body)
-        if (!user) {
-            return res.status(404).json({ status: false, message: "User not found" })
+        const user: any = await updateUserByIdService(Number(req.params.id), req.body)
+        if (!user.status) {
+            return res.status(404).json({ status: false, message: user.message })
         }
         res.status(200).json({
             status: true,

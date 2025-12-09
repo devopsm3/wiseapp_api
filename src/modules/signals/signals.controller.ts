@@ -5,7 +5,7 @@ import { getOHLC } from "../../providers/Coingecko/coingecko.provider"
 
 export const getSignals = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const signals = await getSignalsService(req.user!)
+        const signals = await getSignalsService(req.user!, req.query.type as "signals" | "meta_signals")
 
         if (!signals) {
             return res.status(404).json({ status: false, message: "Signals not found" })

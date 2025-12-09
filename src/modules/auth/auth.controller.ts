@@ -32,13 +32,17 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         })
 
         if (!user) {
-            return res.status(401).json({ status: false, message: "Invalid email or password" })
+            return res.status(400).json({ status: false, message: "Invalid email or password" })
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password)
 
         if (!isPasswordValid) {
-            return res.status(401).json({ status: false, message: "Invalid email or password" })
+            return res.status(400).json({ status: false, message: "Invalid email or password" })
+        }
+
+        if (user.isBanned) {
+            return res.status(400).json({ status: false, message: "Your account is banned" })
         }
 
         // if (!user.twoFactorAuthEnabled) {
@@ -54,7 +58,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         //     encoding: "base32",
         //     token: req.body.code2fa
         // })
-          
+
         // if (!codeVerified) {
         //     return res.status(401).json({ status: false, message: "Invalid F2A code" })
         // }
@@ -68,24 +72,26 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
                 refreshToken
             },
         })
-        res.cookie("refreshToken", refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-        }).json({
-            status: true,
-            data: {
-                token: accessToken,
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    login: user.login,
-                    isAdmin: user.isAdmin,
-                    created_at: user.createdAt
-                },
-                twoFactorAuthEnabled: user.twoFactorAuthEnabled,
-            }
-        })
+        res
+            //     .cookie("refreshToken", refreshToken, {
+            //     httpOnly: true,
+            //     secure: process.env.NODE_ENV === "production",
+            //     sameSite: "strict",
+            // })
+            .json({
+                status: true,
+                data: {
+                    token: accessToken,
+                    user: {
+                        id: user.id,
+                        email: user.email,
+                        login: user.login,
+                        is_admin: user.isAdmin,
+                        created_at: user.createdAt
+                    },
+                    twoFactorAuthEnabled: user.twoFactorAuthEnabled,
+                }
+            })
     } catch (error) {
         next(error)
     }
@@ -100,7 +106,7 @@ export const register = async (req: Request, res: Response) => {
                 email: req.body.email,
                 login: req.body.login,
                 password: hashedPassword,
-                twoFactorAuthEnabled: true,
+                twoFactorAuthEnabled: false,
             },
         })
 
@@ -196,7 +202,7 @@ export const refreshToken = async (req: any, res: Response) => {
             status: true,
             token: accessToken,
             twoFactorAuthEnabled: user.twoFactorAuthEnabled,
-            isAdmin: user.isAdmin
+            is_admin: user.isAdmin
         })
 
     } catch (err: any) {
@@ -218,9 +224,11 @@ export const logout = async (req: Request, res: Response) => {
 
 export const getTwoFactorAuthSecret = async (req: Request, res: Response) => {
     try {
-        const user = await prisma.user.findUnique({ where: { 
-            id: req.user!.id,
-        } })
+        const user = await prisma.user.findUnique({
+            where: {
+                id: req.user!.id,
+            }
+        })
         if (!user) {
             return res.status(404).json({ status: false, message: "User not found" })
         }
@@ -228,7 +236,7 @@ export const getTwoFactorAuthSecret = async (req: Request, res: Response) => {
         if (user.twoFactorAuthEnabled) {
             return res.status(400).json({ status: true, message: "2fa_already_enabled" })
         }
-        
+
         const secret = speakeasy.generateSecret({
             name: "TheWise",
             length: 20,
@@ -237,7 +245,7 @@ export const getTwoFactorAuthSecret = async (req: Request, res: Response) => {
 
         await prisma.user.update({
             where: { id: req.user!.id },
-            data: { 
+            data: {
                 twoFactorAuthSecret: secret.base32,
             },
         })
@@ -249,9 +257,11 @@ export const getTwoFactorAuthSecret = async (req: Request, res: Response) => {
 
 export const ActivateTwoFactorAuth = async (req: Request, res: Response) => {
     try {
-        const user = await prisma.user.findUnique({ where: { 
-            id: req.user!.id,
-        } })
+        const user = await prisma.user.findUnique({
+            where: {
+                id: req.user!.id,
+            }
+        })
         if (!user) {
             return res.status(404).json({ status: false, message: "User not found" })
         }
@@ -273,7 +283,7 @@ export const ActivateTwoFactorAuth = async (req: Request, res: Response) => {
 
         await prisma.user.update({
             where: { id: req.user!.id },
-            data: { 
+            data: {
                 twoFactorAuthEnabled: true,
             },
         })
