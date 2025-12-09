@@ -32,6 +32,7 @@ export const getSignalsService = async (currentUser: User, type: "signals" | "me
         // }
         const signalsInfo = []
         // const alignmentPostsForMetaSignals = (setup?.meta_signals as unknown as MetaSignalSetup)?.alignment_posts_for_meta_signals || 3
+        const alignmentPostsForMetaSignals = 3
 
         if (type === "signals") {
             for (let i = 0; i < filteredSignals.length; i++) {
@@ -79,7 +80,7 @@ export const getSignalsService = async (currentUser: User, type: "signals" | "me
                             is_verified: source.user_verified,
                             source_id: source.user_username_source,
                             source_url,
-                            post_url,
+                            post_url: [post_url],
                             id: source.id
     
                         }
@@ -92,7 +93,107 @@ export const getSignalsService = async (currentUser: User, type: "signals" | "me
             }
         }
         if (type === "meta_signals") {
-            // type is meta_signals 
+            // Sort signals by date (oldest first) to ensure correct grouping timeline
+            filteredSignals.sort((a, b) => new Date(a.entry_timestamp).getTime() - new Date(b.entry_timestamp).getTime())
+
+            // Linear processing to handle multiple groups for same token/trend correctly
+            const processedSignals = []
+            const tempGroups: { [key: string]: typeof filteredSignals } = {}
+
+            for (const signal of filteredSignals) {
+                const key = `${signal.currency_label}-${signal.signal_trend}`
+                 
+                if (!tempGroups[key]) {
+                    tempGroups[key] = [signal]
+                } else {
+                    const currentGroup = tempGroups[key]
+                    const firstSignal = currentGroup[0]
+                    const timeDiff = new Date(signal.entry_timestamp).getTime() - new Date(firstSignal.entry_timestamp).getTime()
+                    const daysDiff = timeDiff / (1000 * 3600 * 24)
+
+                    if (daysDiff <= 3) {
+                        currentGroup.push(signal)
+                    } else {
+                        // Push the completed group to processed list
+                        processedSignals.push([...currentGroup])
+                        // Start new group
+                        tempGroups[key] = [signal]
+                    }
+                }
+            }
+            
+            // Add remaining groups
+            Object.values(tempGroups).forEach(group => processedSignals.push(group))
+
+            for (const group of processedSignals) {
+                // Skip groups with only 1 signal
+                if (group.length < 2) {
+                    continue
+                }
+
+                const oldestSignal = group[0] // Already sorted
+                
+                let totalPnlA = 0
+                let totalPnlP = 0
+                let totalAlignment = 0
+                const sourcesMap = new Map<number, any>()
+
+                for (const signal of group) {
+                    totalPnlA += signal.pnlA ? Number(signal.pnlA) : 0
+                    totalPnlP += signal.pnlP ? Number(signal.pnlP) : 0
+                    totalAlignment += signal.sources_nbr || 0
+                    
+                    const source = signal.Source
+                    let post_url = ""
+                    let source_url = ""
+        
+                    if (source.platform_logo === "TELEGRAM") {
+                        post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
+                        source_url = `https://t.me/${source.user_username_source}`
+                    } else {
+                        post_url = `https://x.com/${source.user_username_source}/status/${String(signal.SourcePost.originalId)}`
+                        source_url = `https://x.com/${source.user_username_source}`
+                    }
+
+                    if (sourcesMap.has(source.id)) {
+                        // Add post_url to existing source
+                        sourcesMap.get(source.id).post_url.push(post_url)
+                    } else {
+                        // Create new source entry
+                        sourcesMap.set(source.id, {
+                            source_image_url: source.platform_user_picture,
+                            platform: source.platform_logo,
+                            source_name: source.user_name_source,
+                            is_verified: source.user_verified,
+                            source_id: source.user_username_source,
+                            source_url,
+                            post_url: [post_url],
+                            id: source.id
+                        })
+                    }
+                }
+
+                const sources = Array.from(sourcesMap.values())
+
+                const signalTrendLevel = getSignalTrendLevel(oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish", totalAlignment, alignmentPostsForMetaSignals)
+
+                signalsInfo.push({
+                    trend: oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish",
+                    id: oldestSignal.id, // Use oldest signal ID as representative
+                    pnl_value: totalPnlA,
+                    pnl_percent: totalPnlP,
+                    status: oldestSignal.status.toLowerCase(),
+                    token_symbol: oldestSignal.currency_label,
+                    token_logo: oldestSignal.currency_logo,
+                    created_at: oldestSignal.entry_timestamp,
+                    entry_price: Number(oldestSignal.entry_price),
+                    exit_price: oldestSignal.exit_price ? Number(oldestSignal.exit_price) : null,
+                    alignment_count: totalAlignment,
+                    signal_trend_level: signalTrendLevel,
+                    price_analytics: (oldestSignal.meta as unknown as PivotCalculationMeta).pivotData || [],
+                    sources: sources,
+                })
+            }
         } 
         return signalsInfo
     } catch (error) {
