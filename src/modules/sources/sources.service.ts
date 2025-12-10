@@ -35,25 +35,52 @@ export const getSourcesService = async (currentUser: User) => {
             const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
             const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
             const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+            const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
             const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
 
             let signals_count_d = 0
             let signals_count_w = 0
             let signals_count_m = 0
             let signals_count_3m = 0
+            let signals_count_6m = 0
             let signals_count_y = 0
+            
+            let bull_count_d = 0
+            let bull_count_w = 0
+            let bull_count_m = 0
+            let bull_count_3m = 0
+            let bull_count_6m = 0
+            let bull_count_y = 0
+            
+            let bear_count_d = 0
+            let bear_count_w = 0
+            let bear_count_m = 0
+            let bear_count_3m = 0
+            let bear_count_6m = 0
+            let bear_count_y = 0
 
             let profitability_d = 0
             let profitability_w = 0
             let profitability_m = 0
             let profitability_3m = 0
+            let profitability_6m = 0
             let profitability_y = 0
+            
+            let total_count_signals = 0
 
             const token_profitability_d: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
             const token_profitability_w: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
             const token_profitability_m: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
             const token_profitability_3m: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
+            const token_profitability_6m: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
             const token_profitability_y: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
+
+            const token_count_d: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
+            const token_count_w: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
+            const token_count_m: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
+            const token_count_3m: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
+            const token_count_6m: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
+            const token_count_y: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
 
             if (source.Signal) {
                 source.Signal.forEach(signal => {
@@ -61,37 +88,61 @@ export const getSourcesService = async (currentUser: User) => {
                     const pnl = signal.pnlP || 0
                     const token = signal.currency_label ? signal.currency_label.toUpperCase() : "ALTS"
                     const tokenKey = ["BTC", "ETH", "SOL"].includes(token) ? token : "ALTS"
+                    total_count_signals++
 
                     if (signalDate >= oneDayAgo) {
                         signals_count_d++
                         profitability_d += pnl
                         token_profitability_d[tokenKey] += pnl
+                        token_count_d[tokenKey]++
+                        if (signal.signal_trend === "LONG") bull_count_d++
+                        if (signal.signal_trend === "SHORT") bear_count_d++
                     }
                     if (signalDate >= oneWeekAgo) {
                         signals_count_w++
                         profitability_w += pnl
                         token_profitability_w[tokenKey] += pnl
+                        token_count_w[tokenKey]++
+                        if (signal.signal_trend === "LONG") bull_count_w++
+                        if (signal.signal_trend === "SHORT") bear_count_w++
                     }
                     if (signalDate >= oneMonthAgo) {
                         signals_count_m++
                         profitability_m += pnl
                         token_profitability_m[tokenKey] += pnl
+                        token_count_m[tokenKey]++
+                        if (signal.signal_trend === "LONG") bull_count_m++
+                        if (signal.signal_trend === "SHORT") bear_count_m++
+
                     }
                     if (signalDate >= threeMonthsAgo) {
                         signals_count_3m++
                         profitability_3m += pnl
                         token_profitability_3m[tokenKey] += pnl
+                        token_count_3m[tokenKey]++
+                        if (signal.signal_trend === "LONG") bull_count_3m++
+                        if (signal.signal_trend === "SHORT") bear_count_3m++
+                    }
+                    if (signalDate >= sixMonthsAgo) {
+                        signals_count_6m++
+                        profitability_6m += pnl
+                        token_profitability_6m[tokenKey] += pnl
+                        token_count_6m[tokenKey]++
+                        if (signal.signal_trend === "LONG") bull_count_6m++
+                        if (signal.signal_trend === "SHORT") bear_count_6m++
                     }
                     if (signalDate >= oneYearAgo) {
                         signals_count_y++
                         profitability_y += pnl
                         token_profitability_y[tokenKey] += pnl
+                        token_count_y[tokenKey]++
+                        if (signal.signal_trend === "LONG") bull_count_y++
+                        if (signal.signal_trend === "SHORT") bear_count_y++
                     }
                 })
             }
 
             return {
-                // ...source,
                 id: source.id,
                 source_image_url: source.platform_user_picture,
                 platform: source.platform_logo,
@@ -100,33 +151,59 @@ export const getSourcesService = async (currentUser: User) => {
                 reverse_signal: source.source_reverse_signal_activated,
                 source_name: source.user_name_source,
                 source_id: source.user_username_source,
-                price_monthly: source.source_price_value,
-                bull_count: source.source_bullish_total_quantity,
-                bear_count: source.source_bearish_total_quantity,
-                btc_count: source.btc_total_quantity,
-                eth_count: source.eth_total_quantity,
-                sol_count: source.sol_total_quantity,
-                alts_count: source.alts_total_quantity,
-                // profitability_m: source.source_global_probility,
+                price_monthly: source.source_price_value,            
+
+                bull_count_d,
+                bull_count_w,
+                bull_count_m,
+                bull_count_3m,
+                bull_count_6m,
+                bull_count_y,
+
+                bear_count_d,
+                bear_count_w,
+                bear_count_m,
+                bear_count_3m,
+                bear_count_6m,
+                bear_count_y,
+
+                // bull_count: source.source_bullish_total_quantity,
+                // bear_count: source.source_bearish_total_quantity,
+                // btc_count: source.btc_total_quantity,
+                // eth_count: source.eth_total_quantity,
+                // sol_count: source.sol_total_quantity,
+                // alts_count: source.alts_total_quantity,
+
                 is_verified: source.user_verified,
-                
                 profitability_d: Number(profitability_d.toFixed(2)),
                 profitability_w: Number(profitability_w.toFixed(2)),
                 profitability_m: Number(profitability_m.toFixed(2)),
                 profitability_3m: Number(profitability_3m.toFixed(2)),
+                profitability_6m: Number(profitability_6m.toFixed(2)),
                 profitability_y: Number(profitability_y.toFixed(2)),
 
                 signals_count_d,
                 signals_count_w,
                 signals_count_m,
                 signals_count_3m,
+                signals_count_6m,
                 signals_count_y,
 
                 token_profitability_d,
                 token_profitability_w,
                 token_profitability_m,
                 token_profitability_3m,
+                token_profitability_6m,
                 token_profitability_y,
+
+                token_count_d,
+                token_count_w,
+                token_count_m,
+                token_count_3m,
+                token_count_6m,
+                token_count_y,
+
+                total_count_signals,
 
                 // focus
                 followers_count: source.followers_count,
@@ -152,7 +229,7 @@ export const getSourceByIdService = async (id: string, currentUser: User) => {
         let source
         if (sourceId) {
             source = await prisma.source.findUnique({
-                where: { 
+                where: {
                     id: sourceId,
                     user_db_id: currentUser.id,
                     // source_status: SourceStatus.VALIDE,
@@ -173,7 +250,7 @@ export const getSourceByIdService = async (id: string, currentUser: User) => {
                 message: "Source not found"
             }
         }
-        return { 
+        return {
             status: true,
             source: source
         }
@@ -219,9 +296,9 @@ export const addSourceService = async (source: any, currentUser: User) => {
             return {
                 status: false,
                 message:
-                source.sourceType === PlatformName.TELEGRAM
-                    ? `Telegram channel '${source.sourceId}' could not be found or is inaccessible.`
-                    : `User '${source.sourceId}' could not be found or the profile is unavailable.`
+                    source.sourceType === PlatformName.TELEGRAM
+                        ? `Telegram channel '${source.sourceId}' could not be found or is inaccessible.`
+                        : `User '${source.sourceId}' could not be found or the profile is unavailable.`
             }
         }
 
@@ -317,6 +394,7 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
         const formattedSignals = signals.map(signal => ({
             id: signal.id.toString(),
             token_symbol: signal.currency_label,
+            token_logo: signal.currency_logo,
             trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
             pnl_percent: signal.pnlP,
             created_at: signal.entry_timestamp.toISOString(),

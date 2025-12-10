@@ -24,6 +24,10 @@ export const coinImages = {
     sol: {
         logo: "https://s2.coinmarketcap.com/static/img/coins/128x128/5426.png",
         id: 5426
+    },
+    alts: {
+        logo: "https://assets.coingecko.com/coins/images/67181/standard/bihvzx2ifx011ghkysnm05p59lxd.?1751991701",
+        id: 0
     }
 }
 // export const coinImages = {

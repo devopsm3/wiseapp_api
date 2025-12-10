@@ -12,79 +12,63 @@ export const getSetupsService = async (currentUser: User) => {
     } catch (error) {
 
         console.log(" 🚀   -->  error:", error)
-        return error
+        return null
     }
 }
 
-// get signal by id
-export const getSetupByIdService = async (id: number, currentUser: User) => {
-    try {
-        const setup = await prisma.setup.findUnique({
-            where: {
-                id: id,
-                user_db_id: currentUser.id,
-            },
-        })
-        if (!setup) {
-            return null
-        }
-        return setup
-    } catch (error) {
-        return error
-    }
-}
+// // get signal by id
+// export const getSetupByIdService = async (id: number, currentUser: User) => {
+//     try {
+//         const setup = await prisma.setup.findUnique({
+//             where: {
+//                 id: id,
+//                 user_db_id: currentUser.id,
+//             },
+//         })
+//         if (!setup) {
+//             return null
+//         }
+//         return setup
+//     } catch (error) {
+//         return error
+//     }
+// }
 
 export const addSetupService = async (currentUser: User, setupData: any) => {
     try {
         const setup = await prisma.setup.create({
             data: {
-                name: setupData.name || "test_setup",
-                sources: undefined,
-                trading:undefined,
-                meta_signals: setupData?.meta_signals!,
+                name: `global_setup_${currentUser.id}`,
+                settings: setupData,
                 user_db_id: currentUser.id,
             },
         })
-        if (!setup) {
-            return null
-        }
         return setup
     } catch (error) {
-        return error
+        console.log(" 🚀   -->  error:", error)
+        return null 
     }
 }
 
-export const updateSetupService = async (id: number, setupData: any, currentUser: User) => {
-
+export const updateSetupService = async (setupId: number, setupData: any, currentUser: User) => {
     try {
-        const setup = await prisma.setup.update({
+        const setup = await prisma.setup.upsert({
             where: {
-                id: id,
+                id: setupId,
+            },
+            update: {
+                settings: setupData,
                 user_db_id: currentUser.id,
             },
-            data: {
-                name: setupData.name,
-                sources: undefined,
-                trading:undefined,
-                meta_signals: setupData?.meta_signals!,
+            create: {
+                name: `global_setup_${currentUser.id}`,
+                settings: setupData,
+                user_db_id: currentUser.id,
             },
         })
-        return setup
-    } catch (error: any) {
-        
-        if (error.code === "P2025") {
-            const setup = await prisma.setup.create({
-                data: {
-                    name: setupData.name || "setup-1-test",
-                    sources: undefined,
-                    trading:undefined,
-                    meta_signals: setupData?.meta_signals!,
-                    user_db_id: currentUser.id,
-                },
-            })
 
-            return setup
-        }
+        return setup
+    } catch(error) {
         console.log(" 🚀   -->  error:", error)
         return null
     }

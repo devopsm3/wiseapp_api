@@ -213,9 +213,7 @@ model Setup {
   user_db_id Int
   name       String
 
-  sources      Json?
-  meta_signals Json?
-  trading      Json?
+  settings Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
