@@ -12,7 +12,14 @@ import { createOrUpdateSignal } from "../signals/signals.provider"
 
 const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User) => {
 
+    console.log(" ------------------ ")
+    console.log(" ")
+    console.log(" ")
     console.log(" 🚀   -->  source:", source)
+    console.log(" 🚀   -->  source:", messages.length)
+    console.log(" ")
+    console.log(" ")
+    console.log(" ------------------ ")
     try {
         if (!channelInfo) {
             return {

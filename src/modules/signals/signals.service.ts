@@ -98,35 +98,49 @@ export const getSignalsService = async (currentUser: User, type: "signals" | "me
 
             // Linear processing to handle multiple groups for same token/trend correctly
             const processedSignals = []
-            const tempGroups: { [key: string]: typeof filteredSignals } = {}
+            const tempGroups: { [key: string]: { signals: typeof filteredSignals, sourceIds: Set<number> } } = {}
 
             for (const signal of filteredSignals) {
                 const key = `${signal.currency_label}-${signal.signal_trend}`
+                const sourceId = signal.Source.id
                  
                 if (!tempGroups[key]) {
-                    tempGroups[key] = [signal]
+                    tempGroups[key] = {
+                        signals: [signal],
+                        sourceIds: new Set([sourceId])
+                    }
                 } else {
                     const currentGroup = tempGroups[key]
-                    const firstSignal = currentGroup[0]
+                    
+                    // Skip if this source is already in the current group
+                    if (currentGroup.sourceIds.has(sourceId)) {
+                        continue
+                    }
+                    
+                    const firstSignal = currentGroup.signals[0]
                     const timeDiff = new Date(signal.entry_timestamp).getTime() - new Date(firstSignal.entry_timestamp).getTime()
                     const daysDiff = timeDiff / (1000 * 3600 * 24)
 
                     if (daysDiff <= 3) {
-                        currentGroup.push(signal)
+                        currentGroup.signals.push(signal)
+                        currentGroup.sourceIds.add(sourceId)
                     } else {
                         // Push the completed group to processed list
-                        processedSignals.push([...currentGroup])
+                        processedSignals.push([...currentGroup.signals])
                         // Start new group
-                        tempGroups[key] = [signal]
+                        tempGroups[key] = {
+                            signals: [signal],
+                            sourceIds: new Set([sourceId])
+                        }
                     }
                 }
             }
             
             // Add remaining groups
-            Object.values(tempGroups).forEach(group => processedSignals.push(group))
+            Object.values(tempGroups).forEach(group => processedSignals.push(group.signals))
 
             for (const group of processedSignals) {
-                // Skip groups with only 1 signal
+                // Skip groups with only 1 signal (need at least 2 different sources)
                 if (group.length < 2) {
                     continue
                 }
@@ -136,7 +150,7 @@ export const getSignalsService = async (currentUser: User, type: "signals" | "me
                 let totalPnlA = 0
                 let totalPnlP = 0
                 let totalAlignment = 0
-                const sourcesMap = new Map<number, any>()
+                const sources = []
 
                 for (const signal of group) {
                     totalPnlA += signal.pnlA ? Number(signal.pnlA) : 0
@@ -155,25 +169,17 @@ export const getSignalsService = async (currentUser: User, type: "signals" | "me
                         source_url = `https://x.com/${source.user_username_source}`
                     }
 
-                    if (sourcesMap.has(source.id)) {
-                        // Add post_url to existing source
-                        sourcesMap.get(source.id).post_url.push(post_url)
-                    } else {
-                        // Create new source entry
-                        sourcesMap.set(source.id, {
-                            source_image_url: source.platform_user_picture,
-                            platform: source.platform_logo,
-                            source_name: source.user_name_source,
-                            is_verified: source.user_verified,
-                            source_id: source.user_username_source,
-                            source_url,
-                            post_url: [post_url],
-                            id: source.id
-                        })
-                    }
+                    sources.push({
+                        source_image_url: source.platform_user_picture,
+                        platform: source.platform_logo,
+                        source_name: source.user_name_source,
+                        is_verified: source.user_verified,
+                        source_id: source.user_username_source,
+                        source_url,
+                        post_url: [post_url],
+                        id: source.id
+                    })
                 }
-
-                const sources = Array.from(sourcesMap.values())
 
                 const signalTrendLevel = getSignalTrendLevel(oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish", totalAlignment, alignmentPostsForMetaSignals)
 
