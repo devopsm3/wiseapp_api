@@ -31,7 +31,7 @@ initSocket(server)
 
 // Start BullMQ jobs
 scheduleSignalPivotUpdate()
-// schedulePostValidation()
+schedulePostValidation()
 
 server.listen(config.port, () => {
     console.log(`🚀 Server running on http://localhost:${config.port}`)
