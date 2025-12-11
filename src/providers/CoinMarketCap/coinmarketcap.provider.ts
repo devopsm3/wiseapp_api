@@ -91,6 +91,7 @@ export const getCoinInfo = async (symbol: string): Promise<{ id: number; logo: s
 }
 
 export const getTokenPriceAtDate = async (symbol: string, targetDate: Date, retries: number = 3): Promise<number | null> => {
+    // const coinId = symbol
     const coinId = getCoinMarketCapSymbolId(symbol)
     if (!coinId) {
         return null

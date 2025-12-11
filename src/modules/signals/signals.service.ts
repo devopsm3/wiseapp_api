@@ -6,7 +6,7 @@ import { formatDateTime, formatTimeFromNow } from "../../utils/global.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 import { GlobalSettings } from "../../types/setup.types"
 
-export const getSignalsService = async (currentUser: User, type: "signals" | "meta_signals") => {
+export const getSignalsService = async (currentUser: User) => {
     try {
         const signalsData = await prisma.signal.findMany({
             where: {
@@ -20,9 +20,136 @@ export const getSignalsService = async (currentUser: User, type: "signals" | "me
 
         let filteredSignals = signalsData
         const signalsInfo = []
-        if (type === "signals") {
-            for (let i = 0; i < filteredSignals.length; i++) {
-                const signal = filteredSignals[i]
+        const metaSignalsInfo = []
+        for (let i = 0; i < filteredSignals.length; i++) {
+            const signal = filteredSignals[i]
+            const source = signal.Source
+            let post_url = ""
+            let source_url = ""
+
+            if (source.platform_logo === "TELEGRAM") {
+                post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
+                source_url = `https://t.me/${source.user_username_source}`
+            } else {
+                post_url = `https://x.com/${source.user_username_source}/status/${String(signal.SourcePost.originalId)}`
+                source_url = `https://x.com/${source.user_username_source}`
+            }
+
+            signalsInfo.push({
+                trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
+                id: signal.id,
+                pnl_value: signal.pnlA ? Number(signal.pnlA) : 0,
+                pnl_percent: signal.pnlP ? Number(signal.pnlP) : 0,
+                status: signal.status.toLowerCase(),
+                token_symbol: signal.currency_label,
+                token_logo: signal.currency_logo,
+                created_at: signal.entry_timestamp,
+                entry_price: Number(signal.entry_price),
+                exit_price: signal.exit_price ? Number(signal.exit_price) : null,
+                alignment_count: signal.sources_nbr,
+                signal_trend_level: signal.signal_trend === "LONG" ? "V100" : "R100",
+                price_analytics: (signal.meta as unknown as PivotCalculationMeta).pivotData || [],
+                sources: [
+                    {
+                        source_image_url: source.platform_user_picture,
+                        platform: source.platform_logo,
+                        source_name: source.user_name_source,
+                        is_verified: source.user_verified,
+                        source_id: source.user_username_source,
+                        source_url,
+                        post_url: [post_url],
+                        id: source.id
+
+                    }
+                ],
+                // trend: signal.____________,
+                // trend: signal.____________,
+                // trend: signal.____________,
+                // trend: signal.____________,
+            })
+        }
+
+        let setupsettings: Partial<GlobalSettings> = {
+            metasignal_quorum_min: 2,
+            metasignal_time_window: 72,
+        }
+
+        const setup = await prisma.setup.findFirst({
+            where: {
+                user_db_id: currentUser.id,
+            },
+        })
+        if (setup && setup.settings) {
+            setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
+        }
+
+        const metasignal_quorum_min = setupsettings.metasignal_quorum_min || 3
+        const metasignal_time_window = setupsettings.metasignal_time_window || 72
+        // Sort signals by date (oldest first) to ensure correct grouping timeline
+        filteredSignals.sort((a, b) => new Date(a.entry_timestamp).getTime() - new Date(b.entry_timestamp).getTime())
+
+        // Linear processing to handle multiple groups for same token/trend correctly
+        const processedSignals = []
+        const tempGroups: { [key: string]: { signals: typeof filteredSignals, sourceIds: Set<number> } } = {}
+
+        for (const signal of filteredSignals) {
+            const key = `${signal.currency_label}-${signal.signal_trend}`
+            const sourceId = signal.Source.id
+
+            if (!tempGroups[key]) {
+                tempGroups[key] = {
+                    signals: [signal],
+                    sourceIds: new Set([sourceId])
+                }
+            } else {
+                const currentGroup = tempGroups[key]
+
+                // Skip if this source is already in the current group
+                if (currentGroup.sourceIds.has(sourceId)) {
+                    continue
+                }
+
+                const firstSignal = currentGroup.signals[0]
+                const timeDiff = new Date(signal.entry_timestamp).getTime() - new Date(firstSignal.entry_timestamp).getTime()
+                const daysDiff = timeDiff / (1000 * 3600 * 24)
+
+                if (daysDiff <= (metasignal_time_window * 24)) {
+                    currentGroup.signals.push(signal)
+                    currentGroup.sourceIds.add(sourceId)
+                } else {
+                    // Push the completed group to processed list
+                    processedSignals.push([...currentGroup.signals])
+
+                    // Start new group
+                    tempGroups[key] = {
+                        signals: [signal],
+                        sourceIds: new Set([sourceId])
+                    }
+                }
+            }
+        }
+
+        // Add remaining groups
+        Object.values(tempGroups).forEach(group => processedSignals.push(group.signals))
+
+        for (const group of processedSignals) {
+            // Skip groups with less than metasignal_quorum_min signals (need at least 2 different sources)
+            if (group.length < metasignal_quorum_min) {
+                continue
+            }
+
+            const oldestSignal = group[0] // Already sorted
+
+            let totalPnlA = 0
+            let totalPnlP = 0
+            let totalAlignment = 0
+            const sources = []
+
+            for (const signal of group) {
+                totalPnlA += signal.pnlA ? Number(signal.pnlA) : 0
+                totalPnlP += signal.pnlP ? Number(signal.pnlP) : 0
+                totalAlignment += signal.sources_nbr || 0
+
                 const source = signal.Source
                 let post_url = ""
                 let source_url = ""
@@ -35,167 +162,41 @@ export const getSignalsService = async (currentUser: User, type: "signals" | "me
                     source_url = `https://x.com/${source.user_username_source}`
                 }
 
-                signalsInfo.push({
-                    trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
-                    id: signal.id,
-                    pnl_value: signal.pnlA ? Number(signal.pnlA) : 0,
-                    pnl_percent: signal.pnlP ? Number(signal.pnlP) : 0,
-                    status: signal.status.toLowerCase(),
-                    token_symbol: signal.currency_label,
-                    token_logo: signal.currency_logo,
-                    created_at: signal.entry_timestamp,
-                    entry_price: Number(signal.entry_price),
-                    exit_price: signal.exit_price ? Number(signal.exit_price) : null,
-                    alignment_count: signal.sources_nbr,
-                    signal_trend_level: signal.signal_trend === "LONG" ? "V100" : "R100",
-                    price_analytics: (signal.meta as unknown as PivotCalculationMeta).pivotData || [],
-                    sources: [
-                        {
-                            source_image_url: source.platform_user_picture,
-                            platform: source.platform_logo,
-                            source_name: source.user_name_source,
-                            is_verified: source.user_verified,
-                            source_id: source.user_username_source,
-                            source_url,
-                            post_url: [post_url],
-                            id: source.id
-
-                        }
-                    ],
-                    // trend: signal.____________,
-                    // trend: signal.____________,
-                    // trend: signal.____________,
-                    // trend: signal.____________,
+                sources.push({
+                    source_image_url: source.platform_user_picture,
+                    platform: source.platform_logo,
+                    source_name: source.user_name_source,
+                    is_verified: source.user_verified,
+                    source_id: source.user_username_source,
+                    source_url,
+                    post_url: [post_url],
+                    id: source.id
                 })
             }
-        }
-        if (type === "meta_signals") {
 
-            let setupsettings: Partial<GlobalSettings> = {
-                metasignal_quorum_min: 2,
-                metasignal_time_window: 72,
-            }
-
-            const setup = await prisma.setup.findFirst({
-                where: {
-                    user_db_id: currentUser.id,
-                },
+            const signalTrendLevel = getSignalTrendLevel(oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish", totalAlignment, metasignal_quorum_min)
+            metaSignalsInfo.push({
+                trend: oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish",
+                id: oldestSignal.id, // Use oldest signal ID as representative
+                pnl_value: totalPnlA,
+                pnl_percent: totalPnlP,
+                status: oldestSignal.status.toLowerCase(),
+                token_symbol: oldestSignal.currency_label,
+                token_logo: oldestSignal.currency_logo,
+                created_at: oldestSignal.entry_timestamp,
+                entry_price: Number(oldestSignal.entry_price),
+                exit_price: oldestSignal.exit_price ? Number(oldestSignal.exit_price) : null,
+                alignment_count: totalAlignment,
+                signal_trend_level: signalTrendLevel,
+                price_analytics: (oldestSignal.meta as unknown as PivotCalculationMeta).pivotData || [],
+                sources: sources,
             })
-            if (setup && setup.settings) {
-                setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
-            }
-            
-            const metasignal_quorum_min = setupsettings.metasignal_quorum_min || 3
-            const metasignal_time_window = setupsettings.metasignal_time_window || 72            
-            // Sort signals by date (oldest first) to ensure correct grouping timeline
-            filteredSignals.sort((a, b) => new Date(a.entry_timestamp).getTime() - new Date(b.entry_timestamp).getTime())
-
-            // Linear processing to handle multiple groups for same token/trend correctly
-            const processedSignals = []
-            const tempGroups: { [key: string]: { signals: typeof filteredSignals, sourceIds: Set<number> } } = {}
-
-            for (const signal of filteredSignals) {
-                const key = `${signal.currency_label}-${signal.signal_trend}`
-                const sourceId = signal.Source.id
-
-                if (!tempGroups[key]) {
-                    tempGroups[key] = {
-                        signals: [signal],
-                        sourceIds: new Set([sourceId])
-                    }
-                } else {
-                    const currentGroup = tempGroups[key]
-
-                    // Skip if this source is already in the current group
-                    if (currentGroup.sourceIds.has(sourceId)) {
-                        continue
-                    }
-
-                    const firstSignal = currentGroup.signals[0]
-                    const timeDiff = new Date(signal.entry_timestamp).getTime() - new Date(firstSignal.entry_timestamp).getTime()
-                    const daysDiff = timeDiff / (1000 * 3600 * 24)
-
-                    if (daysDiff <= (metasignal_time_window * 24)) {
-                        currentGroup.signals.push(signal)
-                        currentGroup.sourceIds.add(sourceId)
-                    } else {
-                        // Push the completed group to processed list
-                        processedSignals.push([...currentGroup.signals])
-
-                        // Start new group
-                        tempGroups[key] = {
-                            signals: [signal],
-                            sourceIds: new Set([sourceId])
-                        }
-                    }
-                }
-            }
-
-            // Add remaining groups
-            Object.values(tempGroups).forEach(group => processedSignals.push(group.signals))
-
-            for (const group of processedSignals) {
-                // Skip groups with less than metasignal_quorum_min signals (need at least 2 different sources)
-                if (group.length < metasignal_quorum_min) {
-                    continue
-                }
-
-                const oldestSignal = group[0] // Already sorted
-
-                let totalPnlA = 0
-                let totalPnlP = 0
-                let totalAlignment = 0
-                const sources = []
-
-                for (const signal of group) {
-                    totalPnlA += signal.pnlA ? Number(signal.pnlA) : 0
-                    totalPnlP += signal.pnlP ? Number(signal.pnlP) : 0
-                    totalAlignment += signal.sources_nbr || 0
-
-                    const source = signal.Source
-                    let post_url = ""
-                    let source_url = ""
-
-                    if (source.platform_logo === "TELEGRAM") {
-                        post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
-                        source_url = `https://t.me/${source.user_username_source}`
-                    } else {
-                        post_url = `https://x.com/${source.user_username_source}/status/${String(signal.SourcePost.originalId)}`
-                        source_url = `https://x.com/${source.user_username_source}`
-                    }
-
-                    sources.push({
-                        source_image_url: source.platform_user_picture,
-                        platform: source.platform_logo,
-                        source_name: source.user_name_source,
-                        is_verified: source.user_verified,
-                        source_id: source.user_username_source,
-                        source_url,
-                        post_url: [post_url],
-                        id: source.id
-                    })
-                }
-
-                const signalTrendLevel = getSignalTrendLevel(oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish", totalAlignment, metasignal_quorum_min)
-                signalsInfo.push({
-                    trend: oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish",
-                    id: oldestSignal.id, // Use oldest signal ID as representative
-                    pnl_value: totalPnlA,
-                    pnl_percent: totalPnlP,
-                    status: oldestSignal.status.toLowerCase(),
-                    token_symbol: oldestSignal.currency_label,
-                    token_logo: oldestSignal.currency_logo,
-                    created_at: oldestSignal.entry_timestamp,
-                    entry_price: Number(oldestSignal.entry_price),
-                    exit_price: oldestSignal.exit_price ? Number(oldestSignal.exit_price) : null,
-                    alignment_count: totalAlignment,
-                    signal_trend_level: signalTrendLevel,
-                    price_analytics: (oldestSignal.meta as unknown as PivotCalculationMeta).pivotData || [],
-                    sources: sources,
-                })
-            }
         }
-        return signalsInfo
+
+        return {
+            signals: signalsInfo,
+            meta_signals: metaSignalsInfo
+        }
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
         return null
