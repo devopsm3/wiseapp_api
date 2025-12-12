@@ -20,7 +20,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         const user = await prisma.user.findUnique({
             where: { id: decoded.id },
         })
-        if (!user) return res.status(401).json({ error: "token_expired" })
+        if (!user) return res.status(200).json({ error: "token_expired" })
         
         // const allowedWithout2FA = [
         //     { path: "/two-factor-auth", methods: ["GET", "POST"] },
@@ -35,6 +35,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         req.user = user
         next()
     } catch (error: any) {
-        res.status(401).json({ error: error.message === "jwt expired" ? "token_expired" :  error.message || "Invalid Token" })
+        res.status(200).json({ error: error.message === "jwt expired" ? "token_expired" :  error.message || "Invalid Token" })
     }
 }

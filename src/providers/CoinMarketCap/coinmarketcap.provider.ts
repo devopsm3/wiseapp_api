@@ -1,4 +1,4 @@
-import { PivotCalculationResult, CoinMarketCapOHLC, CoinInfoResponse } from "./coinmarketcap.types"
+import { PivotCalculationResult, CoinMarketCapOHLC, CoinInfoResponse, Post, LatestArticle } from "./coinmarketcap.types"
 
 interface CachedCoinInfo {
     id: number;
@@ -15,7 +15,7 @@ const COINMARKETCAP_API_URL = process.env.COINMARKETCAP_API_URL || "https://pro-
 
 export const getCoinMarketCapSymbolId = (symbol: string): number | null => {
     const normalizedSymbol = symbol.toUpperCase()
-    
+
     if (coinInfoCache.has(normalizedSymbol)) {
         return coinInfoCache.get(normalizedSymbol)!.id
     }
@@ -96,7 +96,7 @@ export const getTokenPriceAtDate = async (symbol: string, targetDate: Date, retr
     if (!coinId) {
         return null
     }
-    
+
     const url = `${COINMARKETCAP_API_URL}/v3/cryptocurrency/quotes/historical`
     const params = new URLSearchParams({
         id: coinId.toString(),
@@ -118,12 +118,12 @@ export const getTokenPriceAtDate = async (symbol: string, targetDate: Date, retr
 
     try {
         const response = await fetch(`${url}?${params}`, options)
-        const data: any = await response.json()        
+        const data: any = await response.json()
         if (data.data && data.data[coinId.toString()]
             && data.data[coinId.toString()].quotes
             && data.data[coinId.toString()].quotes.length > 0) {
             const price = data.data[coinId.toString()].quotes[0].quote.USD.price
-            return price 
+            return price
         }
 
         console.warn(`No price data found for ${symbol} on ${targetDate.toISOString()}`)
@@ -232,7 +232,7 @@ export const calculateMaxPivotFrom21Days = async (
     endDate.setUTCDate(endDate.getUTCDate() + 21)
 
     const quotes = await getOHLCVData(coinId, startDate, endDate)
-    
+
     if (!quotes || quotes.length === 0) {
         console.warn(`No OHLC data found for ${symbol} from ${startDate.toISOString()}`)
         return {
@@ -250,13 +250,13 @@ export const calculateMaxPivotFrom21Days = async (
                 minPivotDate: null,
                 pivotData: []
             }
-        }  
+        }
     }
 
     const pivotData: CoinMarketCapOHLC[] = []
-    let maxPivot = priceAtStart 
+    let maxPivot = priceAtStart
     let maxPivotDate: Date | null = null
-    let minPivot = priceAtStart 
+    let minPivot = priceAtStart
     let minPivotDate: Date | null = null
 
     for (const quote of quotes) {
@@ -278,7 +278,7 @@ export const calculateMaxPivotFrom21Days = async (
             maxPivot = pivot
             maxPivotDate = quoteDate
         }
-        
+
         if (pivot < minPivot) {
             minPivot = pivot
             minPivotDate = quoteDate
@@ -294,7 +294,7 @@ export const calculateMaxPivotFrom21Days = async (
     let theoreticalProfitPercent = 0
 
     let bestPrice = 0
-    
+
     if (direction === "LONG") {
         // For LONG: Check if price actually went UP
         if (maxPivot > priceAtStart) {
@@ -324,7 +324,7 @@ export const calculateMaxPivotFrom21Days = async (
     }
 
     let signalSuccess: boolean | null = null
-    
+
     if (isComplete) {
         if (direction === "LONG") {
             signalSuccess = maxPivot > priceAtStart
@@ -359,5 +359,94 @@ export const calculateMaxPivotFrom21Days = async (
             minPivotDate,
             pivotData
         }
+    }
+}
+
+
+// CoinMarketCap Content
+export const getCoinMarketCapTopPosts = async (coinId: number) => {
+    try {
+
+        const url = `${COINMARKETCAP_API_URL}/v1/content/posts/top?id=${String(coinId)}`
+
+        const options = {
+            method: "GET",
+            headers: {
+                "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
+                "Accept": "application/json"
+            }
+        }
+
+        const response = await fetch(`${url}`, options)
+        const data: { data: { list: Post[] } } = await response.json()
+
+        if (!data.data || !data.data.list || data.data.list.length === 0) {
+            console.warn(`No top posts data found for ${coinId}`)
+            return null
+        }
+
+        return data.data.list
+    } catch (error) {
+        console.log(error)
+        return null
+    }
+}
+
+export const getCoinMarketCapLatestPosts = async (coinId: number) => {
+    try {
+
+        const url = `${COINMARKETCAP_API_URL}/v1/content/posts/latest?id=${String(coinId)}`
+
+        const options = {
+            method: "GET",
+            headers: {
+                "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
+                "Accept": "application/json"
+            }
+        }
+
+        const response = await fetch(`${url}`, options)
+        const data: { data: { list: Post[] } } = await response.json()
+
+        if (!data.data || !data.data.list || data.data.list.length === 0) {
+            console.warn(`No latest posts data found for ${coinId}`)
+            return null
+        }
+
+        return data.data.list
+    } catch (error) {
+        console.log(error)
+        return null
+    }
+}
+
+export const getCoinMarketCapLatestArticles = async (coinId: number) => {
+    try {
+
+        const url = `${COINMARKETCAP_API_URL}/v1/content/latest?id=${String(coinId)}`
+
+        console.log(" 🚀   -->  url:", url)
+
+
+        const options = {
+            method: "GET",
+            headers: {
+                "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
+                "Accept": "application/json"
+            }
+        }
+
+        const response = await fetch(`${url}`, options)
+        const data: { data: LatestArticle[] } = await response.json()
+
+        if (!data.data || !data.data || data.data.length === 0) {
+            console.warn(`No latest articles data found for ${coinId}`)
+            return null
+        }
+
+        return data.data
+    } catch (error) {
+        console.log(error)
+        return null
     }
 }

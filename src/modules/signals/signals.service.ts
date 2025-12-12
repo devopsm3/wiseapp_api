@@ -1,10 +1,9 @@
 ﻿import { User } from "@prisma/client"
 import { prisma } from "../../prisma"
-// import { coingeckoApiServiceMarket } from "../../providers/Coingecko/coingecko.provider"
 import { getSignalTrendLevel } from "../../providers/signals/signals.helpers"
-import { formatDateTime, formatTimeFromNow } from "../../utils/global.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 import { GlobalSettings } from "../../types/setup.types"
+import { getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts } from "../../providers/CoinMarketCap/coinmarketcap.provider"
 
 export const getSignalsService = async (currentUser: User) => {
     try {
@@ -210,32 +209,21 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
             where: {
                 id: id,
                 user_db_id: currentUser.id,
-            },
-            include: {
-                Source: true,
-                SourcePost: true
             }
         })
+
         if (!signal) {
             return null
-        }
-        const signalTrendLevel = getSignalTrendLevel(signal.signal_trend === "LONG" ? "bullish" : "bearish", signal.sources_nbr || 1, 3)
+        }        // get top posts and latest posts from coinmarketcap api of signal token using signal.coin_id
+        const coinmarketcapTopPosts = await getCoinMarketCapTopPosts(signal.coin_id!)
+        const coinmarketcapLatestPosts = await getCoinMarketCapLatestPosts(signal.coin_id!)
+        const coinmarketcapLatestArticles = await getCoinMarketCapLatestArticles(signal.coin_id!)
 
-        const signalInfo = {
-            ...signal,
-            Source: {
-                ...signal.Source,
-                postId: String(signal.SourcePost.originalId)
-            },
-            entry_price: Number(signal.entry_price).toFixed(2),
-            exit_price: signal.exit_price ? Number(signal.exit_price).toFixed(2) : null,
-            signal_trend_level: signalTrendLevel,
-            pnlAbsolute: signal.pnlA ? Number(signal.pnlA).toFixed(2) : 0,
-            pnlPercent: signal.pnlP ? Number(signal.pnlP).toFixed(2) : 0,
-            timeFromNow: signal.entry_timestamp ? formatTimeFromNow(signal.entry_timestamp) : "",
-            readableDate: signal.entry_timestamp ? formatDateTime(signal.entry_timestamp) : "",
+        return {
+            coinmarketcapTopPosts: coinmarketcapTopPosts || [],
+            coinmarketcapLatestPosts: coinmarketcapLatestPosts || [],
+            coinmarketcapLatestArticles: coinmarketcapLatestArticles || []
         }
-        return signalInfo
 
     } catch (error) {
         console.log(" 🚀   -->  error:", error)

@@ -56,3 +56,52 @@ export interface CoinInfoResponse {
 
 
 
+// CoinMarketCap Content
+
+interface Asset {
+  id: number;
+  name: string;
+  symbol: string;
+  slug: string;
+}
+
+interface Owner {
+  nickname: string;
+  avatar_url: string;
+}
+
+interface Currency {
+  id: number;
+  symbol: string;
+  slug: string;
+}
+
+
+// Latest Articles type
+export interface LatestArticle {
+  assets: Asset[];
+  cover: string;
+  created_at: string;
+  language: string;
+  news_type: string;
+  released_at: string;
+  source_name: string;
+  source_url: string;
+  subtitle: string;
+  title: string;
+  type: string;
+}
+
+// Top Posts / Latest Posts type
+export interface Post {
+  comment_count: string;
+  comments_url: string;
+  currencies: Currency[];
+  language_code: string;
+  like_count: string;
+  owner: Owner;
+  photos: string[];
+  post_id: string;
+  post_time: string;
+  text_content: string;
+}

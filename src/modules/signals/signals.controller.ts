@@ -21,14 +21,14 @@ export const getSignals = async (req: Request, res: Response, next: NextFunction
 
 export const getSignalById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const signal = await getSignalByIdService(Number(req.params.id), req.user!)
+        const signalContent = await getSignalByIdService(Number(req.params.id), req.user!)
 
-        if (!signal) {
+        if (!signalContent) {
             return res.status(404).json({ status: false, message: "Signal not found" })
         }
         return res.status(200).json({
             status: true,
-            data: signal,
+            data: signalContent,
         })
     } catch (error) {
         next(error)
