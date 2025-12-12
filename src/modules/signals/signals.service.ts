@@ -3,7 +3,7 @@ import { prisma } from "../../prisma"
 import { getSignalTrendLevel } from "../../providers/signals/signals.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 import { GlobalSettings } from "../../types/setup.types"
-import { getCoinMarketCapFearAndGreed, getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts } from "../../providers/CoinMarketCap/coinmarketcap.provider"
+import { getCoinMarketCapFearAndGreed, getCoinMarketCapFearAndGreedHistory, getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts } from "../../providers/CoinMarketCap/coinmarketcap.provider"
 
 export const getSignalsService = async (currentUser: User) => {
     try {
@@ -234,18 +234,10 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
     }
 }
 
-export const openSignalService = async (id: number, currentUser: User) => {
+export const getFearAndGreedHistory = async () => {
     try {
-        const signal = await prisma.signal.update({
-            where: {
-                id: id,
-                user_db_id: currentUser.id,
-            },
-            data: {
-                status: "OPEN",
-            },
-        })
-        return signal
+        const fearAndGreed = await getCoinMarketCapFearAndGreedHistory()
+        return fearAndGreed
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
         return null

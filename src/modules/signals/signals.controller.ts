@@ -1,6 +1,6 @@
 ﻿import { NextFunction, Request, Response } from "express"
-import { getSignalsService, getSignalByIdService, openSignalService } from "./signals.service"
-import { getTokenPriceAtDate } from "../../providers/CoinMarketCap/coinmarketcap.provider"
+import { getSignalsService, getSignalByIdService } from "./signals.service"
+import { getCoinMarketCapFearAndGreedHistory, getTokenPriceAtDate } from "../../providers/CoinMarketCap/coinmarketcap.provider"
 // import { createOrUpdateSignal } from "../../providers/signals/signals.provider"
 
 export const getSignals = async (req: Request, res: Response, next: NextFunction) => {
@@ -35,14 +35,15 @@ export const getSignalById = async (req: Request, res: Response, next: NextFunct
     }
 }
 
-export const openSignal = async (req: Request, res: Response, next: NextFunction) => {
+export const getFearAndGreedHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const signal = await openSignalService(Number(req.params.id), req.user!)
-        if (!signal) {
-            return res.status(404).json({ status: false, message: "Signal not found" })
+        const fearAndGreed = await getCoinMarketCapFearAndGreedHistory()
+        if (!fearAndGreed) {
+            return res.status(404).json({ status: false, message: "Fear and greed history not found" })
         }
         return res.status(200).json({
-            status: true
+            status: true,
+            data: fearAndGreed
         })
     } catch (error) {
         next(error)
