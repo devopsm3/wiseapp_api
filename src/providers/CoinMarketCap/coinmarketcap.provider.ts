@@ -450,3 +450,33 @@ export const getCoinMarketCapLatestArticles = async (coinId: number) => {
         return null
     }
 }
+
+//v3/fear-and-greed/latest
+
+export const getCoinMarketCapFearAndGreed = async () => {
+    try {
+        const url = `${COINMARKETCAP_API_URL}/v3/fear-and-greed/latest`
+
+        const options = {
+            method: "GET",
+            headers: {
+                "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
+                "Accept": "application/json"
+            }
+        }
+
+        const response = await fetch(`${url}`, options)
+        const data = await response.json()
+
+        if (!data.data) {
+            console.warn("No fear and greed data found")
+            return null
+        }
+
+        return data.data
+    } catch (error) {
+        console.log(error)
+        return null
+    }
+}
+    

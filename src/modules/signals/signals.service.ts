@@ -3,7 +3,7 @@ import { prisma } from "../../prisma"
 import { getSignalTrendLevel } from "../../providers/signals/signals.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 import { GlobalSettings } from "../../types/setup.types"
-import { getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts } from "../../providers/CoinMarketCap/coinmarketcap.provider"
+import { getCoinMarketCapFearAndGreed, getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts } from "../../providers/CoinMarketCap/coinmarketcap.provider"
 
 export const getSignalsService = async (currentUser: User) => {
     try {
@@ -192,9 +192,12 @@ export const getSignalsService = async (currentUser: User) => {
             })
         }
 
+        const fearAndGreedIndex = await getCoinMarketCapFearAndGreed()
+
         return {
             signals: signalsInfo,
-            meta_signals: metaSignalsInfo
+            meta_signals: metaSignalsInfo,
+            fear_and_greed_index: fearAndGreedIndex
         }
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
