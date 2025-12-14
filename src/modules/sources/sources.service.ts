@@ -120,14 +120,11 @@ export const getSourcesService = async (currentUser: User) => {
                         dailyProfitMap[date] += signalDailyProfit[date]
                     })
 
-
-
                     const signalDate = new Date(signal.entry_timestamp)
                     const pnl = signal.pnlP || 0
                     const token = signal.currency_label ? signal.currency_label.toUpperCase() : "ALTS"
                     const tokenKey = ["BTC", "ETH", "SOL"].includes(token) ? token : "ALTS"
                     total_count_signals++
-                    
                     if (signal.signal_trend === "LONG") {
                         total_bull_signals++
                     } else {
@@ -453,6 +450,30 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
             }
         })
 
+        let OptimalProfitDay: Record<any, any> = {
+            1: { count: 0, profit: 0 },
+            2: { count: 0, profit: 0 },
+            3: { count: 0, profit: 0 },
+            4: { count: 0, profit: 0 },
+            5: { count: 0, profit: 0 },
+            6: { count: 0, profit: 0 },
+            7: { count: 0, profit: 0 },
+            8: { count: 0, profit: 0 },
+            9: { count: 0, profit: 0 },
+            10: { count: 0, profit: 0 },
+            11: { count: 0, profit: 0 },
+            12: { count: 0, profit: 0 },
+            13: { count: 0, profit: 0 },
+            14: { count: 0, profit: 0 },
+            15: { count: 0, profit: 0 },
+            16: { count: 0, profit: 0 },
+            17: { count: 0, profit: 0 },
+            18: { count: 0, profit: 0 },
+            19: { count: 0, profit: 0 },
+            20: { count: 0, profit: 0 },
+            21: { count: 0, profit: 0 }
+        }
+
         const formattedSignals = signals.map(signal => ({
             id: signal.id.toString(),
             token_symbol: signal.currency_label,
@@ -464,10 +485,32 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
             exit_price: signal.exit_price || 0
         }))
 
+        signals.forEach((signal) => {
+
+            const signalMeta = signal.meta as unknown as PivotCalculationMeta
+            // const priceAtStart = signal.entry_price
+            const signalMetaPivotData = signalMeta?.pivotData || []
+            // const signalDailyProfit: Record<string, number> = {}
+
+            let optimalDay: number
+            if (signal.signal_trend === "LONG") {
+                optimalDay = signalMetaPivotData.findIndex(el => el.time === signalMeta.maxPivotDate) + 1
+            } else {
+                optimalDay = signalMetaPivotData.findIndex(el => el.time === signalMeta.minPivotDate) + 1
+            }
+
+            OptimalProfitDay[optimalDay].count += 1
+            OptimalProfitDay[optimalDay].profit += signal.pnlP
+        })
+
         return {
             status: true,
             data: {
-                signals: formattedSignals
+                signals: formattedSignals,
+                optimal_exit: Object.keys(OptimalProfitDay).map((el) => ({
+                    day: el,
+                    ...OptimalProfitDay[el]
+                })),
             }
         }
     } catch (error: any) {
