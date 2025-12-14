@@ -1,5 +1,5 @@
 ﻿import { NextFunction, Request, Response } from "express"
-import { getSourcesService, getSourceByIdService, addSourceService, updateSourceByIdService, deleteSourceByIdService, toggleSourceActivationService, getSourceSignalsDetailsService } from "./sources.service"
+import { getSourcesService, getSourceByIdService, addSourceService, updateSourceByIdService, deleteSourceByIdService, toggleSourceActivationService, getSourceSignalsDetailsService, getSourceProfitHistory } from "./sources.service"
 
 export const getSources = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -95,6 +95,21 @@ export const getSourceById = async (req: Request, res: Response, next: NextFunct
 export const getSourceSignalsDetails = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result: any = await getSourceSignalsDetailsService(Number(req.params.id), req.user!)
+        if (!result.status) {
+            return res.status(404).json({ status: false, message: result.message })
+        }
+        res.status(200).json({
+            status: true,
+            data: result.data,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getSourceProfitHistoryData = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result: any = await getSourceProfitHistory(Number(req.params.id), req.user!, req.query.tokenFilter as string)
         if (!result.status) {
             return res.status(404).json({ status: false, message: result.message })
         }

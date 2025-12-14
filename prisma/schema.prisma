@@ -81,30 +81,30 @@ model Source {
   source_activated                Boolean     @default(false)
   source_reverse_signal_activated Boolean     @default(false)
 
-  source_total_quantity_signals Int?
-  source_global_probility       Int?
+  // source_reverse_signal_profit Int?
 
-  source_reverse_signal_profit Int?
+  // source_total_quantity_signals Int?
+  // source_global_probility       Int?
 
-  source_bullish_total_quantity Int?
-  source_bullish_percentage     Decimal? @db.Decimal(20, 8)
-  source_bullish_probility      Decimal? @db.Decimal(20, 8)
+  // source_bullish_total_quantity Int?
+  // source_bullish_percentage     Decimal? @db.Decimal(20, 8)
+  // source_bullish_probility      Decimal? @db.Decimal(20, 8)
 
-  source_bearish_total_quantity Int?
-  source_bearish_percentage     Decimal? @db.Decimal(20, 8)
-  source_bearish_probility      Decimal? @db.Decimal(20, 8)
+  // source_bearish_total_quantity Int?
+  // source_bearish_percentage     Decimal? @db.Decimal(20, 8)
+  // source_bearish_probility      Decimal? @db.Decimal(20, 8)
 
-  btc_total_quantity Int?
-  btc_probility      Decimal? @db.Decimal(20, 8)
+  // btc_total_quantity Int?
+  // btc_probility      Decimal? @db.Decimal(20, 8)
 
-  eth_total_quantity Int?
-  eth_probility      Decimal? @db.Decimal(20, 8)
+  // eth_total_quantity Int?
+  // eth_probility      Decimal? @db.Decimal(20, 8)
 
-  sol_total_quantity Int?
-  sol_probility      Decimal? @db.Decimal(20, 8)
+  // sol_total_quantity Int?
+  // sol_probility      Decimal? @db.Decimal(20, 8)
 
-  alts_total_quantity Int?
-  alts_probility      Decimal? @db.Decimal(20, 8)
+  // alts_total_quantity Int?
+  // alts_probility      Decimal? @db.Decimal(20, 8)
 
   // Post validation & reliability metrics
   source_validation_total_checks  Int       @default(0)

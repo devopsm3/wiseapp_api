@@ -451,8 +451,7 @@ export const getCoinMarketCapLatestArticles = async (coinId: number) => {
     }
 }
 
-//v3/fear-and-greed/latest
-
+// Fear and greed
 export const getCoinMarketCapFearAndGreed = async () => {
     try {
         const url = `${COINMARKETCAP_API_URL}/v3/fear-and-greed/latest`
@@ -479,6 +478,8 @@ export const getCoinMarketCapFearAndGreed = async () => {
         return null
     }
 }
+
+// Fear and greed history
 export const getCoinMarketCapFearAndGreedHistory = async () => {
     try {
         const url = `${COINMARKETCAP_API_URL}/v3/fear-and-greed/historical`

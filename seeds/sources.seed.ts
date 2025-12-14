@@ -30,31 +30,6 @@ async function main() {
                 source_activated: faker.datatype.boolean(),
                 source_reverse_signal_activated: faker.datatype.boolean(),
 
-                source_total_quantity_signals: faker.number.int({ min: 0, max: 500 }),
-                source_global_probility: faker.number.int({ min: 0, max: 100 }),
-
-                source_reverse_signal_profit: faker.number.int({ min: 0, max: 100 }),
-
-                source_bullish_total_quantity: faker.number.int({ min: 0, max: 500 }),
-                source_bullish_percentage: faker.number.int({ min: 0, max: 100 }),
-                source_bullish_probility: faker.number.int({ min: 0, max: 100 }),
-
-                source_bearish_total_quantity: faker.number.int({ min: 0, max: 500 }),
-                source_bearish_percentage: faker.number.int({ min: 0, max: 100 }),
-                source_bearish_probility: faker.number.int({ min: 0, max: 100 }),
-
-                btc_total_quantity: faker.number.int({ min: 0, max: 500 }),
-                btc_probility: faker.number.int({ min: 0, max: 100 }),
-
-                eth_total_quantity: faker.number.int({ min: 0, max: 500 }),
-                eth_probility: faker.number.int({ min: 0, max: 100 }),
-
-                sol_total_quantity: faker.number.int({ min: 0, max: 500 }),
-                sol_probility: faker.number.int({ min: 0, max: 100 }),
-
-                alts_total_quantity: faker.number.int({ min: 0, max: 500 }),
-                alts_probility: faker.number.int({ min: 0, max: 100 }),
-
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },

@@ -7,6 +7,7 @@ import { getTelegramChannelInfo } from "../../providers/telegram/telegram.provid
 import { getTwitterChannelInfo } from "../../providers/twitter/twitter.provider"
 import { SourceType } from "../../providers/sources/sources.types"
 import { normalizeSourceId } from "../../utils/global.helpers"
+import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
@@ -15,6 +16,7 @@ export const getSourcesService = async (currentUser: User) => {
             where: {
                 user_db_id: currentUser.id,
                 source_status: SourceStatus.VALIDE,
+                source_activated: true,
             },
             include: {
                 Signal: true
@@ -44,14 +46,14 @@ export const getSourcesService = async (currentUser: User) => {
             let signals_count_3m = 0
             let signals_count_6m = 0
             let signals_count_y = 0
-            
+
             let bull_count_d = 0
             let bull_count_w = 0
             let bull_count_m = 0
             let bull_count_3m = 0
             let bull_count_6m = 0
             let bull_count_y = 0
-            
+
             let bear_count_d = 0
             let bear_count_w = 0
             let bear_count_m = 0
@@ -65,8 +67,11 @@ export const getSourcesService = async (currentUser: User) => {
             let profitability_3m = 0
             let profitability_6m = 0
             let profitability_y = 0
-            
+
             let total_count_signals = 0
+
+            let total_bull_signals = 0
+            let total_bear_signals = 0
 
             const token_profitability_d: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
             const token_profitability_w: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
@@ -82,13 +87,52 @@ export const getSourcesService = async (currentUser: User) => {
             const token_count_6m: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
             const token_count_y: any = { BTC: 0, ETH: 0, SOL: 0, ALTS: 0 }
 
+            const dailyProfitMap: Record<string, number> = {}
+
             if (source.Signal) {
                 source.Signal.forEach(signal => {
+                    const signalMeta = signal.meta as unknown as PivotCalculationMeta
+                    const priceAtStart = signal.entry_price
+                    const signalMetaPivotData = signalMeta?.pivotData || []
+                    const signalDailyProfit: Record<string, number> = {}
+
+                    for (let index = 0; index < signalMetaPivotData.length; index++) {
+                        const element = signalMetaPivotData[index]
+                        const date = new Date(element.time).toISOString().split("T")[0]
+                        const pivot = element.pivot
+                        let theoreticalProfitPercent = 0
+
+                        if (signal.signal_trend === "LONG") {
+                            theoreticalProfitPercent = ((pivot - priceAtStart) / priceAtStart) * 100
+                        } else {
+                            theoreticalProfitPercent = ((priceAtStart - pivot) / priceAtStart) * 100
+                        }
+
+                        // Store/Overwrite to get the latest PnL for this date for this signal
+                        signalDailyProfit[date] = theoreticalProfitPercent
+                    }
+
+                    // Add this signal's daily PnL to the source's total daily PnL
+                    Object.keys(signalDailyProfit).forEach(date => {
+                        if (!dailyProfitMap[date]) {
+                            dailyProfitMap[date] = 0
+                        }
+                        dailyProfitMap[date] += signalDailyProfit[date]
+                    })
+
+
+
                     const signalDate = new Date(signal.entry_timestamp)
                     const pnl = signal.pnlP || 0
                     const token = signal.currency_label ? signal.currency_label.toUpperCase() : "ALTS"
                     const tokenKey = ["BTC", "ETH", "SOL"].includes(token) ? token : "ALTS"
                     total_count_signals++
+                    
+                    if (signal.signal_trend === "LONG") {
+                        total_bull_signals++
+                    } else {
+                        total_bear_signals++
+                    }
 
                     if (signalDate >= oneDayAgo) {
                         signals_count_d++
@@ -151,7 +195,8 @@ export const getSourcesService = async (currentUser: User) => {
                 reverse_signal: source.source_reverse_signal_activated,
                 source_name: source.user_name_source,
                 source_id: source.user_username_source,
-                price_monthly: source.source_price_value,            
+                price_monthly: source.source_price_value,
+                is_verified: source.user_verified,
 
                 bull_count_d,
                 bull_count_w,
@@ -167,14 +212,6 @@ export const getSourcesService = async (currentUser: User) => {
                 bear_count_6m,
                 bear_count_y,
 
-                // bull_count: source.source_bullish_total_quantity,
-                // bear_count: source.source_bearish_total_quantity,
-                // btc_count: source.btc_total_quantity,
-                // eth_count: source.eth_total_quantity,
-                // sol_count: source.sol_total_quantity,
-                // alts_count: source.alts_total_quantity,
-
-                is_verified: source.user_verified,
                 profitability_d: Number(profitability_d.toFixed(2)),
                 profitability_w: Number(profitability_w.toFixed(2)),
                 profitability_m: Number(profitability_m.toFixed(2)),
@@ -204,17 +241,45 @@ export const getSourcesService = async (currentUser: User) => {
                 token_count_y,
 
                 total_count_signals,
+                total_bull_signals,
+                total_bear_signals,
 
                 // focus
                 followers_count: source.followers_count,
                 account_created_at: new Date(source.user_creation_date * 1000),
                 deleted_posts: source.source_validation_deleted_count,
-                source_url
+                source_url,
+                daily_profit_history: Object.keys(dailyProfitMap).map(date => ({
+                    date,
+                    pnl: Number(dailyProfitMap[date].toFixed(2))
+                })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 // source_bearish_percentage: Number(source.source_bearish_percentage?.toFixed(2)),
                 // source_bullish_percentage: Number(source.source_bullish_percentage?.toFixed(2))
             }
         })
-        return sourcesData
+
+        // Calculate rankings
+        const sortedByProfitability = [...sourcesData].sort((a, b) => b.profitability_y - a.profitability_y)
+        const sortedBySignals = [...sourcesData].sort((a, b) => b.total_count_signals - a.total_count_signals)
+        const sortedByBull = [...sourcesData].sort((a, b) => b.total_bull_signals - a.total_bull_signals)
+        const sortedByBear = [...sourcesData].sort((a, b) => b.total_bear_signals - a.total_bear_signals)
+
+        const sourcesWithRankings = sourcesData.map(source => {
+            const ranking_profitability = sortedByProfitability.findIndex(s => s.id === source.id) + 1
+            const ranking_signals = sortedBySignals.findIndex(s => s.id === source.id) + 1
+            const ranking_bull = sortedByBull.findIndex(s => s.id === source.id) + 1
+            const ranking_bear = sortedByBear.findIndex(s => s.id === source.id) + 1
+            return {
+                ...source,
+                ranking_profitability,
+                ranking_signals,
+                ranking_bull,
+                ranking_bear,
+            }
+        })
+
+        return sourcesWithRankings
+
     } catch (error) {
         return error
     }
@@ -256,7 +321,6 @@ export const getSourceByIdService = async (id: string, currentUser: User) => {
         }
     } catch (error: any) {
 
-        console.log(" 🚀   -->  error:", error)
         return {
             status: false,
             message: error.message
@@ -308,7 +372,6 @@ export const addSourceService = async (source: any, currentUser: User) => {
             status: true
         }
     } catch (error: any) {
-        console.log(" 🚀   -->  error :", error)
         return {
             status: false,
             message: error.message
@@ -354,7 +417,6 @@ export const deleteSourceByIdService = async (id: number) => {
 // toggle source activation
 export const toggleSourceActivationService = async (id: number, currentUser: User, body: any) => {
 
-    console.log(" 🚀   -->  body:", body)
     try {
         const updatedSource = await prisma.source.update({
             where: {
@@ -412,6 +474,69 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
         return {
             status: false,
             message: error.message
+        }
+    }
+}
+
+export const getSourceProfitHistory = async (sourceId: number, currentUser: User, tokenFilter?: string) => {
+    // 1. Build Query
+
+    // const query = {
+    //     where: {
+    //         sourceId: sourceId,
+    //         // user_db_id: currentUser.id,
+    //         // status: "CLOSED", // Only finished signals
+    //         ...(tokenFilter && { token: tokenFilter })
+    //     },
+    //     orderBy: { entry_timestamp: "asc" }
+    // }
+
+    // 2. Fetch Signals
+    const signals = await prisma.signal.findMany({
+        where: {
+            sourceId: sourceId,
+            // user_db_id: currentUser.id,
+            // status: "CLOSED", // Only finished signals
+            ...(tokenFilter && { token: tokenFilter })
+        },
+        orderBy: { entry_timestamp: "asc" },
+    })
+
+    // 3. Calculate Cumulative in Javascript
+    const tokensCount = {
+        BTC: 0,
+        ETH: 0,
+        SOL: 0,
+        ALTS: 0
+    }
+    for (let i = 0; i < signals.length; i++) {
+        if (signals[i].currency_label === "BTC") {
+            tokensCount.BTC++
+        } else if (signals[i].currency_label === "ETH") {
+            tokensCount.ETH++
+        } else if (signals[i].currency_label === "SOL") {
+            tokensCount.SOL++
+        } else {
+            tokensCount.ALTS++
+        }
+    }
+    let runningTotal = 0
+    const chartData = signals.map(sig => {
+        runningTotal += sig.pnlP // or sig.pnlAbsolute
+        return {
+            date: sig.entry_timestamp.toLocaleDateString(),
+            token: sig.currency_label,
+            pnl: sig.pnlP.toFixed(2),
+            cumulative_pnl: Number(runningTotal.toFixed(2))
+        }
+    })
+
+    return {
+        status: true,
+        data: {
+            filter: tokenFilter || "ALL",
+            chart_data: chartData,
+            tokens_count: tokensCount
         }
     }
 }
