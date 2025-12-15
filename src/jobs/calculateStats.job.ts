@@ -23,8 +23,8 @@ export const statsWorker = new Worker("stats", async (job) => {
 
         for (const source of sources) {
             console.log("")
-            console.log("Processing source:", source.user_name_source)
             console.log("")
+            console.log("Processing source:", source.user_name_source)
             const signals = source.Signal
             // const now = new Date()
             const periods = {
@@ -38,14 +38,17 @@ export const statsWorker = new Worker("stats", async (job) => {
             for (const [period, periodSignals] of Object.entries(periods)) {
                 if (periodSignals.length === 0) continue
 
+                await new Promise(resolve => setTimeout(resolve, 1000))
                 const stats = calculateSourceStats(periodSignals)
-
+                console.log("Stats Calculation is DONE")
+                await new Promise(resolve => setTimeout(resolve, 200))
                 const recommendations = await generateSourceRecommendations({
                     sourceName: source.user_name_source,
                     platform: source.platform_logo,
                     stats,
                     followers_count: source.followers_count
                 })
+                console.log("Recommendations generating is DONE", recommendations.length)
 
                 await prisma.sourceStats.upsert({
                     where: {
@@ -85,18 +88,18 @@ export const scheduleStatsCalculation = async () => {
     )
     console.log("📅 Stats calculation scheduled")
 
-    await statsQueue.add(
-        "calculateSourceStats",
-        {},
-        {
-            priority: 1, // High priority
-            removeOnComplete: {
-                age: 86400 * 7,
-                count: 10
-            },
-            removeOnFail: {
-                age: 86400 * 14
-            }
-        }
-    )
+    // await statsQueue.add(
+    //     "calculateSourceStats",
+    //     {},
+    //     {
+    //         priority: 1, // High priority
+    //         removeOnComplete: {
+    //             age: 86400 * 7,
+    //             count: 10
+    //         },
+    //         removeOnFail: {
+    //             age: 86400 * 14
+    //         }
+    //     }
+    // )
 }

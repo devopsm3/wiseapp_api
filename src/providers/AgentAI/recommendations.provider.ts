@@ -62,7 +62,7 @@ export const generateSourceRecommendations = async (sourceStats: any) => {
         const data = await response.json()
         const raw = data.choices?.[0]?.message?.content
 
-        console.log(" 🚀   -->  AI Recommendation raw:", raw)
+        // console.log(" 🚀   -->  AI Recommendation raw:", raw)
 
         const clean = raw
             .replace(/```json/g, "")
