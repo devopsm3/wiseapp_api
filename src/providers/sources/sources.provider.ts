@@ -148,6 +148,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             }
         })
 
+        console.log(" 🚀   -->  NewSourceFull:", NewSourceFull)
+
         if (!NewSourceFull) {
             return {
                 status: true,
@@ -157,11 +159,11 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 
         const stats = calculateSourceStats(NewSourceFull.Signal || [])
         const recommendations = await generateSourceRecommendations({
-            sourceName: source.user_name_source,
-            platform: source.platform_logo,
+            sourceName: NewSourceFull.user_name_source,
+            platform: NewSourceFull.platform_logo,
             stats: stats,
-            recentSignalsCount: source.Signal?.length || 0,
-            followers: source.followers_count
+            recentSignalsCount: NewSourceFull.Signal?.length || 0,
+            followers: NewSourceFull.followers_count
         })
 
         await prisma.sourceStats.create({

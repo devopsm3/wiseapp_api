@@ -69,7 +69,11 @@ export const generateSourceRecommendations = async (sourceStats: any) => {
             .replace(/```/g, "")
             .trim()
 
+        console.log(" 🚀   -->  clean:", clean)
+
         const recommendations = JSON.parse(clean)
+
+        console.log(" 🚀   -->  recommendations:", recommendations)
 
         // Ensure it's an array and has the required fields ? 
         // For now, trust the AI but maybe wrap in a 'recommendations' key if the AI returns an object with a key.

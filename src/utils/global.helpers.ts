@@ -77,22 +77,25 @@ export const getDaysAgoTimestamp = (days = 21): number => {
 export const normalizeSourceId = (sourceId: string): string => {
     if (!sourceId) return ""
 
-    // 1. Extract after last slash if it's a URL
     let id = sourceId.trim()
 
     // --- 1️⃣ Handle Telegram URLs ---
-    if (id.includes("t.me") || id.includes("telegram.org")) {
-        id = id.split("#@").pop() || id.split("/").pop() || id
+    if (id.includes("t.me")) {
+        // e.g. t.me/guebli_me
+        id = id.split("/").pop() || id
+    } 
+    else if (id.includes("telegram.org")) {
+        // e.g. web.telegram.org/k/#@guebli_me
+        const match = id.match(/#@([a-zA-Z0-9_]+)/)
+        if (match) id = match[1]
+        else id = id.split("/").pop() || id // fallback
+    } 
+    // --- 2️⃣ Handle Twitter/X URLs ---
+    else if (id.includes("twitter.com") || id.includes("x.com")) {
+        id = id.split("/").pop() || id
     }
 
-    else if (
-        id.includes("twitter.com") ||
-        id.includes("x.com")
-    ) {
-        const parts = id.split("/")
-        id = parts.pop() || id
-    }
-
+    // Remove @ at start if present
     if (id.startsWith("@")) {
         id = id.slice(1)
     }
