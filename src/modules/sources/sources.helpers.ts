@@ -275,13 +275,23 @@ export const calculateSourceStats = (signals: any[]) => {
     const top5 = calculateTopStats(0.05)
     const top10 = calculateTopStats(0.10)
 
+
+    const optimal_exit = Object.values(clusters).map((c) => ({
+        day: c.day,
+        profit: Number((c.totalProfit / c.count).toFixed(2)), // Average profit for the cluster
+        count: c.count,
+        range_start: c.profitRange
+    }))
+
     return {
-        optimal_exit: Object.values(clusters).map((c) => ({
-            day: c.day,
-            profit: Number((c.totalProfit / c.count).toFixed(2)), // Average profit for the cluster
-            count: c.count,
-            range_start: c.profitRange
-        })),
+        optimal_exit: optimal_exit.length > 0 ? optimal_exit : [
+            {
+                day: 0,
+                profit: 0,
+                count: 0,
+                range_start: ""
+            }
+        ],
         top: [
             {
                 percentage: "1%",

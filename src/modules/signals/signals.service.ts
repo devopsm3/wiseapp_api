@@ -218,10 +218,20 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
         const coinmarketcapLatestPosts = await getCoinMarketCapLatestPosts(signal.coin_id!)
         const coinmarketcapLatestArticles = await getCoinMarketCapLatestArticles(signal.coin_id!)
 
+
+        // ai analysis
+        const aiAnalysis = await getAiAnalysis({
+            token: signal.currency_label,
+            price_at_start: signal.entry_price,
+            signal_trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
+            historical_pivot_prices: (signal.meta as unknown as PivotCalculationMeta).pivotData || [],
+        })
+
         return {
             coinmarketcapTopPosts: coinmarketcapTopPosts || [],
             coinmarketcapLatestPosts: coinmarketcapLatestPosts || [],
-            coinmarketcapLatestArticles: coinmarketcapLatestArticles || []
+            coinmarketcapLatestArticles: coinmarketcapLatestArticles || [],
+            aiAnalysis: aiAnalysis || ""
         }
 
     } catch (error) {

@@ -221,6 +221,7 @@ model Signal {
   meta            Json?
   isComplete      Boolean    @default(false)
   pivot_calc_days Int        @default(0)
+  // ai_analysis     String     @default("")
 }
 
 model Setup {
