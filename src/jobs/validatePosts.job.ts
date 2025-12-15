@@ -22,10 +22,8 @@ const validateSinglePost = async (post: any) => {
         let result: { exists: boolean; error?: string }
 
         if (sourceType === PlatformName.X) {
-            // Check Twitter post
             result = await checkTwitterPostExists(originalId)
         } else if (sourceType === PlatformName.TELEGRAM) {
-            // Get source info to get channel name
             const source = await prisma.source.findUnique({
                 where: { id: sourceId },
                 select: { user_username_source: true }

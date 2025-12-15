@@ -8,6 +8,7 @@ import { getTwitterChannelInfo } from "../../providers/twitter/twitter.provider"
 import { SourceType } from "../../providers/sources/sources.types"
 import { normalizeSourceId } from "../../utils/global.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
+import { calculateSourceStats } from "./sources.helpers"
 
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
@@ -15,8 +16,7 @@ export const getSourcesService = async (currentUser: User) => {
         const sources = await prisma.source.findMany({
             where: {
                 user_db_id: currentUser.id,
-                source_status: SourceStatus.VALIDE,
-                source_activated: true,
+                source_status: SourceStatus.VALIDE
             },
             include: {
                 Signal: true
@@ -250,8 +250,6 @@ export const getSourcesService = async (currentUser: User) => {
                     date,
                     pnl: Number(dailyProfitMap[date].toFixed(2))
                 })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                // source_bearish_percentage: Number(source.source_bearish_percentage?.toFixed(2)),
-                // source_bullish_percentage: Number(source.source_bullish_percentage?.toFixed(2))
             }
         })
 
@@ -450,30 +448,6 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
             }
         })
 
-        let OptimalProfitDay: Record<any, any> = {
-            1: { count: 0, profit: 0 },
-            2: { count: 0, profit: 0 },
-            3: { count: 0, profit: 0 },
-            4: { count: 0, profit: 0 },
-            5: { count: 0, profit: 0 },
-            6: { count: 0, profit: 0 },
-            7: { count: 0, profit: 0 },
-            8: { count: 0, profit: 0 },
-            9: { count: 0, profit: 0 },
-            10: { count: 0, profit: 0 },
-            11: { count: 0, profit: 0 },
-            12: { count: 0, profit: 0 },
-            13: { count: 0, profit: 0 },
-            14: { count: 0, profit: 0 },
-            15: { count: 0, profit: 0 },
-            16: { count: 0, profit: 0 },
-            17: { count: 0, profit: 0 },
-            18: { count: 0, profit: 0 },
-            19: { count: 0, profit: 0 },
-            20: { count: 0, profit: 0 },
-            21: { count: 0, profit: 0 }
-        }
-
         const formattedSignals = signals.map(signal => ({
             id: signal.id.toString(),
             token_symbol: signal.currency_label,
@@ -485,32 +459,28 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
             exit_price: signal.exit_price || 0
         }))
 
-        signals.forEach((signal) => {
-
-            const signalMeta = signal.meta as unknown as PivotCalculationMeta
-            // const priceAtStart = signal.entry_price
-            const signalMetaPivotData = signalMeta?.pivotData || []
-            // const signalDailyProfit: Record<string, number> = {}
-
-            let optimalDay: number
-            if (signal.signal_trend === "LONG") {
-                optimalDay = signalMetaPivotData.findIndex(el => el.time === signalMeta.maxPivotDate) + 1
-            } else {
-                optimalDay = signalMetaPivotData.findIndex(el => el.time === signalMeta.minPivotDate) + 1
+        let stats
+        const sourceStats = await prisma.sourceStats.findUnique({
+            where: {
+                sourceId_period: {
+                    sourceId: sourceId,
+                    period: "ALL"
+                }
             }
-
-            OptimalProfitDay[optimalDay].count += 1
-            OptimalProfitDay[optimalDay].profit += signal.pnlP
         })
+
+        if (sourceStats && sourceStats.stats) {
+            stats = sourceStats.stats as any
+        } else {
+            stats = calculateSourceStats(signals)
+        }
 
         return {
             status: true,
             data: {
                 signals: formattedSignals,
-                optimal_exit: Object.keys(OptimalProfitDay).map((el) => ({
-                    day: el,
-                    ...OptimalProfitDay[el]
-                })),
+                optimal_exit: stats.optimal_exit,
+                top: stats.top
             }
         }
     } catch (error: any) {
@@ -522,30 +492,15 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
 }
 
 export const getSourceProfitHistory = async (sourceId: number, currentUser: User, tokenFilter?: string) => {
-    // 1. Build Query
-
-    // const query = {
-    //     where: {
-    //         sourceId: sourceId,
-    //         // user_db_id: currentUser.id,
-    //         // status: "CLOSED", // Only finished signals
-    //         ...(tokenFilter && { token: tokenFilter })
-    //     },
-    //     orderBy: { entry_timestamp: "asc" }
-    // }
-
-    // 2. Fetch Signals
     const signals = await prisma.signal.findMany({
         where: {
             sourceId: sourceId,
-            // user_db_id: currentUser.id,
             // status: "CLOSED", // Only finished signals
             ...(tokenFilter && { token: tokenFilter })
         },
         orderBy: { entry_timestamp: "asc" },
     })
 
-    // 3. Calculate Cumulative in Javascript
     const tokensCount = {
         BTC: 0,
         ETH: 0,
@@ -573,6 +528,7 @@ export const getSourceProfitHistory = async (sourceId: number, currentUser: User
             cumulative_pnl: Number(runningTotal.toFixed(2))
         }
     })
+
 
     return {
         status: true,

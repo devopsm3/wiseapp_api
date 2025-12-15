@@ -60,11 +60,7 @@ export const getSignalsService = async (currentUser: User) => {
                         id: source.id
 
                     }
-                ],
-                // trend: signal.____________,
-                // trend: signal.____________,
-                // trend: signal.____________,
-                // trend: signal.____________,
+                ]
             })
         }
 
@@ -192,13 +188,12 @@ export const getSignalsService = async (currentUser: User) => {
             })
         }
 
-        // const fearAndGreedIndex = await getCoinMarketCapFearAndGreed()
+        const fearAndGreedIndex = await getCoinMarketCapFearAndGreed()
 
         return {
             signals: signalsInfo,
             meta_signals: metaSignalsInfo,
-            fear_and_greed_index: null
-            // fear_and_greed_index: fearAndGreedIndex
+            fear_and_greed_index: fearAndGreedIndex
         }
     } catch (error) {
         console.log(" 🚀   -->  error:", error)

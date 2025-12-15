@@ -113,12 +113,26 @@ model Source {
   source_validation_last_check    DateTime?
   source_truth_score              Decimal?  @db.Decimal(5, 2) // 0-100 score
 
-  metadata   Json?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @default(now()) @updatedAt()
-  SourcePost SourcePost[]
-  User       User         @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
-  Signal     Signal[]
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @default(now()) @updatedAt()
+  SourcePost  SourcePost[]
+  User        User          @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
+  Signal      Signal[]
+  SourceStats SourceStats[]
+}
+
+model SourceStats {
+  id        Int      @id @default(autoincrement())
+  sourceId  Int
+  period    String // e.g., "ALL", "1M", "3M", "6M", "1Y"
+  stats     Json // Stores the calculated stats (optimal_exit, top_signals, etc.)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, period])
 }
 
 model SourcePost {
