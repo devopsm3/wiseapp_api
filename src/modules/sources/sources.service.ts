@@ -82,17 +82,53 @@ export const getSourcesService = async (currentUser: User) => {
             })
 
 
-            console.log(" 🚀   -->  sourceStats:", sourceStats)
-            if (sourceStats && sourceStats.stats) {
+
+            if (sourceStats && sourceStats.stats && (sourceStats.stats as unknown as any).globalStats) {
                 stats = sourceStats.stats as any
             } else {
+                console.log(" 🚀   -->  Stat calculating -------:")
                 stats = calculateSourceStats(source.Signal || [])
+                await prisma.sourceStats.upsert({
+                    where: {
+                        sourceId_period: {
+                            sourceId: source.id,
+                            period: "ALL",
+                        },
+                    },
+                    update: {
+                        stats: stats as any,
+                    },
+                    create: {
+                        sourceId: source.id,
+                        period: "ALL",
+                        stats: stats as any,
+                    },
+                })
             }
 
-            if (sourceStats && sourceStats.recommendations) {
+            if (sourceStats && (sourceStats.recommendations as unknown as any[]).length > 0) {
                 recommendations = sourceStats.recommendations as any
             } else {
-                recommendations = generateSourceRecommendations(source.Signal || [])
+                console.log(" 🚀   -->  Recommendations calculating -------:")
+                recommendations = await generateSourceRecommendations({
+                    sourceName: source.user_name_source,
+                    platform: source.platform_logo,
+                    stats: stats,
+                    recentSignalsCount: source.Signal?.length || 0,
+                    followers: source.followers_count
+                })
+
+                await prisma.sourceStats.update({
+                    where: {
+                        sourceId_period: {
+                            sourceId: source.id,
+                            period: "ALL"
+                        }
+                    },
+                    data: {
+                        recommendations: recommendations as any
+                    },
+                })
             }
 
             sourcesData.push({
@@ -151,6 +187,8 @@ export const getSourcesService = async (currentUser: User) => {
         return sourcesWithRankings
 
     } catch (error) {
+
+        console.log(" 🚀   -->  error:", error)
         return error
     }
 }

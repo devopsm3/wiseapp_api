@@ -1,9 +1,6 @@
 import config from "../../config/config"
 
 export const generateSourceRecommendations = async (sourceStats: any) => {
-
-    // console.log(" 🚀   -->  sourceStats:", sourceStats)
-    // return []
     const url = "https://openrouter.ai/api/v1/chat/completions"
     const headers = {
         Authorization: `Bearer ${config.OPENROUTER_API_KEY}`,
@@ -12,7 +9,8 @@ export const generateSourceRecommendations = async (sourceStats: any) => {
 
     const systemPrompt = `
     You are an expert crypto trading analyst. Your job is to analyze the performance statistics of a crypto signal provider (source) and generate at least 3 specific recommendations for a user who is following this source.
-    Add success rate of each token in the reasoning and u can find the information in the stats.pieChatTokensData.win_rate for each token. 
+    Add success rate of each token in the reasoning and u can find the information in the stats.pieChatTokensData.win_rate for each token.
+    use all the stats provided and give a good analysis.
     The recommendations should be in JSON format and follow this structure:
     [
       {
