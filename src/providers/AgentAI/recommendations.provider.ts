@@ -12,7 +12,7 @@ export const generateSourceRecommendations = async (sourceStats: any) => {
 
     const systemPrompt = `
     You are an expert crypto trading analyst. Your job is to analyze the performance statistics of a crypto signal provider (source) and generate at least 3 specific recommendations for a user who is following this source.
-    Add success rate of each token in the reasoning and u can find the information in the stats.pieChatTokensData object for each token it contains the win rate. 
+    Add success rate of each token in the reasoning and u can find the information in the stats.pieChatTokensData.win_rate for each token. 
     The recommendations should be in JSON format and follow this structure:
     [
       {

@@ -123,12 +123,13 @@ model Source {
 }
 
 model SourceStats {
-  id        Int      @id @default(autoincrement())
-  sourceId  Int
-  period    String // e.g., "ALL", "1M", "3M", "6M", "1Y"
-  stats     Json // Stores the calculated stats (optimal_exit, top_signals, etc.)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  sourceId        Int
+  period          String // e.g., "ALL", "1M", "3M", "6M", "1Y"
+  stats           Json // Stores the calculated stats (optimal_exit, top_signals, etc.)
+  recommendations Json     @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   Source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 

@@ -22,14 +22,17 @@ export const statsWorker = new Worker("stats", async (job) => {
         })
 
         for (const source of sources) {
+            console.log("")
+            console.log("Processing source:", source.user_name_source)
+            console.log("")
             const signals = source.Signal
-            const now = new Date()
+            // const now = new Date()
             const periods = {
                 "ALL": signals,
-                "1M": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)),
-                "3M": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)),
-                "6M": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)),
-                "1Y": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000))
+                // "1M": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)),
+                // "3M": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)),
+                // "6M": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)),
+                // "1Y": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000))
             }
 
             for (const [period, periodSignals] of Object.entries(periods)) {
@@ -76,24 +79,24 @@ export const scheduleStatsCalculation = async () => {
         {},
         {
             repeat: {
-                pattern: "0 0 * * *", // Every day at midnight
+                pattern: "0 2 * * *", // Every day at 2AM
             },
         }
     )
     console.log("📅 Stats calculation scheduled")
 
-    // await statsQueue.add(
-    //     "calculateSourceStats",
-    //     {},
-    //     {
-    //         priority: 1, // High priority
-    //         removeOnComplete: {
-    //             age: 86400 * 7,
-    //             count: 10
-    //         },
-    //         removeOnFail: {
-    //             age: 86400 * 14
-    //         }
-    //     }
-    // )
+    await statsQueue.add(
+        "calculateSourceStats",
+        {},
+        {
+            priority: 1, // High priority
+            removeOnComplete: {
+                age: 86400 * 7,
+                count: 10
+            },
+            removeOnFail: {
+                age: 86400 * 14
+            }
+        }
+    )
 }
