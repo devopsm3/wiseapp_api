@@ -4,7 +4,43 @@ export const calculateSourceStats = (signals: any[]) => {
     const clusters: Record<string, { day: number, profitRange: string, count: number, totalProfit: number }> = {}
     const allPnls: number[] = []
 
+    const aggregatedSignals: { [key: string]: { name: string; value: number; fill: string, totalProfitPercentage: number, goodSignals: number, badSignals: number } } = {}
+    let pieChatTokensData: any[] = []
+
+    const tokenColors: { [key: string]: string } = {
+        BTC: "#F7931A",
+        ETH: "#627EEA",
+        SOL: "#14F195",
+        ALTS: "#8B5CF6"
+    }
+
     signals.forEach((signal) => {
+
+        const rawSymbol = signal.currency_label
+        const symbol = ["BTC", "ETH", "SOL"].includes(rawSymbol) ? rawSymbol : "ALTS"
+
+        if (!aggregatedSignals[symbol]) {
+            aggregatedSignals[symbol] = {
+                name: symbol,
+                value: 0,
+                fill: tokenColors[symbol],
+                totalProfitPercentage: 0,
+                goodSignals: 0,
+                badSignals: 0
+            }
+        }
+
+        // Update stats
+        aggregatedSignals[symbol].value += 1
+        aggregatedSignals[symbol].totalProfitPercentage += signal.pnlP
+
+        if (signal.pnlP >= 0) {
+            aggregatedSignals[symbol].goodSignals += 1
+        } else {
+            aggregatedSignals[symbol].badSignals += 1
+        }
+        // other stats
+
         const signalMeta = signal.meta as unknown as PivotCalculationMeta
         const signalMetaPivotData = signalMeta?.pivotData || []
         allPnls.push(signal.pnlP)
@@ -52,6 +88,15 @@ export const calculateSourceStats = (signals: any[]) => {
         }
     })
 
+    pieChatTokensData = Object.values(aggregatedSignals).map(item => ({
+        name: item.name,
+        fill: item.fill,
+        total_token_profit_percentage: Number(item.totalProfitPercentage.toFixed(2)),
+        total_token_count: item.value,
+        good_signals: item.goodSignals,
+        bad_signals: item.badSignals
+    }))
+
     // Calculate Top Signals stats
     allPnls.sort((a, b) => b - a)
     const totalProfitAll = allPnls.reduce((a, b) => a + b, 0)
@@ -89,6 +134,7 @@ export const calculateSourceStats = (signals: any[]) => {
                 weight: top10.share,
                 profitability: top10.profit
             },
-        ]
+        ],
+        pieChatTokensData
     }
 }

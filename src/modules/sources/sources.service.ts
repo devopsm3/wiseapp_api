@@ -9,6 +9,7 @@ import { SourceType } from "../../providers/sources/sources.types"
 import { normalizeSourceId } from "../../utils/global.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 import { calculateSourceStats } from "./sources.helpers"
+import { generateSourceRecommendations } from "../../providers/AgentAI/recommendations.provider"
 
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
@@ -281,6 +282,7 @@ export const getSourcesService = async (currentUser: User) => {
 }
 
 // get source by id or username
+
 export const getSourceByIdService = async (id: string, currentUser: User) => {
 
     try {
@@ -300,11 +302,33 @@ export const getSourceByIdService = async (id: string, currentUser: User) => {
         }
 
         // RECOMMENDATION
+        // Fetch signals to calculate stats for AI
+        const signals = await prisma.signal.findMany({
+            where: {
+                sourceId: source.id,
+                // user_db_id: currentUser.id, // Should we use currentUser? Usually recommendations are based on global performance, but maybe user specific? The user query used currentUser in getSourceSignalsDetailsService. Let's stick to consistent filtering if needed, but for general source vibe check, maybe all signals?
+                // The original getSourceByIdService filtered by source_status: VALIDE.
+                // Let's iterate on signals.
+            },
+            take: 100, // Limit to recent 100 signals to avoid context limit issues and perf
+            orderBy: {
+                entry_timestamp: "desc"
+            }
+        })
+
+        const stats = calculateSourceStats(signals)
+        const recommendations = await generateSourceRecommendations({
+            sourceName: source.user_name_source,
+            platform: source.platform_logo,
+            stats: stats,
+            recentSignalsCount: signals.length,
+            followers: source.followers_count
+        })
 
         return {
             status: true,
             source: source,
-            // recommendations: recommendations
+            recommendations: recommendations
         }
     } catch (error: any) {
         return {
@@ -429,6 +453,21 @@ export const toggleSourceActivationService = async (id: number, currentUser: Use
 // get source signals details
 export const getSourceSignalsDetailsService = async (sourceId: number, currentUser: User) => {
     try {
+        const source = await prisma.source.findUnique({
+            where: {
+                id: sourceId,
+                user_db_id: currentUser.id,
+                source_status: SourceStatus.VALIDE,
+            },
+        })
+
+        if (!source) {
+            return {
+                status: false,
+                message: "Source not found"
+            }
+        }
+
         const signals = await prisma.signal.findMany({
             where: {
                 sourceId: sourceId,
@@ -471,8 +510,70 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
             data: {
                 signals: formattedSignals,
                 optimal_exit: stats.optimal_exit,
-                top: stats.top
+                top: stats.top,
+                pieChatTokensData: stats.pieChatTokensData
             }
+        }
+    } catch (error: any) {
+        return {
+            status: false,
+            message: error.message
+        }
+    }
+}
+
+export const getSourceRecommendationsService = async (sourceId: number, currentUser: User) => {
+    try {
+        const source = await prisma.source.findUnique({
+            where: {
+                id: sourceId,
+                user_db_id: currentUser.id,
+                source_status: SourceStatus.VALIDE,
+            },
+        })
+
+        if (!source) {
+            return {
+                status: false,
+                message: "Source not found"
+            }
+        }
+
+        let stats
+        const sourceStats = await prisma.sourceStats.findUnique({
+            where: {
+                sourceId_period: {
+                    sourceId: sourceId,
+                    period: "ALL"
+                }
+            }
+        })
+
+        if (sourceStats && sourceStats.stats) {
+            stats = sourceStats.stats as any
+        } else {
+            const signals = await prisma.signal.findMany({
+                where: {
+                    sourceId: sourceId,
+                    user_db_id: currentUser.id,
+                },
+                orderBy: {
+                    entry_timestamp: "desc"
+                }
+            })
+            stats = calculateSourceStats(signals)
+        }
+
+        const recommendations = await generateSourceRecommendations({
+            sourceName: source.user_name_source,
+            platform: source.platform_logo,
+            stats,
+            followers_count: source.followers_count
+        })
+
+        return {
+            status: true,
+            data: recommendations
         }
     } catch (error: any) {
         return {
@@ -486,7 +587,6 @@ export const getSourceProfitHistory = async (sourceId: number, currentUser: User
     const signals = await prisma.signal.findMany({
         where: {
             sourceId: sourceId,
-            // status: "CLOSED", // Only finished signals
             ...(tokenFilter && { token: tokenFilter })
         },
         orderBy: { entry_timestamp: "asc" },

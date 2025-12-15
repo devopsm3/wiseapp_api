@@ -3,6 +3,7 @@ import connection from "../config/redis"
 import { prisma } from "../prisma"
 import { calculateSourceStats } from "../modules/sources/sources.helpers"
 import { SourceStatus } from "@prisma/client"
+import { generateSourceRecommendations } from "../providers/AgentAI/recommendations.provider"
 
 export const statsQueue = new Queue("stats", {
     connection: connection
@@ -36,6 +37,13 @@ export const statsWorker = new Worker("stats", async (job) => {
 
                 const stats = calculateSourceStats(periodSignals)
 
+                const recommendations = await generateSourceRecommendations({
+                    sourceName: source.user_name_source,
+                    platform: source.platform_logo,
+                    stats,
+                    followers_count: source.followers_count
+                })
+
                 await prisma.sourceStats.upsert({
                     where: {
                         sourceId_period: {
@@ -44,12 +52,14 @@ export const statsWorker = new Worker("stats", async (job) => {
                         }
                     },
                     update: {
-                        stats: stats as any
+                        stats: stats as any,
+                        recommendations: recommendations as any
                     },
                     create: {
                         sourceId: source.id,
                         period: period,
-                        stats: stats as any
+                        stats: stats as any,
+                        recommendations: recommendations as any
                     }
                 })
             }
@@ -66,9 +76,24 @@ export const scheduleStatsCalculation = async () => {
         {},
         {
             repeat: {
-                pattern: "47 22 * * *", // Every day at midnight
+                pattern: "0 0 * * *", // Every day at midnight
             },
         }
     )
     console.log("📅 Stats calculation scheduled")
+
+    // await statsQueue.add(
+    //     "calculateSourceStats",
+    //     {},
+    //     {
+    //         priority: 1, // High priority
+    //         removeOnComplete: {
+    //             age: 86400 * 7,
+    //             count: 10
+    //         },
+    //         removeOnFail: {
+    //             age: 86400 * 14
+    //         }
+    //     }
+    // )
 }
