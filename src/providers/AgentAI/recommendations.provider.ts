@@ -1,6 +1,8 @@
 import config from "../../config/config"
 
 export const generateSourceRecommendations = async (sourceStats: any) => {
+    console.log(" 🚀   -->  Generate Recommendations FOR :", sourceStats.sourceName)
+    
     const url = "https://openrouter.ai/api/v1/chat/completions"
     const headers = {
         Authorization: `Bearer ${config.OPENROUTER_API_KEY}`,

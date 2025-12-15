@@ -370,7 +370,7 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
                 id: sourceId,
                 user_db_id: currentUser.id,
                 source_status: SourceStatus.VALIDE,
-            },
+            }
         })
 
         if (!source) {

@@ -8,6 +8,8 @@ import { getTelegramChannelPosts } from "../telegram/telegram.provider"
 import { getTwitterChannelPosts } from "../twitter/twitter.provider"
 import { calculateMaxPivotFrom21Days, getCoinInfo } from "../CoinMarketCap/coinmarketcap.provider"
 import { createOrUpdateSignal } from "../signals/signals.provider"
+import { calculateSourceStats } from "../../modules/sources/sources.helpers"
+import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
 
 
 const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User) => {
@@ -134,6 +136,43 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 metadata: metadata
             },
         })
+
+        // await 1 second
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        const NewSourceFull = await prisma.source.findUnique({
+            where: {
+                id: newSource.id
+            },
+            include: {
+                Signal: true,
+            }
+        })
+
+        if (!NewSourceFull) {
+            return {
+                status: true,
+                id: newSource.user_username_source
+            }
+        }
+
+        const stats = calculateSourceStats(NewSourceFull.Signal || [])
+        const recommendations = await generateSourceRecommendations({
+            sourceName: source.user_name_source,
+            platform: source.platform_logo,
+            stats: stats,
+            recentSignalsCount: source.Signal?.length || 0,
+            followers: source.followers_count
+        })
+
+        await prisma.sourceStats.create({
+            data: {
+                sourceId: newSource.id,
+                stats: stats,
+                recommendations: recommendations,
+                period: "ALL"
+            }
+        })
+            
         return {
             status: true,
             id: newSource.user_username_source
