@@ -284,38 +284,29 @@ export const getSourcesService = async (currentUser: User) => {
 export const getSourceByIdService = async (id: string, currentUser: User) => {
 
     try {
-        const n = Number(id)
-        const sourceId = isNaN(n) ? null : n
-        let source
-        if (sourceId) {
-            source = await prisma.source.findUnique({
-                where: {
-                    id: sourceId,
-                    user_db_id: currentUser.id,
-                    // source_status: SourceStatus.VALIDE,
-                },
-            })
-        } else {
-            source = await prisma.source.findFirst({
-                where: {
-                    user_username_source: id,
-                    user_db_id: currentUser.id,
-                    source_status: SourceStatus.VALIDE,
-                },
-            })
-        }
+        const source = await prisma.source.findUnique({
+            where: {
+                id: Number(id),
+                user_db_id: currentUser.id,
+                source_status: SourceStatus.VALIDE,
+            },
+        })
+
         if (!source) {
             return {
                 status: false,
                 message: "Source not found"
             }
         }
+
+        // RECOMMENDATION
+
         return {
             status: true,
-            source: source
+            source: source,
+            // recommendations: recommendations
         }
     } catch (error: any) {
-
         return {
             status: false,
             message: error.message
