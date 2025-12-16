@@ -1,5 +1,5 @@
 ﻿import { NextFunction, Request, Response } from "express"
-import { getSignalsService, getSignalByIdService } from "./signals.service"
+import { getSignalsService, getSignalPostsArticlesService, getSignalAiPriceTraceAnalysisService, getSignalAiTokenAnalysisService, getFearAndGreedService } from "./signals.service"
 import { getCoinMarketCapFearAndGreedHistory, getTokenPriceAtDate } from "../../providers/CoinMarketCap/coinmarketcap.provider"
 // import { createOrUpdateSignal } from "../../providers/signals/signals.provider"
 
@@ -19,9 +19,25 @@ export const getSignals = async (req: Request, res: Response, next: NextFunction
     }
 }
 
-export const getSignalById = async (req: Request, res: Response, next: NextFunction) => {
+export const getFearAndGreed = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const signalContent = await getSignalByIdService(Number(req.params.id), req.user!)
+        const fearAndGreed = await getFearAndGreedService()
+        if (!fearAndGreed) {
+            return res.status(404).json({ status: false, message: "Fear and greed not found" })
+        }
+        return res.status(200).json({
+            status: true,
+            data: fearAndGreed
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+export const getSignalPostsArticles = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const signalContent = await getSignalPostsArticlesService(Number(req.params.id), req.user!)
 
         if (!signalContent) {
             return res.status(404).json({ status: false, message: "Signal not found" })
@@ -29,6 +45,38 @@ export const getSignalById = async (req: Request, res: Response, next: NextFunct
         return res.status(200).json({
             status: true,
             data: signalContent,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getSignalAiPriceTraceAnalysis = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const data = await getSignalAiPriceTraceAnalysisService(Number(req.params.id), req.user!)
+
+        if (!data) {
+            return res.status(404).json({ status: false, message: "Signal not found" })
+        }
+        return res.status(200).json({
+            status: true,
+            data,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getSignalAiTokenAnalysis = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const data = await getSignalAiTokenAnalysisService(Number(req.params.id), req.user!)
+
+        if (!data) {
+            return res.status(404).json({ status: false, message: "Signal not found" })
+        }
+        return res.status(200).json({
+            status: true,
+            data,
         })
     } catch (error) {
         next(error)
@@ -49,6 +97,8 @@ export const getFearAndGreedHistory = async (req: Request, res: Response, next: 
         next(error)
     }
 }
+
+// 
 
 export const test = async (req: Request, res: Response, next: NextFunction) => {
     try {

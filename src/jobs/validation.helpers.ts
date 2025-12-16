@@ -1,42 +1,26 @@
 import { prisma } from "../prisma"
 
-/**
- * Calculate deletion rate as a percentage
- * @param totalChecks - Total number of validation checks performed
- * @param deletedCount - Number of posts found to be deleted
- * @returns Deletion rate percentage (0-100)
- */
+
 export function calculateDeletionRate(totalChecks: number, deletedCount: number): number {
     if (totalChecks === 0) return 0
     return (deletedCount / totalChecks) * 100
 }
 
-/**
- * Calculate truth score (inverse of deletion rate with confidence weighting)
- * Higher scores = more reliable source
- * @param deletionRate - Deletion rate percentage (0-100)
- * @param totalPosts - Total number of posts from source
- * @returns Truth score (0-100)
- */
 export function calculateTruthScore(deletionRate: number, totalPosts: number): number {
     // Base score is inverse of deletion rate
     const baseScore = 100 - deletionRate
-    
+
     // Confidence factor: more posts = higher confidence in the score
     // Reaches 100% confidence at 100+ posts
     const confidenceFactor = Math.min(1, totalPosts / 100)
-    
+
     // Apply confidence weighting 
     // Low confidence sources get pulled toward 50 (neutral)
     const weightedScore = baseScore * confidenceFactor + 50 * (1 - confidenceFactor)
-    
+
     return Math.max(0, Math.min(100, weightedScore))
 }
 
-/**
- * Update source reliability metrics after validation run
- * @param sourceId - The source ID to update
- */
 export async function updateSourceMetrics(sourceId: number): Promise<void> {
     // Get all validation results for this source's posts
     const validations = await prisma.postValidation.findMany({
@@ -85,16 +69,7 @@ export async function updateSourceMetrics(sourceId: number): Promise<void> {
     console.log(`   ✓ Truth Score: ${truthScore.toFixed(2)}/100`)
 }
 
-/**
- * Determine if a post should be checked based on tiered batching strategy
- * - Posts < 7 days old: Check daily
- * - Posts 7-30 days old: Check every 3 days
- * - Posts > 30 days old: Check every 7 days
- * 
- * @param postCreatedAt - When the post was created
- * @param currentDay - Current day of year (0-365)
- * @returns true if post should be checked today
- */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function shouldCheckPost(postCreatedAt: Date, currentDay: number): boolean {
     const now = new Date()
     const ageInDays = Math.floor((now.getTime() - postCreatedAt.getTime()) / (1000 * 60 * 60 * 24))
@@ -104,9 +79,11 @@ export function shouldCheckPost(postCreatedAt: Date, currentDay: number): boolea
         return true
     } else if (ageInDays >= 7 && ageInDays < 30) {
         // Medium age: check every 3 days
-        return currentDay % 3 === 0
+        return true
+        // return currentDay % 3 === 0
     } else {
         // Old posts: check every 7 days (weekly)
-        return currentDay % 7 === 0
+        return true
+        // return currentDay % 7 === 0
     }
 }

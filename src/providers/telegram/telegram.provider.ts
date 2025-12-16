@@ -60,20 +60,20 @@ export async function getTelegramChannelInfo(channelName: string) {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function getTelegramChannelPosts(channelName: string, lastSavedId: number = 0) {
-    
+
     try {
-        
+
 
         const posts: any[] = []
         // const daysAgo = Number(process.env.FETCH_DAYS_AGO) || 5
         // const offsetDate = getDaysAgoTimestamp(daysAgo)
         // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
         // for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true, limit: 30 })) {
-        for await (const message of client.iterMessages(channelName, { limit: 10 })) {
+        for await (const message of client.iterMessages(channelName, { limit: 100 })) {
             if (!(message instanceof Api.Message)) continue
             if (!message.message) continue
             // if (!message.message && !message.photo) continue
-        
+
             // // handle photo if present
             // if (message.photo) {
             //     const storageDir = path.join(__dirname, `../../../storage/telegram/sources/${channelName}`)
@@ -99,12 +99,12 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
                 date: new Date(message.date * 1000),
                 senderId: message.senderId?.toString() || null,
                 mediaType: message.photo ? "photo" : "text",
-            // date: message.date,
+                // date: message.date,
             })
-        }  
+        }
         const analyses = await Promise.all(
             posts.map(p => agentAI_signal_analyzer(p.text))
-        )      
+        )
         const analysedPosts = posts
             .map((post, i) => ({ ...post, analysis: analyses[i] }))
         const analysedPostsFiltered = analysedPosts.filter(p => p?.analysis?.type === "Signal" && p?.analysis?.token)
@@ -140,7 +140,7 @@ export async function checkTelegramPostExists(
         }
 
         const message = messages[0]
-        
+
         // Check if message is actually deleted (Telegram returns a special type)
         if (message instanceof Api.MessageEmpty || !message) {
             return { exists: false }

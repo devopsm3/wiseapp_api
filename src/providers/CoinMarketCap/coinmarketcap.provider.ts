@@ -25,21 +25,6 @@ export const getCoinMarketCapSymbolId = (symbol: string): number | null => {
 
 export const getCoinInfo = async (symbol: string): Promise<{ id: number; logo: string; name: string; symbol: string } | null> => {
     const normalizedSymbol = symbol.toUpperCase()
-    const a = false
-    if (a) {
-        coinInfoCache.set("ETH", {
-            id: 1027,
-            logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
-            name: "Ethereum",
-            symbol: "ETH"
-        })
-        return {
-            id: 1027,
-            logo: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
-            name: "Ethereum",
-            symbol: "ETH"
-        }
-    }
     if (coinInfoCache.has(normalizedSymbol)) {
         const cached = coinInfoCache.get(normalizedSymbol)!
         if (cached.logo) {
@@ -86,6 +71,34 @@ export const getCoinInfo = async (symbol: string): Promise<{ id: number; logo: s
         return null
     } catch (error) {
         console.error(`Error fetching cryptocurrency info for ${symbol}:`, error)
+        return null
+    }
+}
+
+export const QuotesLatest = async (coinId: string): Promise<any | null> => {
+
+    const url = `${COINMARKETCAP_API_URL}/v2/cryptocurrency/quotes/latest?id=${coinId}`
+    const options = {
+        method: "GET",
+        headers: {
+            "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY,
+            "Accept": "application/json"
+        }
+    }
+
+    try {
+        const response = await fetch(url, options)
+        const data: any = await response.json()
+
+        if (data.data && data.data[coinId.toString()]) {
+            const coinData = data.data[coinId.toString()]
+            return coinData
+        }
+
+        console.warn(`No cryptocurrency quotes found for coinId: ${coinId}`)
+        return null
+    } catch (error) {
+        console.error(`Error fetching cryptocurrency quotes for coinId: ${coinId}:`, error)
         return null
     }
 }
@@ -501,4 +514,3 @@ export const getCoinMarketCapFearAndGreedHistory = async () => {
         return null
     }
 }
-    

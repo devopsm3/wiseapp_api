@@ -3,8 +3,8 @@ import { prisma } from "../../prisma"
 import { getSignalTrendLevel } from "../../providers/signals/signals.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 import { GlobalSettings } from "../../types/setup.types"
-import { getCoinMarketCapFearAndGreed, getCoinMarketCapFearAndGreedHistory, getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts } from "../../providers/CoinMarketCap/coinmarketcap.provider"
-import { getAiAnalysis } from "../../providers/AgentAI/token_analysis.provider"
+import { getCoinInfo, getCoinMarketCapFearAndGreed, getCoinMarketCapFearAndGreedHistory, getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts, QuotesLatest } from "../../providers/CoinMarketCap/coinmarketcap.provider"
+import { generateTokenAnalysis, getAiAnalysis } from "../../providers/AgentAI/token_analysis.provider"
 
 export const getSignalsService = async (currentUser: User) => {
     try {
@@ -189,11 +189,24 @@ export const getSignalsService = async (currentUser: User) => {
             })
         }
 
-        const fearAndGreedIndex = await getCoinMarketCapFearAndGreed()
-
         return {
             signals: signalsInfo,
-            meta_signals: metaSignalsInfo,
+            meta_signals: metaSignalsInfo
+        }
+    } catch (error) {
+        console.log(" 🚀   -->  error:", error)
+        return null
+    }
+}
+
+export const getFearAndGreedService = async () => {
+    try {
+        const fearAndGreedIndex = await getCoinMarketCapFearAndGreed()
+
+        if (!fearAndGreedIndex) {
+            return null
+        }
+        return {
             fear_and_greed_index: fearAndGreedIndex
         }
     } catch (error) {
@@ -202,8 +215,7 @@ export const getSignalsService = async (currentUser: User) => {
     }
 }
 
-// get signal by id
-export const getSignalByIdService = async (id: number, currentUser: User) => {
+export const getSignalPostsArticlesService = async (id: number, currentUser: User) => {
     try {
         const signal = await prisma.signal.findUnique({
             where: {
@@ -214,46 +226,129 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
 
         if (!signal) {
             return null
-        }        // get top posts and latest posts from coinmarketcap api of signal token using signal.coin_id
+        }
+
         const coinmarketcapTopPosts = await getCoinMarketCapTopPosts(signal.coin_id!)
         const coinmarketcapLatestPosts = await getCoinMarketCapLatestPosts(signal.coin_id!)
         const coinmarketcapLatestArticles = await getCoinMarketCapLatestArticles(signal.coin_id!)
 
 
+        return {
+            coinmarketcapTopPosts: coinmarketcapTopPosts || [],
+            coinmarketcapLatestPosts: coinmarketcapLatestPosts || [],
+            coinmarketcapLatestArticles: coinmarketcapLatestArticles || []
+        }
+
+    } catch (error) {
+        console.log(" 🚀   -->  error:", error)
+        return null
+    }
+}
+
+export const getSignalAiPriceTraceAnalysisService = async (id: number, currentUser: User) => {
+    try {
+        const signal = await prisma.signal.findUnique({
+            where: {
+                id: id,
+                user_db_id: currentUser.id,
+            }
+        })
+
+        if (!signal) {
+            return null
+        }
+
         const today = new Date()
-        const isAnalysisFromToday = signal.ai_price_trace_analysis_at 
+        const isAnalysisFromToday = signal.ai_price_trace_analysis_at
             ? new Date(signal.ai_price_trace_analysis_at!).toDateString() === today.toDateString()
             : false
-        
+
         let ai_price_trace_analysis = signal.ai_price_trace_analysis
-        
+
         if (!ai_price_trace_analysis || !isAnalysisFromToday) {
-            ai_price_trace_analysis = await getAiAnalysis({
+            const ai_price_trace_analysis_response = await getAiAnalysis({
                 token: signal.currency_label,
                 price_at_start: signal.entry_price,
                 signal_trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
                 historical_pivot_prices: (signal.meta as unknown as PivotCalculationMeta).pivotData || [],
             })
-            // save in db
-            await prisma.signal.update({
-                where: {
-                    id: id,
-                    user_db_id: currentUser.id,
-                },
-                data: {
-                    ai_price_trace_analysis: ai_price_trace_analysis || "",
-                    ai_price_trace_analysis_at: new Date()
-                }
-            })
+            if (ai_price_trace_analysis_response.status) {
+                // save in db
+                await prisma.signal.update({
+                    where: {
+                        id: id,
+                        user_db_id: currentUser.id,
+                    },
+                    data: {
+                        ai_price_trace_analysis: ai_price_trace_analysis_response.data || "",
+                        ai_price_trace_analysis_at: new Date()
+                    }
+                })
+            }
+            ai_price_trace_analysis = ai_price_trace_analysis_response.data
         } else {
             ai_price_trace_analysis = signal.ai_price_trace_analysis
         }
 
         return {
-            coinmarketcapTopPosts: coinmarketcapTopPosts || [],
-            coinmarketcapLatestPosts: coinmarketcapLatestPosts || [],
-            coinmarketcapLatestArticles: coinmarketcapLatestArticles || [],
-            aiAnalysis: ai_price_trace_analysis || ""
+            aiPriceTraceAnalysis: ai_price_trace_analysis || ""
+        }
+
+    } catch (error) {
+        console.log(" 🚀   -->  error:", error)
+        return null
+    }
+}
+
+export const getSignalAiTokenAnalysisService = async (id: number, currentUser: User) => {
+    try {
+        const signal = await prisma.signal.findUnique({
+            where: {
+                id: id,
+                user_db_id: currentUser.id,
+            }
+        })
+
+        if (!signal) {
+            return null
+        }
+
+        const coinInfo = await getCoinInfo(signal.currency_label)
+        const coinQuotesLatest = await QuotesLatest(signal.coin_id!.toString())
+
+        const today = new Date()
+        const isTokenAnalysisFromToday = signal.ai_token_analysis_at
+            ? new Date(signal.ai_token_analysis_at!).toDateString() === today.toDateString()
+            : false
+        let token_analysis = signal.ai_token_analysis
+
+        if (!token_analysis || !isTokenAnalysisFromToday) {
+            const token_analysis_response = await generateTokenAnalysis(
+                {
+                    token: coinInfo?.name || signal.currency_label,
+                    quoteLatest: coinQuotesLatest
+                })
+
+            if (token_analysis_response.status) {
+                // save in db
+                await prisma.signal.update({
+                    where: {
+                        id: id,
+                        user_db_id: currentUser.id,
+                    },
+                    data: {
+                        ai_token_analysis: token_analysis_response.data || "",
+                        ai_token_analysis_at: new Date()
+                    }
+                })
+            }
+            token_analysis = token_analysis_response.data
+        } else {
+            token_analysis = signal.ai_token_analysis
+        }
+
+        return {
+            aiTokenAnalysis: token_analysis ? JSON.parse(token_analysis as any) : null
         }
 
     } catch (error) {

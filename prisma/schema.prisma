@@ -223,6 +223,8 @@ model Signal {
   pivot_calc_days            Int        @default(0)
   ai_price_trace_analysis    String?    @db.Text
   ai_price_trace_analysis_at DateTime?
+  ai_token_analysis          Json?
+  ai_token_analysis_at       DateTime?
 }
 
 model Setup {
