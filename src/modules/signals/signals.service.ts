@@ -4,6 +4,7 @@ import { getSignalTrendLevel } from "../../providers/signals/signals.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 import { GlobalSettings } from "../../types/setup.types"
 import { getCoinMarketCapFearAndGreed, getCoinMarketCapFearAndGreedHistory, getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts } from "../../providers/CoinMarketCap/coinmarketcap.provider"
+import { getAiAnalysis } from "../../providers/AgentAI/token_analysis.provider"
 
 export const getSignalsService = async (currentUser: User) => {
     try {
@@ -219,19 +220,40 @@ export const getSignalByIdService = async (id: number, currentUser: User) => {
         const coinmarketcapLatestArticles = await getCoinMarketCapLatestArticles(signal.coin_id!)
 
 
-        // ai analysis
-        const aiAnalysis = await getAiAnalysis({
-            token: signal.currency_label,
-            price_at_start: signal.entry_price,
-            signal_trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
-            historical_pivot_prices: (signal.meta as unknown as PivotCalculationMeta).pivotData || [],
-        })
+        const today = new Date()
+        const isAnalysisFromToday = signal.ai_price_trace_analysis_at 
+            ? new Date(signal.ai_price_trace_analysis_at!).toDateString() === today.toDateString()
+            : false
+        
+        let ai_price_trace_analysis = signal.ai_price_trace_analysis
+        
+        if (!ai_price_trace_analysis || !isAnalysisFromToday) {
+            ai_price_trace_analysis = await getAiAnalysis({
+                token: signal.currency_label,
+                price_at_start: signal.entry_price,
+                signal_trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
+                historical_pivot_prices: (signal.meta as unknown as PivotCalculationMeta).pivotData || [],
+            })
+            // save in db
+            await prisma.signal.update({
+                where: {
+                    id: id,
+                    user_db_id: currentUser.id,
+                },
+                data: {
+                    ai_price_trace_analysis: ai_price_trace_analysis || "",
+                    ai_price_trace_analysis_at: new Date()
+                }
+            })
+        } else {
+            ai_price_trace_analysis = signal.ai_price_trace_analysis
+        }
 
         return {
             coinmarketcapTopPosts: coinmarketcapTopPosts || [],
             coinmarketcapLatestPosts: coinmarketcapLatestPosts || [],
             coinmarketcapLatestArticles: coinmarketcapLatestArticles || [],
-            aiAnalysis: aiAnalysis || ""
+            aiAnalysis: ai_price_trace_analysis || ""
         }
 
     } catch (error) {

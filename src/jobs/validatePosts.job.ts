@@ -117,11 +117,11 @@ export const postValidationWorker = new Worker("postValidation", async (e: Worke
             })
 
             // Apply tiered batching filter
-            const postsToCheck = allPosts.filter(post => 
+            const postsToCheck = allPosts.filter(post =>
                 shouldCheckPost(post.date!, dayOfYear)
             )
 
-            console.log(`📊 Total  posts: ${allPosts.length}`,`   => 📊 Posts to check today (tiered batching): ${postsToCheck.length}`)
+            console.log(`📊 Total  posts: ${allPosts.length}`, `   => 📊 Posts to check today (tiered batching): ${postsToCheck.length}`)
 
             if (postsToCheck.length === 0) {
                 console.log("✅ [BULLMQ] No posts to validate today")
@@ -170,7 +170,7 @@ export const postValidationWorker = new Worker("postValidation", async (e: Worke
             console.log(" ")
             console.log(" - - - - - - - - - - ")
             console.log(" ")
-            
+
             const uniqueSourceIds = [...new Set(postsToCheck.map(p => p.sourceId))]
             for (const sourceId of uniqueSourceIds) {
                 try {
@@ -219,7 +219,8 @@ export const schedulePostValidation = async () => {
         {},
         {
             repeat: {
-                pattern: "0 1 * * *", // Cron: Every day at 1:00 AM
+                pattern: "0 1 * * *", // Cron: Every day at 1:00 AM,
+                tz: "Europe/Paris"
             },
             removeOnComplete: {
                 age: 86400 * 7, // Keep logs for 7 days

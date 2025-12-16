@@ -124,7 +124,8 @@ export const createOrUpdateSignal = async ({
                 coin_id: coinId,
                 meta: meta as any,
                 isComplete,
-                pivot_calc_days: pivotCalcDays
+                pivot_calc_days: pivotCalcDays,
+                ai_price_trace_analysis: ""
             }
         })
 

@@ -82,7 +82,8 @@ export const scheduleStatsCalculation = async () => {
         {},
         {
             repeat: {
-                pattern: "0 2 * * *", // Every day at 2AM
+                pattern: "0 2 * * *", // Every day at 2AM,
+                tz: "Europe/Paris"
             },
         }
     )

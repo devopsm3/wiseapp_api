@@ -215,13 +215,14 @@ model Signal {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  User            User       @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
-  SourcePost      SourcePost @relation(fields: [source_post_id], references: [id], onDelete: Cascade)
-  Source          Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  meta            Json?
-  isComplete      Boolean    @default(false)
-  pivot_calc_days Int        @default(0)
-  // ai_analysis     String     @default("")
+  User                       User       @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
+  SourcePost                 SourcePost @relation(fields: [source_post_id], references: [id], onDelete: Cascade)
+  Source                     Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  meta                       Json?
+  isComplete                 Boolean    @default(false)
+  pivot_calc_days            Int        @default(0)
+  ai_price_trace_analysis    String?    @db.Text
+  ai_price_trace_analysis_at DateTime?
 }
 
 model Setup {

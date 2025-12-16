@@ -422,12 +422,7 @@ export const getCoinMarketCapLatestPosts = async (coinId: number) => {
 
 export const getCoinMarketCapLatestArticles = async (coinId: number) => {
     try {
-
         const url = `${COINMARKETCAP_API_URL}/v1/content/latest?id=${String(coinId)}`
-
-        console.log(" 🚀   -->  url:", url)
-
-
         const options = {
             method: "GET",
             headers: {

@@ -243,7 +243,8 @@ export const scheduleSignalPivotUpdate = async () => {
         {},
         {
             repeat: {
-                pattern: "0 4 * * *", // Cron: Every day at 4:00 AM
+                pattern: "0 4 * * *", // Cron: Every day at 4:00 AM,
+                tz: "Europe/Paris"
             },
             removeOnComplete: {
                 age: 86400 * 7, // Keep logs for 7 days

@@ -71,7 +71,7 @@ export const getSourcesService = async (currentUser: User) => {
             }
 
             let stats
-            let recommendations
+            // let recommendations
             const sourceStats = await prisma.sourceStats.findUnique({
                 where: {
                     sourceId_period: {
@@ -81,12 +81,13 @@ export const getSourcesService = async (currentUser: User) => {
                 }
             })
 
+            let checkStats = sourceStats && sourceStats.stats && Object.keys(sourceStats.stats as object).length > 0 && (sourceStats.stats as unknown as any).globalStats ? true : false
 
-
-            if (sourceStats && sourceStats.stats && (sourceStats.stats as unknown as any).globalStats) {
-                stats = sourceStats.stats as any
+            if (checkStats) {
+                console.log(" 🚀   -->  Stats already calculated --------------- :")
+                stats = sourceStats!.stats as any
             } else {
-                console.log(" 🚀   -->  Stat calculating -------:")
+                console.log(" 🚀   -->  Stats calculating --------------- :")
                 stats = calculateSourceStats(source.Signal || [])
                 await prisma.sourceStats.upsert({
                     where: {
@@ -106,30 +107,30 @@ export const getSourcesService = async (currentUser: User) => {
                 })
             }
 
-            if (sourceStats && (sourceStats.recommendations as unknown as any[]).length > 0) {
-                recommendations = sourceStats.recommendations as any
-            } else {
-                console.log(" 🚀   -->  Recommendations calculating -------:")
-                recommendations = await generateSourceRecommendations({
-                    sourceName: source.user_name_source,
-                    platform: source.platform_logo,
-                    stats: stats,
-                    recentSignalsCount: source.Signal?.length || 0,
-                    followers: source.followers_count
-                })
+            // if (sourceStats && (sourceStats.recommendations as unknown as any[]).length > 0) {
+            //     recommendations = sourceStats.recommendations as any
+            // } else {
+            //     console.log(" 🚀   -->  Recommendations calculating -------:")
+            //     recommendations = await generateSourceRecommendations({
+            //         sourceName: source.user_name_source,
+            //         platform: source.platform_logo,
+            //         stats: stats,
+            //         recentSignalsCount: source.Signal?.length || 0,
+            //         followers: source.followers_count
+            //     })
 
-                await prisma.sourceStats.update({
-                    where: {
-                        sourceId_period: {
-                            sourceId: source.id,
-                            period: "ALL"
-                        }
-                    },
-                    data: {
-                        recommendations: recommendations as any
-                    },
-                })
-            }
+            //     await prisma.sourceStats.update({
+            //         where: {
+            //             sourceId_period: {
+            //                 sourceId: source.id,
+            //                 period: "ALL"
+            //             }
+            //         },
+            //         data: {
+            //             recommendations: recommendations as any
+            //         },
+            //     })
+            // }
 
             sourcesData.push({
                 id: source.id,
@@ -158,7 +159,7 @@ export const getSourcesService = async (currentUser: User) => {
                     optimal_exit: stats.optimal_exit,
                     pieChatTokensData: stats.pieChatTokensData,
                     top: stats.top,
-                    recommendations
+                    // recommendations
                 },
             })
 
@@ -443,9 +444,11 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
             }
         })
 
-        if (sourceStats && sourceStats.stats) {
-            stats = sourceStats.stats as any
+        let checkStats = sourceStats && sourceStats.stats && Object.keys(sourceStats.stats as object).length > 0 ? true : false
+        if (checkStats) {
+            stats = sourceStats!.stats as any
         } else {
+            console.log(" 🚀   -->  Stats calculating -------:")
             const signals = await prisma.signal.findMany({
                 where: {
                     sourceId: sourceId,
@@ -456,14 +459,56 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
                 }
             })
             stats = calculateSourceStats(signals)
+
+            await prisma.sourceStats.upsert({
+                where: {
+                    sourceId_period: {
+                        sourceId: sourceId,
+                        period: "ALL"
+                    }
+                },
+                update: {
+                    stats: stats as any
+                },
+                create: {
+                    sourceId: sourceId,
+                    period: "ALL",
+                    stats: stats as any
+                }
+            })
         }
 
-        const recommendations = await generateSourceRecommendations({
-            sourceName: source.user_name_source,
-            platform: source.platform_logo,
-            stats,
-            followers_count: source.followers_count
-        })
+        let checkRecommendations = sourceStats && sourceStats.recommendations && (sourceStats.recommendations as any[]).length > 0 ? true : false
+        let recommendations
+        if (sourceStats && checkRecommendations) {
+            recommendations = sourceStats.recommendations
+        } else {
+            console.log(" 🚀   -->  Recommendations calculating -------:")
+            recommendations = await generateSourceRecommendations({
+                sourceName: source.user_name_source,
+                platform: source.platform_logo,
+                stats,
+                followers_count: source.followers_count
+            })
+
+            await prisma.sourceStats.upsert({
+                where: {
+                    sourceId_period: {
+                        sourceId: sourceId,
+                        period: "ALL"
+                    }
+                },
+                update: {
+                    recommendations: recommendations as any
+                },
+                create: {
+                    sourceId: sourceId,
+                    period: "ALL",
+                    stats: stats as any,
+                    recommendations: recommendations as any
+                }
+            })
+        }
 
         return {
             status: true,

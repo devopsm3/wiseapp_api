@@ -8,7 +8,7 @@ import {
     toggleSourceActivation,
     getSourceSignalsDetails,
     // getSourceProfitHistoryData,
-    // getSourceRecommendations
+    getSourceRecommendations
 } from "../modules/sources/sources.controller"
 
 const SourcesRouter = Router()
@@ -21,6 +21,6 @@ SourcesRouter.delete("/delete-source/:id", deleteSourceById)
 SourcesRouter.put("/toggle-source-activation/:id", toggleSourceActivation)
 SourcesRouter.get("/:id/signals-details", getSourceSignalsDetails)
 // SourcesRouter.get("/:id/profit-history", getSourceProfitHistoryData)
-// SourcesRouter.get("/:id/recommendations", getSourceRecommendations)
+SourcesRouter.get("/:id/recommendations", getSourceRecommendations)
 
 export default SourcesRouter
