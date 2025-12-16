@@ -148,7 +148,20 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             }
         })
 
-        console.log(" 🚀   -->  NewSourceFull:", NewSourceFull)
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" - ")
+        // console.log(" 🚀   -->  NewSourceFull:", NewSourceFull)
 
         if (!NewSourceFull) {
             return {
@@ -177,7 +190,18 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             
         return {
             status: true,
-            id: newSource.user_username_source
+            id: newSource.user_username_source,
+            data: {
+                type: NewSourceFull.platform_logo,
+                name: NewSourceFull.user_name_source,
+                created_at: NewSourceFull.createdAt,
+                count_signals_found: NewSourceFull.Signal.length,
+                btc_count: stats.pieChatTokensData.find(t => t.name === "BTC")?.total_token_count || 0,
+                eth_count: stats.pieChatTokensData.find(t => t.name === "ETH")?.total_token_count || 0,
+                sol_count: stats.pieChatTokensData.find(t => t.name === "SOL")?.total_token_count || 0,
+                alts_count: stats.pieChatTokensData.find(t => t.name === "ALTS")?.total_token_count || 0,
+                global_stats: stats.globalStats
+            }
         }
     } catch (error: any) {
         console.log(" 🚀   -->  error:", error)

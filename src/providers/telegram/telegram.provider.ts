@@ -69,7 +69,7 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
         // const offsetDate = getDaysAgoTimestamp(daysAgo)
         // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
         // for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true, limit: 30 })) {
-        for await (const message of client.iterMessages(channelName, { limit: 100 })) {
+        for await (const message of client.iterMessages(channelName, { limit: 10 })) {
             if (!(message instanceof Api.Message)) continue
             if (!message.message) continue
             // if (!message.message && !message.photo) continue
