@@ -47,9 +47,9 @@ export const generateSourceRecommendations = async (sourceStats: any) => {
     ]
 
     const payload = {
-        model: process.env.OPENROUTER_API_MODEL || "openai/chatgpt-4o-latest",
+        model: "openai/gpt-5-chat",
         messages: messages,
-        temperature: 0.7,
+        temperature: 0.6,
         response_format: { type: "json_object" }
     }
 
@@ -69,11 +69,13 @@ export const generateSourceRecommendations = async (sourceStats: any) => {
             .replace(/```/g, "")
             .trim()
 
-        console.log(" 🚀   -->  clean:", clean)
-
-        const recommendations = JSON.parse(clean)
-
-        console.log(" 🚀   -->  recommendations:", recommendations)
+        let recommendations: any
+        try {
+            recommendations = JSON.parse(clean)
+        } catch (error) {
+            console.log(" 🚀   -->  error:", error)
+            recommendations = []
+        }
 
         // Ensure it's an array and has the required fields ? 
         // For now, trust the AI but maybe wrap in a 'recommendations' key if the AI returns an object with a key.

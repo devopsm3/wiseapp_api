@@ -1,15 +1,15 @@
 ﻿import { prisma } from "../../prisma"
 
 import { sourcesQueue } from "../../jobs/sources.job"
-import { PlatformName, SourceStatus, User } from "@prisma/client"
+import { PlatformName, Prisma, SourceStatus, User } from "@prisma/client"
 import { getIO } from "../../config/socket"
 import { getTelegramChannelInfo } from "../../providers/telegram/telegram.provider"
 import { getTwitterChannelInfo } from "../../providers/twitter/twitter.provider"
 import { SourceType } from "../../providers/sources/sources.types"
 import { normalizeSourceId } from "../../utils/global.helpers"
-import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
-import { calculateSourceStats } from "./sources.helpers"
+import { calculateSourceStats, calculateTopCorrelations, getTokenProfitability } from "./sources.helpers"
 import { generateSourceRecommendations } from "../../providers/AgentAI/recommendations.provider"
+import { GlobalSettings } from "../../types/setup.types"
 
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
@@ -34,44 +34,6 @@ export const getSourcesService = async (currentUser: User) => {
                 source_url = `https://x.com/${source.user_username_source}`
             }
 
-            const dailyProfitMap: Record<string, number> = {}
-
-            if (source.Signal) {
-                source.Signal.forEach(signal => {
-                    const signalMeta = signal.meta as unknown as PivotCalculationMeta
-                    const priceAtStart = signal.entry_price
-                    const signalMetaPivotData = signalMeta?.pivotData || []
-                    const signalDailyProfit: Record<string, number> = {}
-
-                    for (let index = 0; index < signalMetaPivotData.length; index++) {
-                        const element = signalMetaPivotData[index]
-                        const date = new Date(element.time).toISOString().split("T")[0]
-                        const pivot = element.pivot
-                        let theoreticalProfitPercent = 0
-
-                        if (signal.signal_trend === "LONG") {
-                            theoreticalProfitPercent = ((pivot - priceAtStart) / priceAtStart) * 100
-                        } else {
-                            theoreticalProfitPercent = ((priceAtStart - pivot) / priceAtStart) * 100
-                        }
-
-                        // Store/Overwrite to get the latest PnL for this date for this signal
-                        signalDailyProfit[date] = theoreticalProfitPercent
-                    }
-
-                    // Add this signal's daily PnL to the source's total daily PnL
-                    Object.keys(signalDailyProfit).forEach(date => {
-                        if (!dailyProfitMap[date]) {
-                            dailyProfitMap[date] = 0
-                        }
-                        dailyProfitMap[date] += signalDailyProfit[date]
-                    })
-
-                })
-            }
-
-            let stats
-            // let recommendations
             const sourceStats = await prisma.sourceStats.findUnique({
                 where: {
                     sourceId_period: {
@@ -81,13 +43,16 @@ export const getSourcesService = async (currentUser: User) => {
                 }
             })
 
-            let checkStats = sourceStats && sourceStats.stats && Object.keys(sourceStats.stats as object).length > 0 && (sourceStats.stats as unknown as any).globalStats ? true : false
 
-            if (checkStats) {
-                console.log(" 🚀   -->  Stats already calculated --------------- :")
-                stats = sourceStats!.stats as any
+            let stats
+            const dbStats = sourceStats?.stats
+            const hasStatsObject = dbStats !== null && typeof dbStats === "object" && !Array.isArray(dbStats) && Object.keys(dbStats).length > 0
+
+            if (hasStatsObject) {
+                console.log(" 🚀   -->  Stats already calculated in Getting Sources --------------- :")
+                stats = dbStats as any
             } else {
-                console.log(" 🚀   -->  Stats calculating --------------- :")
+                console.log(" 🚀   -->  Stats calculating in Getting Sources --------------- :")
                 stats = calculateSourceStats(source.Signal || [])
                 await prisma.sourceStats.upsert({
                     where: {
@@ -106,31 +71,6 @@ export const getSourcesService = async (currentUser: User) => {
                     },
                 })
             }
-
-            // if (sourceStats && (sourceStats.recommendations as unknown as any[]).length > 0) {
-            //     recommendations = sourceStats.recommendations as any
-            // } else {
-            //     console.log(" 🚀   -->  Recommendations calculating -------:")
-            //     recommendations = await generateSourceRecommendations({
-            //         sourceName: source.user_name_source,
-            //         platform: source.platform_logo,
-            //         stats: stats,
-            //         recentSignalsCount: source.Signal?.length || 0,
-            //         followers: source.followers_count
-            //     })
-
-            //     await prisma.sourceStats.update({
-            //         where: {
-            //             sourceId_period: {
-            //                 sourceId: source.id,
-            //                 period: "ALL"
-            //             }
-            //         },
-            //         data: {
-            //             recommendations: recommendations as any
-            //         },
-            //     })
-            // }
 
             sourcesData.push({
                 id: source.id,
@@ -151,15 +91,10 @@ export const getSourcesService = async (currentUser: User) => {
                 account_created_at: new Date(source.user_creation_date * 1000),
                 deleted_posts: source.source_validation_deleted_count,
                 source_url,
-                daily_profit_history: Object.keys(dailyProfitMap).map(date => ({
-                    date,
-                    pnl: Number(dailyProfitMap[date].toFixed(2))
-                })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
                 stats: {
                     optimal_exit: stats.optimal_exit,
                     pieChatTokensData: stats.pieChatTokensData,
                     top: stats.top,
-                    // recommendations
                 },
             })
 
@@ -195,7 +130,6 @@ export const getSourcesService = async (currentUser: User) => {
 }
 
 // get source by id or username
-
 export const getSourceByIdService = async (id: string, currentUser: User) => {
 
     try {
@@ -214,34 +148,9 @@ export const getSourceByIdService = async (id: string, currentUser: User) => {
             }
         }
 
-        // RECOMMENDATION
-        // Fetch signals to calculate stats for AI
-        const signals = await prisma.signal.findMany({
-            where: {
-                sourceId: source.id,
-                // user_db_id: currentUser.id, // Should we use currentUser? Usually recommendations are based on global performance, but maybe user specific? The user query used currentUser in getSourceSignalsDetailsService. Let's stick to consistent filtering if needed, but for general source vibe check, maybe all signals?
-                // The original getSourceByIdService filtered by source_status: VALIDE.
-                // Let's iterate on signals.
-            },
-            take: 100, // Limit to recent 100 signals to avoid context limit issues and perf
-            orderBy: {
-                entry_timestamp: "desc"
-            }
-        })
-
-        const stats = calculateSourceStats(signals)
-        const recommendations = await generateSourceRecommendations({
-            sourceName: source.user_name_source,
-            platform: source.platform_logo,
-            stats: stats,
-            recentSignalsCount: signals.length,
-            followers: source.followers_count
-        })
-
         return {
             status: true,
-            source: source,
-            recommendations: recommendations
+            source: source
         }
     } catch (error: any) {
         return {
@@ -364,17 +273,17 @@ export const toggleSourceActivationService = async (id: number, currentUser: Use
 }
 
 // get source signals details
-export const getSourceSignalsDetailsService = async (sourceId: number, currentUser: User) => {
+export const getSourceSignalsDetailsService = async (focusSourceId: number, currentUser: User) => {
     try {
-        const source = await prisma.source.findUnique({
+        const focusSource = await prisma.source.findUnique({
             where: {
-                id: sourceId,
+                id: focusSourceId,
                 user_db_id: currentUser.id,
                 source_status: SourceStatus.VALIDE,
             }
         })
 
-        if (!source) {
+        if (!focusSource) {
             return {
                 status: false,
                 message: "Source not found"
@@ -383,7 +292,7 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
 
         const signals = await prisma.signal.findMany({
             where: {
-                sourceId: sourceId,
+                sourceId: focusSourceId,
                 user_db_id: currentUser.id,
             },
             orderBy: {
@@ -391,21 +300,85 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
             }
         })
 
-        const formattedSignals = signals.map(signal => ({
-            id: signal.id.toString(),
-            token_symbol: signal.currency_label,
-            token_logo: signal.currency_logo,
-            trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
-            pnl_percent: signal.pnlP,
-            created_at: signal.entry_timestamp.toISOString(),
-            entry_price: signal.entry_price,
-            exit_price: signal.exit_price || 0
-        }))
 
+        const sourceStats = await prisma.sourceStats.findUnique({
+            where: {
+                sourceId_period: {
+                    sourceId: focusSourceId,
+                    period: "ALL"
+                }
+            }
+        })
+
+        const correlations = sourceStats?.topCorrelations
+        const hasTopCorrelationsArray = Array.isArray(correlations) && correlations.length > 0
+
+        let topCorrelations: any = []
+
+        if (hasTopCorrelationsArray) {
+            console.log(" 🚀   -->  Top correlations already calculated in Getting Signals Details -------:")
+            topCorrelations = correlations as Prisma.JsonArray
+        } else {
+            console.log(" 🚀   -->  Top correlations calculating in Getting Signals Details -------:")
+            const otherSources = await prisma.source.findMany({
+                where: {
+                    user_db_id: currentUser.id,
+                    source_status: SourceStatus.VALIDE,
+                    id: { not: focusSourceId }
+                },
+                include: { Signal: true }
+            })
+            let TIME_FRAME_HOURS = 48
+            const setup = await prisma.setup.findFirst({
+                where: {
+                    user_db_id: currentUser.id,
+                },
+            })
+            if (setup && setup.settings) {
+                const setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
+                TIME_FRAME_HOURS = setupsettings.metasignal_time_window || 48
+            }
+
+            topCorrelations = calculateTopCorrelations(
+                { ...focusSource, Signal: signals },
+                otherSources,
+                TIME_FRAME_HOURS
+            )
+            await prisma.sourceStats.upsert({
+                where: {
+                    sourceId_period: {
+                        sourceId: focusSourceId,
+                        period: "ALL",
+                    },
+                },
+                update: {
+                    topCorrelations: topCorrelations as any,
+                },
+                create: {
+                    sourceId: focusSourceId,
+                    period: "ALL",
+                    topCorrelations: topCorrelations as any,
+                    stats: {},
+                    recommendations: []
+                },
+            })
+        }
+
+
+        const signalsStats = {
+            BTC: getTokenProfitability("BTC", signals),
+            ETH: getTokenProfitability("ETH", signals),
+            SOL: getTokenProfitability("SOL", signals),
+            ALTS: getTokenProfitability("ALTS", signals),
+            BULL: getTokenProfitability("BULL", signals),
+            BEAR: getTokenProfitability("BEAR", signals),
+            ALL: getTokenProfitability("ALL", signals)
+        }
         return {
             status: true,
             data: {
-                signals: formattedSignals
+                signalsStats,
+                topCorrelations
             }
         }
     } catch (error: any) {
@@ -416,7 +389,6 @@ export const getSourceSignalsDetailsService = async (sourceId: number, currentUs
     }
 }
 
-// will be removed
 export const getSourceRecommendationsService = async (sourceId: number, currentUser: User) => {
     try {
         const source = await prisma.source.findUnique({
@@ -434,7 +406,6 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
             }
         }
 
-        let stats
         const sourceStats = await prisma.sourceStats.findUnique({
             where: {
                 sourceId_period: {
@@ -444,11 +415,16 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
             }
         })
 
-        let checkStats = sourceStats && sourceStats.stats && Object.keys(sourceStats.stats as object).length > 0 ? true : false
-        if (checkStats) {
-            stats = sourceStats!.stats as any
+        let stats
+        const dbStats = sourceStats?.stats
+        const hasStatsObject = dbStats !== null && typeof dbStats === "object" && !Array.isArray(dbStats) && Object.keys(dbStats).length > 0
+
+
+        if (hasStatsObject) {
+            console.log(" 🚀   -->  Stats already calculated in Getting Recommendations -------:")
+            stats = dbStats as Prisma.JsonObject
         } else {
-            console.log(" 🚀   -->  Stats calculating -------:")
+            console.log(" 🚀   -->  Stats calculating in Getting Recommendations -------:")
             const signals = await prisma.signal.findMany({
                 where: {
                     sourceId: sourceId,
@@ -478,12 +454,15 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
             })
         }
 
-        let checkRecommendations = sourceStats && sourceStats.recommendations && (sourceStats.recommendations as any[]).length > 0 ? true : false
         let recommendations
-        if (sourceStats && checkRecommendations) {
-            recommendations = sourceStats.recommendations
+        const dbRecommendations = sourceStats?.recommendations
+        const hasRecommendationsArray = Array.isArray(dbRecommendations) && dbRecommendations.length > 0
+
+        if (hasRecommendationsArray) {
+            console.log(" 🚀   -->  Recommendations already calculated in Getting Recommendations -------:")
+            recommendations = dbRecommendations as Prisma.JsonArray
         } else {
-            console.log(" 🚀   -->  Recommendations calculating -------:")
+            console.log(" 🚀   -->  Recommendations calculating in Getting Recommendations -------:")
             recommendations = await generateSourceRecommendations({
                 sourceName: source.user_name_source,
                 platform: source.platform_logo,

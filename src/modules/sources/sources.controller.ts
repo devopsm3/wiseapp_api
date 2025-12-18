@@ -69,8 +69,9 @@ export const deleteSourceById = async (req: Request, res: Response, next: NextFu
             return res.status(404).json({ status: false, message: "Source not found" })
         }
         res.status(200).json({
-            status: true,
-            data: source,
+            data: {
+                status: true
+            }
         })
     } catch (error) {
         next(error)

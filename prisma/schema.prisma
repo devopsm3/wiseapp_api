@@ -125,9 +125,10 @@ model Source {
 model SourceStats {
   id              Int      @id @default(autoincrement())
   sourceId        Int
-  period          String // e.g., "ALL", "1M", "3M", "6M", "1Y"
-  stats           Json // Stores the calculated stats (optimal_exit, top_signals, etc.)
+  period          String
+  stats           Json
   recommendations Json     @default("[]")
+  topCorrelations Json     @default("[]")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

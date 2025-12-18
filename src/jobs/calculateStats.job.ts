@@ -1,9 +1,10 @@
 import { Queue, Worker } from "bullmq"
 import connection from "../config/redis"
 import { prisma } from "../prisma"
-import { calculateSourceStats } from "../modules/sources/sources.helpers"
+import { calculateSourceStats, calculateTopCorrelations } from "../modules/sources/sources.helpers"
 import { SourceStatus } from "@prisma/client"
 import { generateSourceRecommendations } from "../providers/AgentAI/recommendations.provider"
+import { GlobalSettings } from "../types/setup.types"
 
 export const statsQueue = new Queue("stats", {
     connection: connection
@@ -26,49 +27,57 @@ export const statsWorker = new Worker("stats", async (job) => {
             console.log("")
             console.log("Processing source:", source.user_name_source)
             const signals = source.Signal
-            // const now = new Date()
-            const periods = {
-                "ALL": signals,
-                // "1M": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)),
-                // "3M": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)),
-                // "6M": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)),
-                // "1Y": signals.filter(s => s.entry_timestamp >= new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000))
+            const stats = calculateSourceStats(signals)
+            console.log("Stats Calculation is DONE")
+            
+            let TIME_FRAME_HOURS = 48
+            const setup = await prisma.setup.findFirst({
+                where: {
+                    user_db_id: source.user_db_id,
+                },
+            })
+            if (setup && setup.settings) {
+                const setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
+                TIME_FRAME_HOURS = setupsettings.metasignal_time_window || 48
             }
 
-            for (const [period, periodSignals] of Object.entries(periods)) {
-                if (periodSignals.length === 0) continue
+            const otherSources = sources.filter((el) => el.id !== source.id && el.user_db_id === source.user_db_id)
+            
+            const topCorrelations = calculateTopCorrelations(
+                source,
+                otherSources,
+                TIME_FRAME_HOURS
+            )
+            
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            const recommendations = await generateSourceRecommendations({
+                sourceName: source.user_name_source,
+                platform: source.platform_logo,
+                stats,
+                followers_count: source.followers_count
+            })
+            console.log("Recommendations generating is DONE", recommendations.length)
 
-                await new Promise(resolve => setTimeout(resolve, 1000))
-                const stats = calculateSourceStats(periodSignals)
-                console.log("Stats Calculation is DONE")
-                await new Promise(resolve => setTimeout(resolve, 200))
-                const recommendations = await generateSourceRecommendations({
-                    sourceName: source.user_name_source,
-                    platform: source.platform_logo,
-                    stats,
-                    followers_count: source.followers_count
-                })
-                console.log("Recommendations generating is DONE", recommendations.length)
-
-                await prisma.sourceStats.upsert({
-                    where: {
-                        sourceId_period: {
-                            sourceId: source.id,
-                            period: period
-                        }
-                    },
-                    update: {
-                        stats: stats as any,
-                        recommendations: recommendations as any
-                    },
-                    create: {
+            await prisma.sourceStats.upsert({
+                where: {
+                    sourceId_period: {
                         sourceId: source.id,
-                        period: period,
-                        stats: stats as any,
-                        recommendations: recommendations as any
+                        period: "ALL"
                     }
-                })
-            }
+                },
+                update: {
+                    stats: stats as any,
+                    recommendations: recommendations as any,
+                    topCorrelations: topCorrelations as any
+                },
+                create: {
+                    sourceId: source.id,
+                    period: "ALL",
+                    stats: stats as any,
+                    recommendations: recommendations as any,
+                    topCorrelations: topCorrelations as any
+                }
+            })
         }
         console.log("✅ Stats calculation finished")
     }
@@ -82,12 +91,12 @@ export const scheduleStatsCalculation = async () => {
         {},
         {
             repeat: {
-                pattern: "0 2 * * *", // Every day at 2AM,
+                pattern: "0 4    * * *", // Every day at 4AM,
                 tz: "Europe/Paris"
             },
         }
     )
-    console.log("📅 Stats calculation scheduled")
+    console.log("📅 Stats calculation scheduled (Daily at 4:00 AM via BullMQ)")
 
     // await statsQueue.add(
     //     "calculateSourceStats",

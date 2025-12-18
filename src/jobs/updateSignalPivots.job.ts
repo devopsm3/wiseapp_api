@@ -243,7 +243,7 @@ export const scheduleSignalPivotUpdate = async () => {
         {},
         {
             repeat: {
-                pattern: "0 4 * * *", // Cron: Every day at 4:00 AM,
+                pattern: "0 2 * * *", // Cron: Every day at 2:00 AM,
                 tz: "Europe/Paris"
             },
             removeOnComplete: {
@@ -256,7 +256,7 @@ export const scheduleSignalPivotUpdate = async () => {
         }
     )
 
-    console.log("✅ Signal pivot update job scheduled (Daily at 4:00 AM via BullMQ)")
+    console.log("✅ Signal pivot update job scheduled (Daily at 2:00 AM via BullMQ)")
 
     // Trigger immediate signal pivot update on server startup
     // await signalPivotQueue.add(

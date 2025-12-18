@@ -9,9 +9,9 @@ import { schedulePostValidation } from "./jobs/validatePosts.job"
 import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
 
 declare global {
-    interface BigInt {
-        toJSON(): string;
-    }
+  interface BigInt {
+    toJSON(): string;
+  }
 }
 BigInt.prototype.toJSON = function () { return this.toString() }
 

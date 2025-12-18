@@ -1,3 +1,4 @@
+import { Source, Signal } from "@prisma/client"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 
 export const calculateSourceStats = (signals: any[]) => {
@@ -311,5 +312,204 @@ export const calculateSourceStats = (signals: any[]) => {
         ],
         pieChatTokensData,
         globalStats
+    }
+}
+
+
+type SourceWithSignals = Source & { Signal: Signal[] };
+
+// Helper: Check if two signals match
+const isMatch = (sigA: Signal, sigB: Signal, hours: number) => {
+    const timeDiff = Math.abs(new Date(sigA.entry_timestamp).getTime() - new Date(sigB.entry_timestamp).getTime())
+    const hoursDiff = timeDiff / (1000 * 60 * 60)
+
+    return (
+        sigA.currency_label === sigB.currency_label &&
+        sigA.signal_trend === sigB.signal_trend &&
+        hoursDiff <= hours
+    )
+}
+
+export const calculateTopCorrelations = (
+    focusSource: SourceWithSignals,
+    otherSources: SourceWithSignals[],
+    metaSignalTimeframeHours: number = 48
+) => {
+
+    if (!focusSource || !focusSource.Signal || !focusSource.Signal.length) return []
+
+    const correlations = otherSources.map(otherSource => {
+        let matchesTotal = 0
+        let matchesBull = 0
+        let matchesBear = 0
+
+        let matchesBTC = 0
+        let matchesETH = 0
+        let matchesSOL = 0
+        let matchesALTS = 0
+
+        // Filter Focus signals by direction for denominator usage
+        const focusBullSignals = focusSource.Signal.filter(s => s.signal_trend === "LONG")
+        const focusBearSignals = focusSource.Signal.filter(s => s.signal_trend === "SHORT")
+
+        const focusBTCSignals = focusSource.Signal.filter(s => s.currency_label === "BTC")
+        const focusETHSignals = focusSource.Signal.filter(s => s.currency_label === "ETH")
+        const focusSOLSignals = focusSource.Signal.filter(s => s.currency_label === "SOL")
+        const focusALTSSignals = focusSource.Signal.filter(s => s.currency_label !== "BTC" && s.currency_label !== "ETH" && s.currency_label !== "SOL")
+
+        // Compare Focus signals against Other Source signals
+        focusSource.Signal.forEach(focusSig => {
+            const hasMatch = otherSource.Signal.some(otherSig =>
+                isMatch(focusSig, otherSig, metaSignalTimeframeHours)
+            )
+
+            if (hasMatch) {
+                matchesTotal++
+                if (focusSig.signal_trend === "LONG") matchesBull++
+                if (focusSig.signal_trend === "SHORT") matchesBear++
+                if (focusSig.currency_label === "BTC") matchesBTC++
+                if (focusSig.currency_label === "ETH") matchesETH++
+                if (focusSig.currency_label === "SOL") matchesSOL++
+                if (focusSig.currency_label !== "BTC" && focusSig.currency_label !== "ETH" && focusSig.currency_label !== "SOL") matchesALTS++
+            }
+        })
+
+        if (matchesTotal === 0) {
+            return {
+                show: false,
+                stats: {
+                    total_correlation: {
+                        value: 0,
+                    }
+                }
+            }
+        }
+
+        // Percentage Calculations
+        // Green Column (Bull): Matches / Total Bull Signals of Focus Source
+        const bullPct = focusBullSignals.length === 0 ? 0 : (matchesBull / focusBullSignals.length) * 100
+
+        // Red Column (Bear): Matches / Total Bear Signals of Focus Source
+        const bearPct = focusBearSignals.length === 0 ? 0 : (matchesBear / focusBearSignals.length) * 100
+
+        // Blue Column (Total): Matches / Total Signals of Focus Source
+        const totalPct = focusSource.Signal.length === 0 ? 0 : (matchesTotal / focusSource.Signal.length) * 100
+
+        const btcPct = focusBTCSignals.length === 0 ? 0 : (matchesBTC / focusBTCSignals.length) * 100
+        const ethPct = focusETHSignals.length === 0 ? 0 : (matchesETH / focusETHSignals.length) * 100
+        const solPct = focusSOLSignals.length === 0 ? 0 : (matchesSOL / focusSOLSignals.length) * 100
+        const altPct = focusALTSSignals.length === 0 ? 0 : (matchesALTS / focusALTSSignals.length) * 100
+
+        let source_url = ""
+        if (otherSource.platform_logo === "TELEGRAM") {
+            source_url = `https://t.me/${otherSource.user_username_source}`
+        } else {
+            source_url = `https://x.com/${otherSource.user_username_source}`
+        }
+
+        return {
+            id: otherSource.id,
+            source_url,
+            source_image_url: otherSource.platform_user_picture,
+            platform: otherSource.platform_logo,
+            source_name: otherSource.user_name_source,
+            source_id: otherSource.user_username_source,
+            is_verified: otherSource.user_verified,
+
+            show: bullPct > 0 || bearPct > 0 || totalPct > 0 || btcPct > 0 || ethPct > 0 || solPct > 0 || altPct > 0,
+
+            stats: {
+                bull_correlation: {
+                    value: Number(bullPct.toFixed(2)),
+                    matches: matchesBull,
+                    total: focusBullSignals.length
+                },
+                bear_correlation: {
+                    value: Number(bearPct.toFixed(2)),
+                    matches: matchesBear,
+                    total: focusBearSignals.length
+                },
+                total_correlation: {
+                    value: Number(totalPct.toFixed(2)),
+                    matches: matchesTotal,
+                    total: focusSource.Signal.length
+                },
+                btc_correlation: {
+                    value: Number(btcPct.toFixed(2)),
+                    matches: matchesBTC,
+                    total: focusBTCSignals.length
+                },
+                eth_correlation: {
+                    value: Number(ethPct.toFixed(2)),
+                    matches: matchesETH,
+                    total: focusETHSignals.length
+                },
+                sol_correlation: {
+                    value: Number(solPct.toFixed(2)),
+                    matches: matchesSOL,
+                    total: focusSOLSignals.length
+                },
+                alt_correlation: {
+                    value: Number(altPct.toFixed(2)),
+                    matches: matchesALTS,
+                    total: focusALTSSignals.length
+                }
+            }
+        }
+    })
+
+    // Sort by Total Correlation (Highest first) and take top 3
+    return correlations
+        .filter(c => c.show)
+        .sort((a, b) => b.stats.total_correlation.value - a.stats.total_correlation.value)
+        .slice(0, 3)
+}
+
+
+export const getTokenProfitability = (token: string, signalDetails: Signal[]) => {
+    const tokenSignals = signalDetails.filter(s => {
+        switch (token) {
+        case "BTC": return s.currency_label?.toUpperCase() === "BTC"
+        case "ETH": return s.currency_label?.toUpperCase() === "ETH"
+        case "SOL": return s.currency_label?.toUpperCase() === "SOL"
+        case "ALTS": return !["BTC", "ETH", "SOL"].includes(s.currency_label?.toUpperCase() || "")
+        case "BULL": return s.signal_trend === "LONG"
+        case "BEAR": return s.signal_trend === "SHORT"
+        case "ALL": return true
+        default: return false
+        }
+    })
+
+    if (tokenSignals.length === 0) {
+        return {
+            count: 0,
+            goodSignals: 0,
+            percentage: 0,
+            profit: 0,
+            goodAvgProfit: 0
+        }
+    }
+
+    const totalProfit = tokenSignals.reduce((sum, s) => sum + (s.pnlP || 0), 0).toFixed(2)
+    const goodSignals = tokenSignals.filter(s => (s.pnlP || 0) >= 0)
+    const goodSignalsProfit = goodSignals.reduce((sum, s) => sum + (s.pnlP || 0), 0).toFixed(2)
+    // const goodAvgProfit = ((goodSignals.length / tokenSignals.length) * 100).toFixed(2)
+    const bestSignal = Math.max(...tokenSignals.map(s => s.pnlP || 0)).toFixed(2)
+    const worstSignal = Math.min(...tokenSignals.map(s => s.pnlP || 0)).toFixed(2)
+    const avgProfitPerSignal = (Number(totalProfit) / tokenSignals.length).toFixed(2)
+    const avgProfitPerSignalGood = (Number(goodSignalsProfit) / goodSignals.length).toFixed(2)
+
+
+    return {
+        count: tokenSignals.length,
+        goodSignals: goodSignals.length,
+        percentage: ((tokenSignals.length / signalDetails.length) * 100).toFixed(2) + "%",
+        profit: totalProfit + "%",
+        // goodAvgProfit: goodAvgProfit + "%",
+        goodSignalsProfit: goodSignalsProfit + "%",
+        bestSignal: bestSignal + "%",
+        worstSignal: worstSignal + "%",
+        avgProfitPerSignal: avgProfitPerSignal + "%",
+        avgProfitPerSignalGood: avgProfitPerSignalGood + "%"
     }
 }
