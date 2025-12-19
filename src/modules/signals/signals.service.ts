@@ -6,6 +6,25 @@ import { GlobalSettings } from "../../types/setup.types"
 import { getCoinInfo, getCoinMarketCapFearAndGreed, getCoinMarketCapFearAndGreedHistory, getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts, QuotesLatest } from "../../providers/CoinMarketCap/coinmarketcap.provider"
 import { generateTokenAnalysis, getAiAnalysis } from "../../providers/AgentAI/token_analysis.provider"
 
+const getUserSettings = async (currentUser: User) => {
+    let setupsettings: Partial<GlobalSettings> = {
+        metasignal_quorum_min: 2,
+        metasignal_time_window: 72,
+    }
+
+    const setup = await prisma.setup.findFirst({
+        where: {
+            user_db_id: currentUser.id,
+        },
+    })
+    if (setup && setup.settings) {
+        setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
+    }
+
+    const metasignal_quorum_min = setupsettings.metasignal_quorum_min || 3
+    const metasignal_time_window = setupsettings.metasignal_time_window || 72
+    return { metasignal_quorum_min, metasignal_time_window }
+}
 export const getSignalsService = async (currentUser: User) => {
     try {
         const signalsData = await prisma.signal.findMany({
@@ -18,11 +37,10 @@ export const getSignalsService = async (currentUser: User) => {
             }
         })
 
-        let filteredSignals = signalsData
+        // Format signals data
         const signalsInfo = []
-        const metaSignalsInfo = []
-        for (let i = 0; i < filteredSignals.length; i++) {
-            const signal = filteredSignals[i]
+        for (let i = 0; i < signalsData.length; i++) {
+            const signal = signalsData[i]
             const source = signal.Source
             let post_url = ""
             let source_url = ""
@@ -65,31 +83,16 @@ export const getSignalsService = async (currentUser: User) => {
             })
         }
 
-        let setupsettings: Partial<GlobalSettings> = {
-            metasignal_quorum_min: 2,
-            metasignal_time_window: 72,
-        }
-
-        const setup = await prisma.setup.findFirst({
-            where: {
-                user_db_id: currentUser.id,
-            },
-        })
-        if (setup && setup.settings) {
-            setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
-        }
-
-        const metasignal_quorum_min = setupsettings.metasignal_quorum_min || 3
-        const metasignal_time_window = setupsettings.metasignal_time_window || 72
-        // Sort signals by date (oldest first) to ensure correct grouping timeline
+        // Format Meta signals data
+        let filteredSignals = signalsData
         filteredSignals.sort((a, b) => new Date(a.entry_timestamp).getTime() - new Date(b.entry_timestamp).getTime())
-
-        // Linear processing to handle multiple groups for same token/trend correctly
+        const metaSignalsInfo = []
         const processedSignals = []
         const tempGroups: { [key: string]: { signals: typeof filteredSignals, sourceIds: Set<number> } } = {}
-
+        const { metasignal_quorum_min, metasignal_time_window } = await getUserSettings(currentUser)
+        
         for (const signal of filteredSignals) {
-            const key = `${signal.currency_label}-${signal.signal_trend}`
+            const key = `${signal.currency_label.toUpperCase()}-${signal.signal_trend.toUpperCase()}`
             const sourceId = signal.Source.id
 
             if (!tempGroups[key]) {

@@ -19,11 +19,11 @@ const updateSignalPivots = async (signal: any) => {
     const entryDate = new Date(signal.entry_timestamp)
 
     const direction = signal.signal_trend === "LONG" ? "LONG" : "SHORT"
-    
+
     // Calculate the next day to fetch (entry_date + pivot_calc_days)
     const nextDayDate = new Date(entryDate)
     nextDayDate.setUTCDate(nextDayDate.getUTCDate() + signal.pivot_calc_days)
-    
+
     // Don't fetch future data
     const today = new Date()
     if (nextDayDate > today) {
@@ -36,9 +36,9 @@ const updateSignalPivots = async (signal: any) => {
         console.warn(`⚠️ Signal ${signal.id} (${signal.currency_label}): No coin_id found, skipping ...`)
         return { status: "skipped", reason: "no_coin_id" }
     }
-    
+
     console.log(`🔄 Updating Signal   ${signal.id} (${signal.currency_label}): Day ${signal.pivot_calc_days + 1}/21`)
-    
+
     // Fetch OHLCV data for the next day only
     const quotes = await getOHLCVData(
         signal.coin_id,
@@ -53,7 +53,7 @@ const updateSignalPivots = async (signal: any) => {
 
     // Get existing pivot data from meta
     const existingPivotData: CoinMarketCapOHLC[] = meta.pivotData || []
-    
+
     // Process new quote and add to pivot data
     const quote = quotes[0]
     const quoteDate = new Date(quote.time_open)
@@ -93,7 +93,7 @@ const updateSignalPivots = async (signal: any) => {
     let theoreticalProfitAbsolute = 0
     let theoreticalProfitPercent = 0
     let bestPrice = 0
-    
+
     if (direction === "LONG") {
         if (maxPivot > entryPrice) {
             theoreticalProfitAbsolute = maxPivot - entryPrice
@@ -119,7 +119,7 @@ const updateSignalPivots = async (signal: any) => {
     // Determine signal success
     const newPivotCalcDays = signal.pivot_calc_days + 1
     const isComplete = newPivotCalcDays >= 21
-    
+
     let signalSuccess: boolean | null = null
     if (isComplete) {
         if (direction === "LONG") {
@@ -160,10 +160,10 @@ const updateSignalPivots = async (signal: any) => {
         ${profitEmoji} Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
         Complete: ${isComplete ? "YES" : "NO"}`)
 
-    return { 
-        status: "success", 
-        signalId: signal.id, 
-        day: newPivotCalcDays, 
+    return {
+        status: "success",
+        signalId: signal.id,
+        day: newPivotCalcDays,
         isComplete,
         profit: theoreticalProfitPercent,
         bestPrice
@@ -174,8 +174,10 @@ const updateSignalPivots = async (signal: any) => {
 export const signalPivotWorker = new Worker("signalPivots", async (e: WorkerOptions) => {
 
     if (e.name === "dailyPivotUpdate") {
-        console.log("🕐 [BULLMQ] Processing signal pivot update job...")
         try {
+            // await 5 sec
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            console.log("\n \n🕐 [BULLMQ] Processing signal pivot update job...")
             // Fetch all incomplete signals where pivot_calc_days < 21
             const incompleteSignals = await prisma.signal.findMany({
                 where: {
@@ -187,18 +189,13 @@ export const signalPivotWorker = new Worker("signalPivots", async (e: WorkerOpti
             })
 
             console.log(`📊 Found ${incompleteSignals.length} incomplete signals to update`)
-
-            console.log(" ")
-            console.log(" - - - - - - - - - - ")
-            console.log(" ")
-            const results = []
+            const results: any[] = []
             // Update each signal sequentially
             for (const signal of incompleteSignals) {
+
+                console.log("🚀   -->  updateSignalPivots signal: ", signal.id, " \n")
                 try {
                     const result = await updateSignalPivots(signal)
-                    console.log(" ")
-                    console.log(" - - - - - - - - - - ")
-                    console.log(" ")
                     results.push(result)
                 } catch (error) {
                     console.error(`❌ Error updating signal ${signal.id}:`, error)
@@ -206,9 +203,8 @@ export const signalPivotWorker = new Worker("signalPivots", async (e: WorkerOpti
                 }
             }
 
-            console.log("✅ [BULLMQ] Daily signal pivot update job completed!")
-            return { 
-                processed: incompleteSignals.length, 
+            return {
+                processed: incompleteSignals.length,
                 results,
                 timestamp: new Date()
             }
@@ -227,52 +223,39 @@ export const signalPivotWorker = new Worker("signalPivots", async (e: WorkerOpti
 
 // Handle worker events
 signalPivotWorker.on("completed", (job) => {
-    console.log(`✅ [BULLMQ] Job ${job.id} completed successfully`)
+    console.log(`✅ [BULLMQ] Daily signal pivot update job completed! - Job ${job.id} \n`)
 })
 
 signalPivotWorker.on("failed", (job, err) => {
-    console.error(`❌ [BULLMQ] Job ${job?.id} failed:`, err.message)
+    console.error(`❌ [BULLMQ] Daily signal pivot update job failed! - Job ${job?.id}:`, err.message, "\n")
 })
 
 /**
  * Schedule recurring job to run daily at 4:00 AM
  */
 export const scheduleSignalPivotUpdate = async () => {
-    await signalPivotQueue.add(
-        "dailyPivotUpdate",
-        {},
-        {
-            repeat: {
-                pattern: "0 2 * * *", // Cron: Every day at 2:00 AM,
-                tz: "Europe/Paris"
-            },
-            removeOnComplete: {
-                age: 86400 * 7, // Keep logs for 7 days
-                count: 10 // Keep last 10 completions
-            },
-            removeOnFail: {
-                age: 86400 * 14 // Keep failures for 14 days
-            }
-        }
-    )
-
-    console.log("✅ Signal pivot update job scheduled (Daily at 2:00 AM via BullMQ)")
-
-    // Trigger immediate signal pivot update on server startup
     // await signalPivotQueue.add(
     //     "dailyPivotUpdate",
     //     {},
     //     {
-    //         priority: 1,
+    //         repeat: {
+    //             pattern: "0 2 * * *", // Cron: Every day at 2:00 AM,
+    //             tz: "Europe/Paris"
+    //         },
     //         removeOnComplete: {
-    //             age: 86400 * 7,
-    //             count: 10
+    //             age: 86400 * 7, // Keep logs for 7 days
+    //             count: 10 // Keep last 10 completions
     //         },
     //         removeOnFail: {
-    //             age: 86400 * 14
+    //             age: 86400 * 14 // Keep failures for 14 days
     //         }
     //     }
     // )
+
+    console.log("✅ Signal pivot update job scheduled (Daily at 2:00 AM via BullMQ)")
+
+    // Trigger immediate signal pivot update on server startup
+    // await signalPivotQueue.add("dailyPivotUpdate", {})
 
     // console.log("✅ Signal pivot update job triggered immediately")
 
