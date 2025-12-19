@@ -109,7 +109,7 @@ model SourceStats {
 model SourcePost {
   id           Int               @id @default(autoincrement())
   sourceId     Int
-  sourceType   PlatformName
+  platform     PlatformName      @default(X)
   timestamp    Int?
   date         DateTime?
   originalId   String

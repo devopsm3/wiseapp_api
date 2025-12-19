@@ -16,14 +16,14 @@ export const postValidationQueue = new Queue("postValidation", {
  * Validate a single post's existence
  */
 const validateSinglePost = async (post: any) => {
-    const { id, sourceType, originalId, sourceId } = post
+    const { id, platform, originalId, sourceId } = post
 
     try {
         let result: { exists: boolean; error?: string }
 
-        if (sourceType === PlatformName.X) {
+        if (platform === PlatformName.X) {
             result = await checkTwitterPostExists(originalId)
-        } else if (sourceType === PlatformName.TELEGRAM) {
+        } else if (platform === PlatformName.TELEGRAM) {
             const source = await prisma.source.findUnique({
                 where: { id: sourceId },
                 select: { user_username_source: true }
@@ -39,7 +39,7 @@ const validateSinglePost = async (post: any) => {
                 parseInt(originalId)
             )
         } else {
-            console.warn(`⚠️ Unknown platform type: ${sourceType}`)
+            console.warn(`⚠️ Unknown platform type: ${platform}`)
             return { status: "skipped", reason: "unknown_platform" }
         }
 
@@ -70,8 +70,8 @@ const validateSinglePost = async (post: any) => {
         }
 
         const statusIcon = result.exists ? "✅" : "❌"
-        const platform = sourceType === PlatformName.X ? "Twitter" : "Telegram"
-        console.log(`${statusIcon} Post ${id} (${platform}): ${result.exists ? "EXISTS" : "DELETED"}`)
+        const platformPost = platform === PlatformName.X ? "Twitter" : "Telegram"
+        console.log(`${statusIcon} Post ${id} (${platformPost}): ${result.exists ? "EXISTS" : "DELETED"}`)
 
         return {
             status: "success",
@@ -107,7 +107,7 @@ export const postValidationWorker = new Worker("postValidation", async (e: Worke
                 select: {
                     id: true,
                     sourceId: true,
-                    sourceType: true,
+                    platform: true,
                     originalId: true,
                     date: true
                 },

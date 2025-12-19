@@ -68,7 +68,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                     const postCreated = await prisma.sourcePost.create({
                         data: {
                             sourceId: newSource.id,
-                            sourceType: channelInfo.platform as PlatformName,
+                            platform: channelInfo.platform as PlatformName,
                             date: element.date,
                             timestamp: element.timestamp,
                             originalId: String(element.id),
