@@ -28,7 +28,7 @@ export const getSourcesService = async (currentUser: User) => {
             const source = sources[index]
 
             let source_url = ""
-            if (source.platform_logo === "TELEGRAM") {
+            if (source.platform === PlatformName.TELEGRAM) {
                 source_url = `https://t.me/${source.user_username_source}`
             } else {
                 source_url = `https://x.com/${source.user_username_source}`
@@ -75,13 +75,13 @@ export const getSourcesService = async (currentUser: User) => {
             sourcesData.push({
                 id: source.id,
                 source_image_url: source.platform_user_picture,
-                platform: source.platform_logo,
+                platform: source.platform,
                 is_active: source.source_activated,
-                is_paid: source.source_price !== "FREE",
+                is_paid: source.source_subscription_plan !== "FREE",
                 reverse_signal: source.source_reverse_signal_activated,
                 source_name: source.user_name_source,
                 source_id: source.user_username_source,
-                price_monthly: source.source_price_value,
+                price_monthly: source.source_subscription_price,
                 is_verified: source.user_verified,
 
                 ...stats.globalStats,
@@ -89,7 +89,7 @@ export const getSourcesService = async (currentUser: User) => {
                 // focus
                 followers_count: source.followers_count,
                 account_created_at: new Date(source.user_creation_date * 1000),
-                deleted_posts: source.source_validation_deleted_count,
+                deleted_posts: source.deleted_count,
                 source_url,
                 stats: {
                     optimal_exit: stats.optimal_exit,
@@ -169,7 +169,7 @@ export const addSourceService = async (source: any, currentUser: User) => {
             where: {
                 user_username_source: normalizedSourceId,
                 user_db_id: currentUser.id,
-                platform_logo: source.sourceType,
+                platform: source.sourceType,
                 source_status: SourceStatus.VALIDE,
             },
         })
@@ -465,7 +465,7 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
             console.log(" 🚀   -->  Recommendations calculating in Getting Recommendations -------:")
             recommendations = await generateSourceRecommendations({
                 sourceName: source.user_name_source,
-                platform: source.platform_logo,
+                platform: source.platform,
                 stats,
                 followers_count: source.followers_count
             })

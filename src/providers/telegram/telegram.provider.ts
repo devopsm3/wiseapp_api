@@ -30,7 +30,7 @@ export async function getTelegramChannelInfo(channelName: string) {
         }
 
         const channelInfo = {
-            platform_logo: PlatformName.TELEGRAM,
+            platform: PlatformName.TELEGRAM,
             platform_user_picture: `storage/telegram/sources/${channelName}/channelPic.jpg`,
             user_name_source: (channel as Api.Channel).title,
             user_username_source: (channel as Api.Channel).username || "",

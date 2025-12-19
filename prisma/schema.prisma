@@ -66,58 +66,27 @@ model Source {
 
   source_status SourceStatus @default(PROCESSING)
 
-  platform_logo                   String
-  display_name                    String      @default("")
+  platform                        PlatformName @default(X)
+  display_name                    String       @default("")
   platform_user_picture           String
   user_name_source                String
   user_username_source            String
   user_id_source                  String
-  user_verified                   Boolean     @default(false)
+  user_verified                   Boolean      @default(false)
   user_creation_date              Int
-  followers_count                 Int         @default(0)
-  source_price                    SourcePrice @default(FREE)
-  source_price_value              String?
-  price                           Int?
-  source_activated                Boolean     @default(false)
-  source_reverse_signal_activated Boolean     @default(false)
+  followers_count                 Int          @default(0)
+  source_subscription_plan        SourcePrice  @default(FREE)
+  source_subscription_price       Int?
+  source_activated                Boolean      @default(false)
+  source_reverse_signal_activated Boolean      @default(false)
 
-  // source_reverse_signal_profit Int?
-
-  // source_total_quantity_signals Int?
-  // source_global_probility       Int?
-
-  // source_bullish_total_quantity Int?
-  // source_bullish_percentage     Decimal? @db.Decimal(20, 8)
-  // source_bullish_probility      Decimal? @db.Decimal(20, 8)
-
-  // source_bearish_total_quantity Int?
-  // source_bearish_percentage     Decimal? @db.Decimal(20, 8)
-  // source_bearish_probility      Decimal? @db.Decimal(20, 8)
-
-  // btc_total_quantity Int?
-  // btc_probility      Decimal? @db.Decimal(20, 8)
-
-  // eth_total_quantity Int?
-  // eth_probility      Decimal? @db.Decimal(20, 8)
-
-  // sol_total_quantity Int?
-  // sol_probility      Decimal? @db.Decimal(20, 8)
-
-  // alts_total_quantity Int?
-  // alts_probility      Decimal? @db.Decimal(20, 8)
-
-  // Post validation & reliability metrics
-  source_validation_total_checks  Int       @default(0)
-  source_validation_deleted_count Int       @default(0)
-  source_validation_deletion_rate Decimal?  @db.Decimal(5, 2) // Percentage 0-100
-  source_validation_last_check    DateTime?
-  source_truth_score              Decimal?  @db.Decimal(5, 2) // 0-100 score
+  deleted_count Int @default(0)
 
   metadata    Json?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @default(now()) @updatedAt()
-  SourcePost  SourcePost[]
   User        User          @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
+  SourcePost  SourcePost[]
   Signal      Signal[]
   SourceStats SourceStats[]
 }

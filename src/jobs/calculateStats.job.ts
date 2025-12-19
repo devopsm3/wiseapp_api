@@ -52,7 +52,7 @@ export const statsWorker = new Worker("stats", async (job) => {
             await new Promise(resolve => setTimeout(resolve, 1000))
             const recommendations = await generateSourceRecommendations({
                 sourceName: source.user_name_source,
-                platform: source.platform_logo,
+                platform: source.platform,
                 stats,
                 followers_count: source.followers_count
             })

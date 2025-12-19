@@ -1,4 +1,4 @@
-import { Source, Signal } from "@prisma/client"
+import { Source, Signal, PlatformName } from "@prisma/client"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 
 export const calculateSourceStats = (signals: any[]) => {
@@ -401,7 +401,7 @@ export const calculateTopCorrelations = (
         const altPct = focusALTSSignals.length === 0 ? 0 : (matchesALTS / focusALTSSignals.length) * 100
 
         let source_url = ""
-        if (otherSource.platform_logo === "TELEGRAM") {
+        if (otherSource.platform === PlatformName.TELEGRAM) {
             source_url = `https://t.me/${otherSource.user_username_source}`
         } else {
             source_url = `https://x.com/${otherSource.user_username_source}`
@@ -411,7 +411,7 @@ export const calculateTopCorrelations = (
             id: otherSource.id,
             source_url,
             source_image_url: otherSource.platform_user_picture,
-            platform: otherSource.platform_logo,
+            platform: otherSource.platform,
             source_name: otherSource.user_name_source,
             source_id: otherSource.user_username_source,
             is_verified: otherSource.user_verified,

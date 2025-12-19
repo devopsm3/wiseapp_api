@@ -1,4 +1,4 @@
-﻿import { User } from "@prisma/client"
+﻿import { PlatformName, User } from "@prisma/client"
 import { prisma } from "../../prisma"
 import { getSignalTrendLevel } from "../../providers/signals/signals.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
@@ -45,7 +45,7 @@ export const getSignalsService = async (currentUser: User) => {
             let post_url = ""
             let source_url = ""
 
-            if (source.platform_logo === "TELEGRAM") {
+            if (source.platform === PlatformName.TELEGRAM) {
                 post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
                 source_url = `https://t.me/${source.user_username_source}`
             } else {
@@ -70,7 +70,7 @@ export const getSignalsService = async (currentUser: User) => {
                 sources: [
                     {
                         source_image_url: source.platform_user_picture,
-                        platform: source.platform_logo,
+                        platform: source.platform,
                         source_name: source.user_name_source,
                         is_verified: source.user_verified,
                         source_id: source.user_username_source,
@@ -153,7 +153,7 @@ export const getSignalsService = async (currentUser: User) => {
                 let post_url = ""
                 let source_url = ""
 
-                if (source.platform_logo === "TELEGRAM") {
+                if (source.platform === PlatformName.TELEGRAM) {
                     post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
                     source_url = `https://t.me/${source.user_username_source}`
                 } else {
@@ -163,7 +163,7 @@ export const getSignalsService = async (currentUser: User) => {
 
                 sources.push({
                     source_image_url: source.platform_user_picture,
-                    platform: source.platform_logo,
+                    platform: source.platform,
                     source_name: source.user_name_source,
                     is_verified: source.user_verified,
                     source_id: source.user_username_source,

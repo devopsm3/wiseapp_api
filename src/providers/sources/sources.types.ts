@@ -1,5 +1,5 @@
 ﻿export interface SourceType {
-  platform_logo: string;
+  platform: string;
   platform_user_picture: string;
   user_name_source: string;
   user_username_source: string;

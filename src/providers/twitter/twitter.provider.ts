@@ -41,33 +41,12 @@ export async function getTwitterChannelInfo(username: string) {
                 error: "User not found"
             }
         }
-        // const userInfo = {
-        //     "description": "This account is for sale",
-        //     "profile_banner_url": "https://pbs.twimg.com/profile_banners/371027604/1625304362",
-        //     "name": "Andrew Griffiths",
-        //     "verified": false,
-        //     "created_at": "2011-09-10T02:19:48.000Z",
-        //     "profile_image_url": "https://pbs.twimg.com/profile_images/1411253688954494977/PQKpfmZx_normal.jpg",
-        //     "public_metrics": {
-        //         "followers_count": 26579,
-        //         "following_count": 2457,
-        //         "tweet_count": 155548,
-        //         "listed_count": 11,
-        //         "like_count": 121989,
-        //         "media_count": 84037
-        //     },
-        //     "id": "371027604",
-        //     "location": "Birmingham, England",
-        //     "verified_type": "none",
-        //     "username": "AndrewGriUK",
-        //     "url": "https://twitter.com/AndrewGriUK"
-        // }
         const userCreationDate = userInfo.created_at
             ? Math.floor(new Date(userInfo.created_at).getTime() / 1000)
             : 0
 
         const channelInfo = {
-            platform_logo: PlatformName.X,
+            platform: PlatformName.X,
             platform_user_picture: userInfo.profile_image_url as string,
             user_name_source: userInfo.name as string,
             user_username_source: userInfo.username as string,

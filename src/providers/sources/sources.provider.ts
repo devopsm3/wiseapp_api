@@ -49,9 +49,9 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             ...channelInfo,
             display_name: source.display_name || "",
             user_db_id: currentUser.id,
-            source_price: source.priceType === "free" ? SourcePrice.FREE : source.priceType === "monthly" ? SourcePrice.MONTHLY : SourcePrice.LIFETIME,
-            source_price_value: source.priceType === "free" ? null : source.priceType === "monthly" ? source.price.toString() : "lifetime/12",
-            price: source.priceType === "free" ? null : Number(source.price),
+            source_subscription_plan: source.priceType === "free" ? SourcePrice.FREE : source.priceType === "monthly" ? SourcePrice.MONTHLY : SourcePrice.LIFETIME,
+            source_subscription_price: source.priceType === "free" ? null : Number(source.price),
+            platform: source.sourceType,
             source_activated: true
         },
     })
@@ -68,7 +68,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                     const postCreated = await prisma.sourcePost.create({
                         data: {
                             sourceId: newSource.id,
-                            sourceType: channelInfo.platform_logo as PlatformName,
+                            sourceType: channelInfo.platform as PlatformName,
                             date: element.date,
                             timestamp: element.timestamp,
                             originalId: String(element.id),
@@ -173,7 +173,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         const stats = calculateSourceStats(NewSourceFull.Signal || [])
         const recommendations = await generateSourceRecommendations({
             sourceName: NewSourceFull.user_name_source,
-            platform: NewSourceFull.platform_logo,
+            platform: NewSourceFull.platform,
             stats: stats,
             recentSignalsCount: NewSourceFull.Signal?.length || 0,
             followers: NewSourceFull.followers_count
@@ -192,7 +192,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             status: true,
             id: newSource.user_username_source,
             data: {
-                type: NewSourceFull.platform_logo,
+                type: NewSourceFull.platform,
                 name: NewSourceFull.user_name_source,
                 created_at: NewSourceFull.createdAt,
                 count_signals_found: NewSourceFull.Signal.length,
