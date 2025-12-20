@@ -1,6 +1,56 @@
 import { Source, Signal, PlatformName } from "@prisma/client"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
 
+
+
+export const getTokenProfitability = (token: string, signalDetails: Signal[]) => {
+
+    const tokenSignals = signalDetails.filter(s => {
+        switch (token) {
+        case "BTC": return s.currency_label?.toUpperCase() === "BTC"
+        case "ETH": return s.currency_label?.toUpperCase() === "ETH"
+        case "SOL": return s.currency_label?.toUpperCase() === "SOL"
+        case "ALTS": return !["BTC", "ETH", "SOL"].includes(s.currency_label?.toUpperCase() || "")
+        case "BULL": return s.signal_trend === "LONG"
+        case "BEAR": return s.signal_trend === "SHORT"
+        case "ALL": return true
+        default: return false
+        }
+    })
+
+    if (tokenSignals.length === 0) {
+        return {
+            count: 0,
+            goodSignals: 0,
+            percentage: 0,
+            profit: 0,
+            goodAvgProfit: 0
+        }
+    }
+
+    const totalProfit = tokenSignals.reduce((sum, s) => sum + (s.pnlP || 0), 0).toFixed(2)
+    const goodSignals = tokenSignals.filter(s => (s.pnlP || 0) >= 0)
+    const goodSignalsProfit = goodSignals.reduce((sum, s) => sum + (s.pnlP || 0), 0).toFixed(2)
+    // const goodAvgProfit = ((goodSignals.length / tokenSignals.length) * 100).toFixed(2)
+    const bestSignal = Math.max(...tokenSignals.map(s => s.pnlP || 0)).toFixed(2)
+    const worstSignal = Math.min(...tokenSignals.map(s => s.pnlP || 0)).toFixed(2)
+    const avgProfitPerSignal = (Number(totalProfit) / tokenSignals.length).toFixed(2)
+    const avgProfitPerSignalGood = (Number(goodSignalsProfit) / goodSignals.length).toFixed(2)
+
+    return {
+        count: tokenSignals.length,
+        goodSignals: goodSignals.length,
+        percentage: ((tokenSignals.length / signalDetails.length) * 100).toFixed(2) + "%",
+        profit: totalProfit + "%",
+        // goodAvgProfit: goodAvgProfit + "%",
+        goodSignalsProfit: goodSignalsProfit + "%",
+        bestSignal: bestSignal + "%",
+        worstSignal: worstSignal + "%",
+        avgProfitPerSignal: avgProfitPerSignal + "%",
+        avgProfitPerSignalGood: avgProfitPerSignalGood + "%"
+    }
+}
+
 export const calculateSourceStats = (signals: any[]) => {
 
     const now = new Date()
@@ -31,6 +81,20 @@ export const calculateSourceStats = (signals: any[]) => {
     let bear_count_3m = 0
     let bear_count_6m = 0
     let bear_count_y = 0
+
+    let bull_profitability_d = 0
+    let bull_profitability_w = 0
+    let bull_profitability_m = 0
+    let bull_profitability_3m = 0
+    let bull_profitability_6m = 0
+    let bull_profitability_y = 0
+
+    let bear_profitability_d = 0
+    let bear_profitability_w = 0
+    let bear_profitability_m = 0
+    let bear_profitability_3m = 0
+    let bear_profitability_6m = 0
+    let bear_profitability_y = 0
 
     let profitability_d = 0
     let profitability_w = 0
@@ -90,49 +154,48 @@ export const calculateSourceStats = (signals: any[]) => {
             profitability_d += pnl
             token_profitability_d[tokenKey] += pnl
             token_count_d[tokenKey]++
-            if (signal.signal_trend === "LONG") bull_count_d++
-            if (signal.signal_trend === "SHORT") bear_count_d++
+            if (signal.signal_trend === "LONG") { bull_count_d++; bull_profitability_d += pnl }
+            if (signal.signal_trend === "SHORT") { bear_count_d++; bear_profitability_d += pnl }
         }
         if (signalDate >= oneWeekAgo) {
             signals_count_w++
             profitability_w += pnl
             token_profitability_w[tokenKey] += pnl
             token_count_w[tokenKey]++
-            if (signal.signal_trend === "LONG") bull_count_w++
-            if (signal.signal_trend === "SHORT") bear_count_w++
+            if (signal.signal_trend === "LONG") { bull_count_w++; bull_profitability_w += pnl }
+            if (signal.signal_trend === "SHORT") { bear_count_w++; bear_profitability_w += pnl }
         }
         if (signalDate >= oneMonthAgo) {
             signals_count_m++
             profitability_m += pnl
             token_profitability_m[tokenKey] += pnl
             token_count_m[tokenKey]++
-            if (signal.signal_trend === "LONG") bull_count_m++
-            if (signal.signal_trend === "SHORT") bear_count_m++
-
+            if (signal.signal_trend === "LONG") { bull_count_m++; bull_profitability_m += pnl }
+            if (signal.signal_trend === "SHORT") { bear_count_m++; bear_profitability_m += pnl }
         }
         if (signalDate >= threeMonthsAgo) {
             signals_count_3m++
             profitability_3m += pnl
             token_profitability_3m[tokenKey] += pnl
             token_count_3m[tokenKey]++
-            if (signal.signal_trend === "LONG") bull_count_3m++
-            if (signal.signal_trend === "SHORT") bear_count_3m++
+            if (signal.signal_trend === "LONG") { bull_count_3m++; bull_profitability_3m += pnl }
+            if (signal.signal_trend === "SHORT") { bear_count_3m++; bear_profitability_3m += pnl }
         }
         if (signalDate >= sixMonthsAgo) {
             signals_count_6m++
             profitability_6m += pnl
             token_profitability_6m[tokenKey] += pnl
             token_count_6m[tokenKey]++
-            if (signal.signal_trend === "LONG") bull_count_6m++
-            if (signal.signal_trend === "SHORT") bear_count_6m++
+            if (signal.signal_trend === "LONG") { bull_count_6m++; bull_profitability_6m += pnl }
+            if (signal.signal_trend === "SHORT") { bear_count_6m++; bear_profitability_6m += pnl }
         }
         if (signalDate >= oneYearAgo) {
             signals_count_y++
             profitability_y += pnl
             token_profitability_y[tokenKey] += pnl
             token_count_y[tokenKey]++
-            if (signal.signal_trend === "LONG") bull_count_y++
-            if (signal.signal_trend === "SHORT") bear_count_y++
+            if (signal.signal_trend === "LONG") { bull_count_y++; bull_profitability_y += pnl }
+            if (signal.signal_trend === "SHORT") { bear_count_y++; bear_profitability_y += pnl }
         }
 
         // other stats
@@ -204,7 +267,51 @@ export const calculateSourceStats = (signals: any[]) => {
         }
     })
 
+    pieChatTokensData = Object.values(aggregatedSignals).map(item => ({
+        name: item.name,
+        fill: item.fill,
+        total_token_profit_percentage: Number(item.totalProfitPercentage.toFixed(2)),
+        total_token_count: item.value,
+        good_signals: item.goodSignals,
+        bad_signals: item.badSignals,
+        win_rate: Number((item.goodSignals / (item.value)) * 100).toFixed(2)
+    }))
+
+    // Calculate Top Signals stats
+    allPnls.sort((a, b) => b - a)
+    const totalProfitAll = allPnls.reduce((a, b) => a + b, 0)
+    const calculateTopStats = (percentage: number) => {
+        const count = Math.ceil(allPnls.length * percentage)
+        const topPnls = allPnls.slice(0, count)
+        const topProfit = topPnls.reduce((a, b) => a + b, 0)
+        const share = totalProfitAll !== 0 ? (topProfit / totalProfitAll) * 100 : 0
+        return { profit: Number(topProfit.toFixed(2)), share: Number(share.toFixed(2)) }
+    }
+    const top1 = calculateTopStats(0.01)
+    const top5 = calculateTopStats(0.05)
+    const top10 = calculateTopStats(0.10)
+
+
+    const optimal_exit = Object.values(clusters).map((c) => ({
+        day: c.day,
+        profit: Number((c.totalProfit / c.count).toFixed(2)), // Average profit for the cluster
+        count: c.count,
+        range_start: c.profitRange
+    }))
+
+    const sourceSignalsStats = {
+        BTC: getTokenProfitability("BTC", signals),
+        ETH: getTokenProfitability("ETH", signals),
+        SOL: getTokenProfitability("SOL", signals),
+        ALTS: getTokenProfitability("ALTS", signals),
+        BULL: getTokenProfitability("BULL", signals),
+        BEAR: getTokenProfitability("BEAR", signals),
+        ALL: getTokenProfitability("ALL", signals)
+    }
+
     const globalStats = {
+        success_rate_value: `${sourceSignalsStats.ALL.goodSignals}/${sourceSignalsStats.ALL.count}`,
+        success_rate_percentage: Number(((sourceSignalsStats.ALL.goodSignals / sourceSignalsStats.ALL.count) * 100).toFixed(2)),
         bull_count_d,
         bull_count_w,
         bull_count_m,
@@ -218,6 +325,20 @@ export const calculateSourceStats = (signals: any[]) => {
         bear_count_3m,
         bear_count_6m,
         bear_count_y,
+
+        bull_profitability_d,
+        bull_profitability_w,
+        bull_profitability_m,
+        bull_profitability_3m,
+        bull_profitability_6m,
+        bull_profitability_y,
+
+        bear_profitability_d,
+        bear_profitability_w,
+        bear_profitability_m,
+        bear_profitability_3m,
+        bear_profitability_6m,
+        bear_profitability_y,
 
         profitability_d: Number(profitability_d.toFixed(2)),
         profitability_w: Number(profitability_w.toFixed(2)),
@@ -252,38 +373,6 @@ export const calculateSourceStats = (signals: any[]) => {
         total_bear_signals,
     }
 
-    pieChatTokensData = Object.values(aggregatedSignals).map(item => ({
-        name: item.name,
-        fill: item.fill,
-        total_token_profit_percentage: Number(item.totalProfitPercentage.toFixed(2)),
-        total_token_count: item.value,
-        good_signals: item.goodSignals,
-        bad_signals: item.badSignals,
-        win_rate: Number((item.goodSignals / (item.value)) * 100).toFixed(2)
-    }))
-
-    // Calculate Top Signals stats
-    allPnls.sort((a, b) => b - a)
-    const totalProfitAll = allPnls.reduce((a, b) => a + b, 0)
-    const calculateTopStats = (percentage: number) => {
-        const count = Math.ceil(allPnls.length * percentage)
-        const topPnls = allPnls.slice(0, count)
-        const topProfit = topPnls.reduce((a, b) => a + b, 0)
-        const share = totalProfitAll !== 0 ? (topProfit / totalProfitAll) * 100 : 0
-        return { profit: Number(topProfit.toFixed(2)), share: Number(share.toFixed(2)) }
-    }
-    const top1 = calculateTopStats(0.01)
-    const top5 = calculateTopStats(0.05)
-    const top10 = calculateTopStats(0.10)
-
-
-    const optimal_exit = Object.values(clusters).map((c) => ({
-        day: c.day,
-        profit: Number((c.totalProfit / c.count).toFixed(2)), // Average profit for the cluster
-        count: c.count,
-        range_start: c.profitRange
-    }))
-
     return {
         optimal_exit: optimal_exit.length > 0 ? optimal_exit : [
             {
@@ -311,14 +400,14 @@ export const calculateSourceStats = (signals: any[]) => {
             },
         ],
         pieChatTokensData,
-        globalStats
+        globalStats,
+        sourceSignalsStats
     }
 }
 
 
 type SourceWithSignals = Source & { Signal: Signal[] };
 
-// Helper: Check if two signals match
 const isMatch = (sigA: Signal, sigB: Signal, hours: number) => {
     const timeDiff = Math.abs(new Date(sigA.entry_timestamp).getTime() - new Date(sigB.entry_timestamp).getTime())
     const hoursDiff = timeDiff / (1000 * 60 * 60)
@@ -463,53 +552,4 @@ export const calculateTopCorrelations = (
         .filter(c => c.show)
         .sort((a, b) => b.stats.total_correlation.value - a.stats.total_correlation.value)
         .slice(0, 3)
-}
-
-
-export const getTokenProfitability = (token: string, signalDetails: Signal[]) => {
-    const tokenSignals = signalDetails.filter(s => {
-        switch (token) {
-        case "BTC": return s.currency_label?.toUpperCase() === "BTC"
-        case "ETH": return s.currency_label?.toUpperCase() === "ETH"
-        case "SOL": return s.currency_label?.toUpperCase() === "SOL"
-        case "ALTS": return !["BTC", "ETH", "SOL"].includes(s.currency_label?.toUpperCase() || "")
-        case "BULL": return s.signal_trend === "LONG"
-        case "BEAR": return s.signal_trend === "SHORT"
-        case "ALL": return true
-        default: return false
-        }
-    })
-
-    if (tokenSignals.length === 0) {
-        return {
-            count: 0,
-            goodSignals: 0,
-            percentage: 0,
-            profit: 0,
-            goodAvgProfit: 0
-        }
-    }
-
-    const totalProfit = tokenSignals.reduce((sum, s) => sum + (s.pnlP || 0), 0).toFixed(2)
-    const goodSignals = tokenSignals.filter(s => (s.pnlP || 0) >= 0)
-    const goodSignalsProfit = goodSignals.reduce((sum, s) => sum + (s.pnlP || 0), 0).toFixed(2)
-    // const goodAvgProfit = ((goodSignals.length / tokenSignals.length) * 100).toFixed(2)
-    const bestSignal = Math.max(...tokenSignals.map(s => s.pnlP || 0)).toFixed(2)
-    const worstSignal = Math.min(...tokenSignals.map(s => s.pnlP || 0)).toFixed(2)
-    const avgProfitPerSignal = (Number(totalProfit) / tokenSignals.length).toFixed(2)
-    const avgProfitPerSignalGood = (Number(goodSignalsProfit) / goodSignals.length).toFixed(2)
-
-
-    return {
-        count: tokenSignals.length,
-        goodSignals: goodSignals.length,
-        percentage: ((tokenSignals.length / signalDetails.length) * 100).toFixed(2) + "%",
-        profit: totalProfit + "%",
-        // goodAvgProfit: goodAvgProfit + "%",
-        goodSignalsProfit: goodSignalsProfit + "%",
-        bestSignal: bestSignal + "%",
-        worstSignal: worstSignal + "%",
-        avgProfitPerSignal: avgProfitPerSignal + "%",
-        avgProfitPerSignalGood: avgProfitPerSignalGood + "%"
-    }
 }

@@ -53,42 +53,58 @@ model User {
   twoFactorAuthSecret  String?
   twoFactorAuthMethod  String? @default("AUTH_APP")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt()
-  Source    Source[]
-  Signal    Signal[]
-  Setup     Setup[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @default(now()) @updatedAt()
+  Setup      Setup[]
+  UserSource UserSource[]
 }
 
 model Source {
-  id         Int @id @default(autoincrement())
-  user_db_id Int
-
+  id            Int          @id @default(autoincrement())
   source_status SourceStatus @default(PROCESSING)
 
-  platform                        PlatformName @default(X)
-  display_name                    String       @default("")
-  platform_user_picture           String
-  user_name_source                String
-  user_username_source            String
-  user_id_source                  String
-  user_verified                   Boolean      @default(false)
-  user_creation_date              Int
-  followers_count                 Int          @default(0)
-  source_subscription_plan        SourcePrice  @default(FREE)
-  source_subscription_price       Int?
-  source_activated                Boolean      @default(false)
-  source_reverse_signal_activated Boolean      @default(false)
+  platform                  PlatformName @default(X)
+  display_name              String       @default("")
+  platform_user_picture     String
+  user_name_source          String
+  user_username_source      String
+  user_id_source            String
+  user_verified             Boolean      @default(false)
+  user_creation_date        Int
+  followers_count           Int          @default(0)
+  source_subscription_plan  SourcePrice  @default(FREE)
+  source_subscription_price Int?
 
   deleted_count Int @default(0)
 
   metadata    Json?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @default(now()) @updatedAt()
-  User        User          @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
   SourcePost  SourcePost[]
   Signal      Signal[]
   SourceStats SourceStats[]
+  UserSource  UserSource[]
+
+  @@unique([platform, user_id_source])
+}
+
+model UserSource {
+  id        Int      @id @default(autoincrement())
+  user_id   Int
+  source_id Int
+  // source_username String
+  added_at  DateTime @default(now())
+
+  // Per-user settings (moved from Source)
+  source_activated                Boolean @default(true)
+  source_reverse_signal_activated Boolean @default(false)
+
+  User   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Source Source @relation(fields: [source_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, source_id])
+  @@index([user_id])
+  @@index([source_id])
 }
 
 model SourceStats {
@@ -164,7 +180,6 @@ enum SignalStatus {
 
 model Signal {
   id             Int    @id @default(autoincrement())
-  user_db_id     Int
   sourceId       Int
   source_post_id Int
   sourceIds      String @default("[]")
@@ -185,7 +200,6 @@ model Signal {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  User                       User       @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
   SourcePost                 SourcePost @relation(fields: [source_post_id], references: [id], onDelete: Cascade)
   Source                     Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   meta                       Json?
@@ -195,6 +209,8 @@ model Signal {
   ai_price_trace_analysis_at DateTime?
   ai_token_analysis          Json?
   ai_token_analysis_at       DateTime?
+
+  @@unique([sourceId, source_post_id])
 }
 
 model Setup {

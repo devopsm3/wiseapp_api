@@ -6,7 +6,7 @@ import http from "http"
 import { initSocket } from "./config/socket"
 // import { scheduleSignalPivotUpdate } from "./jobs/updateSignalPivots.job"
 // import { schedulePostValidation } from "./jobs/validatePosts.job"
-// import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
+import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
 
 declare global {
   interface BigInt {
@@ -34,7 +34,7 @@ initSocket(server)
 
 // Start BullMQ jobs
 // scheduleSignalPivotUpdate()
-// scheduleStatsCalculation()
+scheduleStatsCalculation()
 // schedulePostValidation()
 
 server.listen(config.port, () => {

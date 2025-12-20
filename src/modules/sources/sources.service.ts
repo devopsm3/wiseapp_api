@@ -14,18 +14,26 @@ import { GlobalSettings } from "../../types/setup.types"
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
     try {
-        const sources = await prisma.source.findMany({
+        // Get user's sources through UserSource
+        const userSources = await prisma.userSource.findMany({
             where: {
-                user_db_id: currentUser.id,
-                source_status: SourceStatus.VALIDE
+                user_id: currentUser.id,
             },
             include: {
-                Signal: true
+                Source: {
+                    include: {
+                        Signal: true
+                    }
+                }
             }
         })
+
+        // Filter out sources that aren't VALIDE
+        const validUserSources = userSources.filter(us => us.Source.source_status === SourceStatus.VALIDE)
         const sourcesData: any[] = []
-        for (let index = 0; index < sources.length; index++) {
-            const source = sources[index]
+        for (let index = 0; index < validUserSources.length; index++) {
+            const userSource = validUserSources[index]
+            const source = userSource.Source
 
             let source_url = ""
             if (source.platform === PlatformName.TELEGRAM) {
@@ -76,16 +84,15 @@ export const getSourcesService = async (currentUser: User) => {
                 id: source.id,
                 source_image_url: source.platform_user_picture,
                 platform: source.platform,
-                is_active: source.source_activated,
+                is_active: userSource.source_activated,
                 is_paid: source.source_subscription_plan !== "FREE",
-                reverse_signal: source.source_reverse_signal_activated,
+                reverse_signal: userSource.source_reverse_signal_activated,
                 source_name: source.user_name_source,
                 source_id: source.user_username_source,
                 price_monthly: source.source_subscription_price,
                 is_verified: source.user_verified,
 
                 ...stats.globalStats,
-
                 // focus
                 followers_count: source.followers_count,
                 account_created_at: new Date(source.user_creation_date * 1000),
@@ -129,56 +136,98 @@ export const getSourcesService = async (currentUser: User) => {
     }
 }
 
-// get source by id or username
-export const getSourceByIdService = async (id: string, currentUser: User) => {
-
-    try {
-        const source = await prisma.source.findUnique({
-            where: {
-                id: Number(id),
-                user_db_id: currentUser.id,
-                source_status: SourceStatus.VALIDE,
-            },
-        })
-
-        if (!source) {
-            return {
-                status: false,
-                message: "Source not found"
-            }
-        }
-
-        return {
-            status: true,
-            source: source
-        }
-    } catch (error: any) {
-        return {
-            status: false,
-            message: error.message
-        }
-    }
-}
-
 // add source
 export const addSourceService = async (source: any, currentUser: User) => {
 
     try {
         const normalizedSourceId = normalizeSourceId(source.sourceId)
-        const sourceExists = await prisma.source.findFirst({
+
+        const globalSource = await prisma.source.findFirst({
             where: {
                 user_username_source: normalizedSourceId,
-                user_db_id: currentUser.id,
                 platform: source.sourceType,
                 source_status: SourceStatus.VALIDE,
             },
         })
-        if (sourceExists) {
+
+
+        if (globalSource) {
+            const userSourceExists = await prisma.userSource.findUnique({
+                where: {
+                    user_id_source_id: {
+                        user_id: currentUser.id,
+                        source_id: globalSource.id
+                    }
+                }
+            })
+
+            if (userSourceExists) {
+                return {
+                    status: false,
+                    message: "Source already exists in your account"
+                }
+            }
+
+            getIO().to("user_" + currentUser.id.toString()).emit("sources_creating_init")
+
+
+            await prisma.userSource.create({
+                data: {
+                    user_id: currentUser.id,
+                    source_id: globalSource.id,
+                    source_activated: true,
+                    source_reverse_signal_activated: false
+                }
+            })
+
+            const sourceWithSignals = await prisma.source.findUnique({
+                where: { id: globalSource.id },
+                include: { Signal: true }
+            })
+
+            let sourceStats = await prisma.sourceStats.findUnique({
+                where: {
+                    sourceId_period: {
+                        sourceId: globalSource.id,
+                        period: "ALL"
+                    }
+                }
+            })
+
+            let stats
+            const dbStats = sourceStats?.stats
+            const hasStatsObject = dbStats !== null && typeof dbStats === "object" && !Array.isArray(dbStats) && Object.keys(dbStats).length > 0
+
+            if (hasStatsObject) {
+                stats = dbStats as any
+            } else {
+                stats = calculateSourceStats(sourceWithSignals!.Signal || [])
+            }
+
+            getIO().to("user_" + currentUser.id.toString()).emit("sources_creating_finished", {
+                status: true,
+                id: sourceWithSignals!.user_username_source,
+                data: {
+                    type: sourceWithSignals!.platform,
+                    name: sourceWithSignals!.user_name_source,
+                    created_at: sourceWithSignals!.createdAt,
+                    count_signals_found: sourceWithSignals!.Signal.length,
+                    btc_count: stats.pieChatTokensData?.find((t: any) => t.name === "BTC")?.total_token_count || 0,
+                    eth_count: stats.pieChatTokensData?.find((t: any) => t.name === "ETH")?.total_token_count || 0,
+                    sol_count: stats.pieChatTokensData?.find((t: any) => t.name === "SOL")?.total_token_count || 0,
+                    alts_count: stats.pieChatTokensData?.find((t: any) => t.name === "ALTS")?.total_token_count || 0,
+                    bull_count: stats.globalStats.total_bull_signals,
+                    bear_count: stats.globalStats.total_bear_signals
+                }
+            })
+
+
             return {
-                status: false,
-                message: "Source already exists in your account"
+                status: true,
+                message: "Source added to your account successfully"
             }
         }
+
         let channelInfo: SourceType | null = null
         if (source.sourceType === PlatformName.TELEGRAM) {
             const channel = await getTelegramChannelInfo(normalizedSourceId)
@@ -211,33 +260,15 @@ export const addSourceService = async (source: any, currentUser: User) => {
     }
 }
 
-// update source
-export const updateSourceByIdService = async (id: number, source: any) => {
-    try {
-        const updatedSource = await prisma.source.update({
-            where: {
-                id: id,
-            },
-            data: source,
-        })
-        return {
-            status: true,
-            updatedSource
-        }
-    } catch (error: any) {
-        return {
-            status: false,
-            message: error.message
-        }
-    }
-}
-
 // delete source
-export const deleteSourceByIdService = async (id: number) => {
+export const deleteSourceByIdService = async (id: number, currentUser: User) => {
     try {
-        const deletedSource = await prisma.source.delete({
+        const deletedSource = await prisma.userSource.delete({
             where: {
-                id: id,
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: id
+                }
             },
         })
         return deletedSource
@@ -250,10 +281,13 @@ export const deleteSourceByIdService = async (id: number) => {
 export const toggleSourceActivationService = async (id: number, currentUser: User, body: any) => {
 
     try {
-        const updatedSource = await prisma.source.update({
+        // Update UserSource activation settings
+        const updatedUserSource = await prisma.userSource.update({
             where: {
-                id: id,
-                user_db_id: currentUser.id,
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: id
+                }
             },
             data: {
                 source_activated: body.is_active,
@@ -262,7 +296,7 @@ export const toggleSourceActivationService = async (id: number, currentUser: Use
         })
         return {
             status: true,
-            updatedSource
+            updatedUserSource
         }
     } catch (error: any) {
         return {
@@ -278,7 +312,6 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
         const focusSource = await prisma.source.findUnique({
             where: {
                 id: focusSourceId,
-                user_db_id: currentUser.id,
                 source_status: SourceStatus.VALIDE,
             }
         })
@@ -290,10 +323,26 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
             }
         }
 
+        // Verify user has access to this source
+        const userSource = await prisma.userSource.findUnique({
+            where: {
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: focusSourceId
+                }
+            }
+        })
+
+        if (!userSource) {
+            return {
+                status: false,
+                message: "You don't have access to this source"
+            }
+        }
+
         const signals = await prisma.signal.findMany({
             where: {
                 sourceId: focusSourceId,
-                user_db_id: currentUser.id,
             },
             orderBy: {
                 entry_timestamp: "desc"
@@ -320,14 +369,24 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
             topCorrelations = correlations as Prisma.JsonArray
         } else {
             console.log(" 🚀   -->  Top correlations calculating in Getting Signals Details -------:")
-            const otherSources = await prisma.source.findMany({
+
+            // Get user's other sources through UserSource
+            const userOtherSources = await prisma.userSource.findMany({
                 where: {
-                    user_db_id: currentUser.id,
-                    source_status: SourceStatus.VALIDE,
-                    id: { not: focusSourceId }
+                    user_id: currentUser.id,
+                    source_id: { not: focusSourceId }
                 },
-                include: { Signal: true }
+                include: {
+                    Source: {
+                        include: { Signal: true }
+                    }
+                }
             })
+
+            // Filter valid sources and map to Source objects
+            const otherSources = userOtherSources
+                .filter(us => us.Source.source_status === SourceStatus.VALIDE)
+                .map(us => us.Source)
             let TIME_FRAME_HOURS = 48
             const setup = await prisma.setup.findFirst({
                 where: {
@@ -364,8 +423,7 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
             })
         }
 
-
-        const signalsStats = {
+        const sourceSignalsStats = (sourceStats?.stats as any)?.sourceSignalsStats ||  {
             BTC: getTokenProfitability("BTC", signals),
             ETH: getTokenProfitability("ETH", signals),
             SOL: getTokenProfitability("SOL", signals),
@@ -374,10 +432,11 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
             BEAR: getTokenProfitability("BEAR", signals),
             ALL: getTokenProfitability("ALL", signals)
         }
+
         return {
             status: true,
             data: {
-                signalsStats,
+                signalsStats: sourceSignalsStats,
                 topCorrelations
             }
         }
@@ -394,7 +453,6 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
         const source = await prisma.source.findUnique({
             where: {
                 id: sourceId,
-                user_db_id: currentUser.id,
                 source_status: SourceStatus.VALIDE,
             },
         })
@@ -403,6 +461,23 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
             return {
                 status: false,
                 message: "Source not found"
+            }
+        }
+
+        // Verify user has access to this source
+        const userSource = await prisma.userSource.findUnique({
+            where: {
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: sourceId
+                }
+            }
+        })
+
+        if (!userSource) {
+            return {
+                status: false,
+                message: "You don't have access to this source"
             }
         }
 
@@ -428,7 +503,6 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
             const signals = await prisma.signal.findMany({
                 where: {
                     sourceId: sourceId,
-                    user_db_id: currentUser.id,
                 },
                 orderBy: {
                     entry_timestamp: "desc"
@@ -497,54 +571,6 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
         return {
             status: false,
             message: error.message
-        }
-    }
-}
-
-export const getSourceProfitHistory = async (sourceId: number, currentUser: User, tokenFilter?: string) => {
-    const signals = await prisma.signal.findMany({
-        where: {
-            sourceId: sourceId,
-            ...(tokenFilter && { token: tokenFilter })
-        },
-        orderBy: { entry_timestamp: "asc" },
-    })
-
-    const tokensCount = {
-        BTC: 0,
-        ETH: 0,
-        SOL: 0,
-        ALTS: 0
-    }
-    for (let i = 0; i < signals.length; i++) {
-        if (signals[i].currency_label === "BTC") {
-            tokensCount.BTC++
-        } else if (signals[i].currency_label === "ETH") {
-            tokensCount.ETH++
-        } else if (signals[i].currency_label === "SOL") {
-            tokensCount.SOL++
-        } else {
-            tokensCount.ALTS++
-        }
-    }
-    let runningTotal = 0
-    const chartData = signals.map(sig => {
-        runningTotal += sig.pnlP // or sig.pnlAbsolute
-        return {
-            date: sig.entry_timestamp.toLocaleDateString(),
-            token: sig.currency_label,
-            pnl: sig.pnlP.toFixed(2),
-            cumulative_pnl: Number(runningTotal.toFixed(2))
-        }
-    })
-
-
-    return {
-        status: true,
-        data: {
-            filter: tokenFilter || "ALL",
-            chart_data: chartData,
-            tokens_count: tokensCount
         }
     }
 }

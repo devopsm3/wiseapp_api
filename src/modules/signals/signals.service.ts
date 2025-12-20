@@ -25,17 +25,30 @@ const getUserSettings = async (currentUser: User) => {
     const metasignal_time_window = setupsettings.metasignal_time_window || 72
     return { metasignal_quorum_min, metasignal_time_window }
 }
+
 export const getSignalsService = async (currentUser: User) => {
     try {
-        const signalsData = await prisma.signal.findMany({
+        // Get user's sources through UserSource
+        const userSources = await prisma.userSource.findMany({
             where: {
-                user_db_id: currentUser.id,
+                user_id: currentUser.id,
             },
             include: {
-                Source: true,
-                SourcePost: true,
+                Source: {
+                    include: {
+                        Signal: {
+                            include: {
+                                Source: true,
+                                SourcePost: true
+                            }
+                        }
+                    }
+                }
             }
         })
+
+        // Flatten signals from all user's sources
+        const signalsData = userSources.flatMap(us => us.Source.Signal)
 
         // Format signals data
         const signalsInfo = []
@@ -223,11 +236,27 @@ export const getSignalPostsArticlesService = async (id: number, currentUser: Use
         const signal = await prisma.signal.findUnique({
             where: {
                 id: id,
-                user_db_id: currentUser.id,
+            },
+            include: {
+                Source: true
             }
         })
 
         if (!signal) {
+            return null
+        }
+
+        // Verify user has access to this signal's source
+        const userSource = await prisma.userSource.findUnique({
+            where: {
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: signal.Source.id
+                }
+            }
+        })
+
+        if (!userSource) {
             return null
         }
 
@@ -253,11 +282,27 @@ export const getSignalAiPriceTraceAnalysisService = async (id: number, currentUs
         const signal = await prisma.signal.findUnique({
             where: {
                 id: id,
-                user_db_id: currentUser.id,
+            },
+            include: {
+                Source: true
             }
         })
 
         if (!signal) {
+            return null
+        }
+
+        // Verify user has access to this signal's source
+        const userSource = await prisma.userSource.findUnique({
+            where: {
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: signal.Source.id
+                }
+            }
+        })
+
+        if (!userSource) {
             return null
         }
 
@@ -280,7 +325,6 @@ export const getSignalAiPriceTraceAnalysisService = async (id: number, currentUs
                 await prisma.signal.update({
                     where: {
                         id: id,
-                        user_db_id: currentUser.id,
                     },
                     data: {
                         ai_price_trace_analysis: ai_price_trace_analysis_response.data || "",
@@ -308,11 +352,27 @@ export const getSignalAiTokenAnalysisService = async (id: number, currentUser: U
         const signal = await prisma.signal.findUnique({
             where: {
                 id: id,
-                user_db_id: currentUser.id,
+            },
+            include: {
+                Source: true
             }
         })
 
         if (!signal) {
+            return null
+        }
+
+        // Verify user has access to this signal's source
+        const userSource = await prisma.userSource.findUnique({
+            where: {
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: signal.Source.id
+                }
+            }
+        })
+
+        if (!userSource) {
             return null
         }
 
@@ -337,7 +397,6 @@ export const getSignalAiTokenAnalysisService = async (id: number, currentUser: U
                 await prisma.signal.update({
                     where: {
                         id: id,
-                        user_db_id: currentUser.id,
                     },
                     data: {
                         ai_token_analysis: token_analysis_response.data || "",

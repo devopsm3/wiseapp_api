@@ -292,3 +292,31 @@ export const ActivateTwoFactorAuth = async (req: Request, res: Response) => {
         return res.status(500).json({ status: false, message: error.message })
     }
 }
+
+export const getMe = async (req: Request, res: Response) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: {
+                id: req.user!.id,
+            }
+        })
+        if (!user) {
+            return res.status(404).json({ status: false, message: "User not found" })
+        }
+
+        return res.status(200).json({
+            data: {
+                status: true,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    login: user.login,
+                    is_admin: user.isAdmin,
+                    created_at: user.createdAt
+                },
+            }
+        })
+    } catch (error: any) {
+        return res.status(500).json({ status: false, message: error.message })
+    }
+}

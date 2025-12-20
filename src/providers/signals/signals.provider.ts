@@ -1,48 +1,47 @@
-﻿import { SignalStatus, SignalTrend } from "@prisma/client"
+﻿import { SignalTrend } from "@prisma/client"
 import { prisma } from "../../prisma"
 import { PivotCalculationMeta } from "../CoinMarketCap/coinmarketcap.types"
 
 
-export const checkExistedSignalWithinTimeHorizon = async (currentUserId: number, analysis: { direction: "LONG" | "SHORT"; token: string }, status: SignalStatus) => {
+// export const checkExistedSignalWithinTimeHorizon = async (currentUserId: number, analysis: { direction: "LONG" | "SHORT"; token: string }, status: SignalStatus) => {
     
-    // let timeframe_for_meta_signals_hours = 21
+//     // let timeframe_for_meta_signals_hours = 21
     
-    // const setup = await prisma.setup.findFirst({
-    //     where: {
-    //         user_db_id: currentUserId,
-    //     },
-    // })
-    // if (setup) {
-    //     timeframe_for_meta_signals_hours = (setup?.meta_signals as unknown as MetaSignalSetup)?.timeframe_for_meta_signals
-    // }
+//     // const setup = await prisma.setup.findFirst({
+//     //     where: {
+//     //         user_db_id: currentUserId,
+//     //     },
+//     // })
+//     // if (setup) {
+//     //     timeframe_for_meta_signals_hours = (setup?.meta_signals as unknown as MetaSignalSetup)?.timeframe_for_meta_signals
+//     // }
 
-    // const now = new Date()
-    // const timeframe_for_meta_signals_ago = new Date(now)
-    // timeframe_for_meta_signals_ago.setUTCDate(now.getUTCDate() - (timeframe_for_meta_signals_hours))
-    // timeframe_for_meta_signals_ago.setUTCHours(0, 0, 0, 0)
+//     // const now = new Date()
+//     // const timeframe_for_meta_signals_ago = new Date(now)
+//     // timeframe_for_meta_signals_ago.setUTCDate(now.getUTCDate() - (timeframe_for_meta_signals_hours))
+//     // timeframe_for_meta_signals_ago.setUTCHours(0, 0, 0, 0)
 
-    const trend = analysis.direction === "LONG" ? SignalTrend.LONG : SignalTrend.SHORT
+//     const trend = analysis.direction === "LONG" ? SignalTrend.LONG : SignalTrend.SHORT
 
-    const existingSignal = await prisma.signal.findFirst({
-        where: {
-            user_db_id: currentUserId,
-            status,
-            currency_label: analysis.token,
-            signal_trend: trend
-            // entry_timestamp: {
-            //     gte: timeframe_for_meta_signals_ago,
-            // },
-        }
-    })   
-    return { existingSignal }
-}
+//     const existingSignal = await prisma.signal.findFirst({
+//         where: {
+//             // user_db_id: currentUserId,
+//             status,
+//             currency_label: analysis.token,
+//             signal_trend: trend
+//             // entry_timestamp: {
+//             //     gte: timeframe_for_meta_signals_ago,
+//             // },
+//         }
+//     })   
+//     return { existingSignal }
+// }
 
 interface CreateOrUpdateSignalProps {
     analysis: { direction: "LONG" | "SHORT"; token: string; token_id: string };
     coinId: number;
     newSourceId: number;
     postCreatedId: number;
-    currentUserId: number;
     currencyLogo: string;
     pnlAbsolute?: any;
     pnlPercent?: any;
@@ -58,7 +57,6 @@ export const createOrUpdateSignal = async ({
     coinId,
     newSourceId,
     postCreatedId,
-    currentUserId,
     currencyLogo,
     pnlAbsolute,
     pnlPercent,
@@ -78,28 +76,20 @@ export const createOrUpdateSignal = async ({
     
     const status =  entryTimestamp.getTime() >= twentyOneDaysAgo.getTime() ? "NEW" : "PASSED"
 
-    // const { existingSignal } = await checkExistedSignalWithinTimeHorizon(currentUserId, analysis, status)
-    const existingSignal = false
+    // Check if signal already exists for this source post
+    const existingSignal = await prisma.signal.findUnique({
+        where: {
+            sourceId_source_post_id: {
+                sourceId: newSourceId,
+                source_post_id: postCreatedId
+            }
+        }
+    })
 
     if (existingSignal) {
-        console.log(" ------------------ Updating existing signal ------------------")
-        // const existingSignalSourceIds = JSON.parse(existingSignal.sourceIds || "[]")
-        // const isIncluded = Array.isArray(existingSignalSourceIds) && existingSignalSourceIds.includes(Number(newSourceId))
-        // if (!isIncluded) {
-        //     const alignmentPostsForMetaSignals = (setup?.meta_signals as unknown as MetaSignalSetup)?.alignment_posts_for_meta_signals || 3
-        //     const signalTrendLevel = getSignalTrendLevel(analysis.direction, existingSignal.sources_nbr || 1, alignmentPostsForMetaSignals)
-        //     await prisma.signal.update({
-        //         where: { id: existingSignal.id },
-        //         data: {
-        //             sources_nbr: { increment: 1 },
-        //             signal_trend_level: signalTrendLevel,
-        //             sourceIds: JSON.stringify([...existingSignalSourceIds, Number(newSourceId)]),
-        //             updated_at: new Date()
-        //         }
-        //     })
-        // }
+        console.log(" ------------------ Signal already exists ------------------")
         console.log(
-            `Updated existing signal for ${analysis.token} (${analysis.direction}) - incremented sources_nbr.`
+            `Signal already exists for ${analysis.token} (${analysis.direction}) from source ${newSourceId}`
         )
         return existingSignal
     } else {
@@ -108,7 +98,6 @@ export const createOrUpdateSignal = async ({
             data: {
                 sourceId: newSourceId,
                 sourceIds: JSON.stringify([newSourceId]),
-                user_db_id: currentUserId,
                 source_post_id: postCreatedId,
                 signal_trend_level: analysis.direction === "LONG" ? "VTC" : "RTC",
                 signal_trend: analysis.direction === "LONG" ? SignalTrend.LONG : SignalTrend.SHORT,

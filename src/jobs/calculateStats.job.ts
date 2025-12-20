@@ -4,14 +4,15 @@ import { prisma } from "../prisma"
 import { calculateSourceStats, calculateTopCorrelations } from "../modules/sources/sources.helpers"
 import { SourceStatus } from "@prisma/client"
 import { generateSourceRecommendations } from "../providers/AgentAI/recommendations.provider"
-import { GlobalSettings } from "../types/setup.types"
 
 export const statsQueue = new Queue("stats", {
     connection: connection
 })
 
 export const statsWorker = new Worker("stats", async (job) => {
-    console.log("📊 Processing stats job:", job.name)
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    console.log("\n 📊 Processing stats job:", job.id, " \n")
+    
     if (job.name === "calculateSourceStats") {
         const sources = await prisma.source.findMany({
             where: {
@@ -23,25 +24,16 @@ export const statsWorker = new Worker("stats", async (job) => {
         })
 
         for (const source of sources) {
-            console.log("")
-            console.log("")
-            console.log("Processing source:", source.user_name_source)
+            console.log("----------------------- STATS JOB: calculating Source > Stat -----------------------", source.user_name_source)
+
             const signals = source.Signal
             const stats = calculateSourceStats(signals)
-            console.log("Stats Calculation is DONE")
             
-            let TIME_FRAME_HOURS = 48
-            const setup = await prisma.setup.findFirst({
-                where: {
-                    user_db_id: source.user_db_id,
-                },
-            })
-            if (setup && setup.settings) {
-                const setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
-                TIME_FRAME_HOURS = setupsettings.metasignal_time_window || 48
-            }
 
-            const otherSources = sources.filter((el) => el.id !== source.id && el.user_db_id === source.user_db_id)
+            console.log("----------------------- STATS JOB: calculating Source > Correlations -----------------------", source.user_name_source)
+
+            const TIME_FRAME_HOURS = 48
+            const otherSources = sources.filter((el) => el.id !== source.id)
             
             const topCorrelations = calculateTopCorrelations(
                 source,
@@ -50,13 +42,14 @@ export const statsWorker = new Worker("stats", async (job) => {
             )
             
             await new Promise(resolve => setTimeout(resolve, 1000))
+            console.log("----------------------- STATS JOB: calculating Source > Recommendations -----------------------", source.user_name_source, " \n")
+
             const recommendations = await generateSourceRecommendations({
                 sourceName: source.user_name_source,
                 platform: source.platform,
                 stats,
                 followers_count: source.followers_count
             })
-            console.log("Recommendations generating is DONE", recommendations.length)
 
             await prisma.sourceStats.upsert({
                 where: {
@@ -79,10 +72,17 @@ export const statsWorker = new Worker("stats", async (job) => {
                 }
             })
         }
-        console.log("✅ Stats calculation finished")
     }
 }, {
     connection: connection
+})
+
+statsWorker.on("completed", (job) => {
+    console.log(`✅ [BULLMQ] Daily stats calculation job completed! - Job ${job.id} \n`)
+})
+
+statsWorker.on("failed", (job, err) => {
+    console.error(`❌ [BULLMQ] Daily stats calculation job failed! - Job ${job?.id}:`, err.message, "\n")
 })
 
 export const scheduleStatsCalculation = async () => {
@@ -91,12 +91,12 @@ export const scheduleStatsCalculation = async () => {
         {},
         {
             repeat: {
-                pattern: "0 4    * * *", // Every day at 4AM,
+                pattern: "0 4 * * *", // Cron: Every day at 4:00 AM,
                 tz: "Europe/Paris"
             },
         }
     )
-    console.log("📅 Stats calculation scheduled (Daily at 4:00 AM via BullMQ)")
+    console.log("📅 Stats calculation scheduled (Daily at 4:00 AM via BullMQ) ")
 
     // await statsQueue.add(
     //     "calculateSourceStats",

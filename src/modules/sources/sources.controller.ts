@@ -1,5 +1,12 @@
 ﻿import { NextFunction, Request, Response } from "express"
-import { getSourcesService, getSourceByIdService, addSourceService, updateSourceByIdService, deleteSourceByIdService, toggleSourceActivationService, getSourceSignalsDetailsService, getSourceProfitHistory, getSourceRecommendationsService } from "./sources.service"
+import {
+    getSourcesService,
+    addSourceService,
+    deleteSourceByIdService,
+    toggleSourceActivationService,
+    getSourceSignalsDetailsService,
+    getSourceRecommendationsService
+} from "./sources.service"
 
 export const getSources = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -31,21 +38,6 @@ export const addSource = async (req: Request, res: Response, next: NextFunction)
     }
 }
 
-export const updateSourceById = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const source = await updateSourceByIdService(Number(req.params.id), req.body)
-        if (!source) {
-            return res.status(404).json({ status: false, message: "Source not found" })
-        }
-        res.status(200).json({
-            status: true,
-            data: source,
-        })
-    } catch (error) {
-        next(error)
-    }
-}
-
 // toggle source activation
 export const toggleSourceActivation = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -64,7 +56,7 @@ export const toggleSourceActivation = async (req: Request, res: Response, next: 
 
 export const deleteSourceById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const source = await deleteSourceByIdService(Number(req.params.id))
+        const source = await deleteSourceByIdService(Number(req.params.id), req.user!)
         if (!source) {
             return res.status(404).json({ status: false, message: "Source not found" })
         }
@@ -78,39 +70,10 @@ export const deleteSourceById = async (req: Request, res: Response, next: NextFu
     }
 }
 
-export const getSourceById = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const dt: any = await getSourceByIdService(req.params.id, req.user!)
-        if (!dt.status) {
-            return res.status(404).json({ status: false, message: dt.message || "Source not found" })
-        }
-        res.status(200).json({
-            status: true,
-            data: dt.source,
-        })
-    } catch (error) {
-        next(error)
-    }
-}
 
 export const getSourceSignalsDetails = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result: any = await getSourceSignalsDetailsService(Number(req.params.id), req.user!)
-        if (!result.status) {
-            return res.status(404).json({ status: false, message: result.message })
-        }
-        res.status(200).json({
-            status: true,
-            data: result.data,
-        })
-    } catch (error) {
-        next(error)
-    }
-}
-
-export const getSourceProfitHistoryData = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const result: any = await getSourceProfitHistory(Number(req.params.id), req.user!, req.query.tokenFilter as string)
         if (!result.status) {
             return res.status(404).json({ status: false, message: result.message })
         }
