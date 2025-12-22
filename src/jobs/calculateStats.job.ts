@@ -10,9 +10,8 @@ export const statsQueue = new Queue("stats", {
 })
 
 export const statsWorker = new Worker("stats", async (job) => {
-    await new Promise(resolve => setTimeout(resolve, 3000))
     console.log("\n 📊 Processing stats job:", job.id, " \n")
-    
+
     if (job.name === "calculateSourceStats") {
         const sources = await prisma.source.findMany({
             where: {
@@ -23,24 +22,24 @@ export const statsWorker = new Worker("stats", async (job) => {
             }
         })
 
-        for (const source of sources) {
+        for (const source of sources.slice(0, 1)) {
             console.log("----------------------- STATS JOB: calculating Source > Stat -----------------------", source.user_name_source)
 
             const signals = source.Signal
             const stats = calculateSourceStats(signals)
-            
+
 
             console.log("----------------------- STATS JOB: calculating Source > Correlations -----------------------", source.user_name_source)
 
             const TIME_FRAME_HOURS = 48
             const otherSources = sources.filter((el) => el.id !== source.id)
-            
+
             const topCorrelations = calculateTopCorrelations(
                 source,
                 otherSources,
                 TIME_FRAME_HOURS
             )
-            
+
             await new Promise(resolve => setTimeout(resolve, 1000))
             console.log("----------------------- STATS JOB: calculating Source > Recommendations -----------------------", source.user_name_source, " \n")
 
@@ -85,11 +84,14 @@ statsWorker.on("failed", (job, err) => {
     console.error(`❌ [BULLMQ] Daily stats calculation job failed! - Job ${job?.id}:`, err.message, "\n")
 })
 
+
+
 export const scheduleStatsCalculation = async () => {
     await statsQueue.add(
         "calculateSourceStats",
         {},
         {
+            jobId: "daily-stats-calculation",
             repeat: {
                 pattern: "0 4 * * *", // Cron: Every day at 4:00 AM,
                 tz: "Europe/Paris"
@@ -102,14 +104,7 @@ export const scheduleStatsCalculation = async () => {
     //     "calculateSourceStats",
     //     {},
     //     {
-    //         priority: 1, // High priority
-    //         removeOnComplete: {
-    //             age: 86400 * 7,
-    //             count: 10
-    //         },
-    //         removeOnFail: {
-    //             age: 86400 * 14
-    //         }
+    //         priority: 1
     //     }
     // )
 }

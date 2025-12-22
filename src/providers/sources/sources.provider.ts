@@ -48,13 +48,19 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         }
     }
 
+    let source_url = ""
+    if (channelInfo.platform === PlatformName.TELEGRAM) {
+        source_url = `https://t.me/${channelInfo.user_username_source}`
+    } else {
+        source_url = `https://x.com/${channelInfo.user_username_source}`
+    }
     const newSource = await prisma.source.create({
         data: {
             ...channelInfo,
-            display_name: source.display_name || "",
             source_subscription_plan: source.priceType === "free" ? SourcePrice.FREE : source.priceType === "monthly" ? SourcePrice.MONTHLY : SourcePrice.LIFETIME,
             source_subscription_price: source.priceType === "free" ? null : Number(source.price),
             platform: source.sourceType,
+            source_url,
         },
     })
     // Create UserSource link
@@ -63,7 +69,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             user_id: currentUser.id,
             source_id: newSource!.id,
             source_activated: true,
-            source_reverse_signal_activated: false
+            source_reverse_signal_activated: false,
+            display_name: source.display_name || ""
         }
     })
 
@@ -78,6 +85,12 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 const normalizedToken = normalizeToken(analysis.token)
                 const coinInfo = await getCoinInfo(normalizedToken)
                 if (coinInfo) {
+                    let post_url = ""
+                    if (channelInfo.platform === PlatformName.TELEGRAM) {
+                        post_url = `https://t.me/${channelInfo.user_username_source}/${String(element.id)}`
+                    } else {
+                        post_url = `https://x.com/${channelInfo.user_username_source}/status/${String(element.id)}`
+                    }
                     const postCreated = await prisma.sourcePost.create({
                         data: {
                             sourceId: newSource!.id,
@@ -90,6 +103,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                             text: element.text,
                             originalText: element.originalText,
                             analysis: element.analysis!,
+                            post_url
                         }
                     })
                     const currencyLogo = coinInfo.logo
@@ -180,7 +194,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         const userOtherSources = await prisma.userSource.findMany({
             where: {
                 user_id: currentUser.id,
-                source_id: { not:  createdSource.id}
+                source_id: { not: createdSource.id }
             },
             include: {
                 Source: {

@@ -19,13 +19,7 @@ export const getSourcesService = async (currentUser: User) => {
             where: {
                 user_id: currentUser.id,
             },
-            include: {
-                Source: {
-                    include: {
-                        Signal: true
-                    }
-                }
-            }
+            include: { Source: true }
         })
 
         // Filter out sources that aren't VALIDE
@@ -35,12 +29,12 @@ export const getSourcesService = async (currentUser: User) => {
             const userSource = validUserSources[index]
             const source = userSource.Source
 
-            let source_url = ""
-            if (source.platform === PlatformName.TELEGRAM) {
-                source_url = `https://t.me/${source.user_username_source}`
-            } else {
-                source_url = `https://x.com/${source.user_username_source}`
-            }
+            // let source_url = ""
+            // if (source.platform === PlatformName.TELEGRAM) {
+            //     source_url = `https://t.me/${source.user_username_source}`
+            // } else {
+            //     source_url = `https://x.com/${source.user_username_source}`
+            // }
 
             const sourceStats = await prisma.sourceStats.findUnique({
                 where: {
@@ -51,34 +45,7 @@ export const getSourcesService = async (currentUser: User) => {
                 }
             })
 
-
-            let stats
-            const dbStats = sourceStats?.stats
-            const hasStatsObject = dbStats !== null && typeof dbStats === "object" && !Array.isArray(dbStats) && Object.keys(dbStats).length > 0
-
-            if (hasStatsObject) {
-                console.log(" 🚀   -->  Stats already calculated in Getting Sources --------------- :")
-                stats = dbStats as any
-            } else {
-                console.log(" 🚀   -->  Stats calculating in Getting Sources --------------- :")
-                stats = calculateSourceStats(source.Signal || [])
-                await prisma.sourceStats.upsert({
-                    where: {
-                        sourceId_period: {
-                            sourceId: source.id,
-                            period: "ALL",
-                        },
-                    },
-                    update: {
-                        stats: stats as any,
-                    },
-                    create: {
-                        sourceId: source.id,
-                        period: "ALL",
-                        stats: stats as any,
-                    },
-                })
-            }
+            const stats = sourceStats?.stats as any
 
             sourcesData.push({
                 id: source.id,
@@ -97,7 +64,7 @@ export const getSourcesService = async (currentUser: User) => {
                 followers_count: source.followers_count,
                 account_created_at: new Date(source.user_creation_date * 1000),
                 deleted_posts: source.deleted_count,
-                source_url,
+                source_url: source.source_url,
                 stats: {
                     optimal_exit: stats.optimal_exit,
                     pieChatTokensData: stats.pieChatTokensData,

@@ -18,7 +18,7 @@ const updateSignalPivots = async (signal: any) => {
     const entryPrice = signal.entry_price
     const entryDate = new Date(signal.entry_timestamp)
 
-    const direction = signal.signal_trend === "LONG" ? "LONG" : "SHORT"
+    const direction = signal.signal_trend
 
     // Calculate the next day to fetch (entry_date + pivot_calc_days)
     const nextDayDate = new Date(entryDate)

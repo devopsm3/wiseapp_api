@@ -122,8 +122,8 @@ export const calculatePivot = (high: number, low: number, close: number): PivotL
 //     return filteredSignals
 // }
 
-export const getSignalTrendLevel = (direction: "bullish" | "bearish", signalSum: number, A: number): SignalTrendLvl => {
-    const isLong = direction === "bullish"
+export const getSignalTrendLevel = (direction: "LONG" | "SHORT", signalSum: number, A: number): SignalTrendLvl => {
+    const isLong = direction === "LONG"
 
     if (signalSum === A) {
         return isLong ? SignalTrendLvl.VTC : SignalTrendLvl.RTC

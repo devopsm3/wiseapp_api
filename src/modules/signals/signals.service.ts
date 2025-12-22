@@ -1,4 +1,4 @@
-﻿import { PlatformName, User } from "@prisma/client"
+﻿import { User } from "@prisma/client"
 import { prisma } from "../../prisma"
 import { getSignalTrendLevel } from "../../providers/signals/signals.helpers"
 import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketcap.types"
@@ -55,16 +55,16 @@ export const getSignalsService = async (currentUser: User) => {
         for (let i = 0; i < signalsData.length; i++) {
             const signal = signalsData[i]
             const source = signal.Source
-            let post_url = ""
-            let source_url = ""
+            // let post_url = ""
+            // // let source_url = ""
 
-            if (source.platform === PlatformName.TELEGRAM) {
-                post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
-                source_url = `https://t.me/${source.user_username_source}`
-            } else {
-                post_url = `https://x.com/${source.user_username_source}/status/${String(signal.SourcePost.originalId)}`
-                source_url = `https://x.com/${source.user_username_source}`
-            }
+            // if (source.platform === PlatformName.TELEGRAM) {
+            //     post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
+            //     // source_url = `https://t.me/${source.user_username_source}`
+            // } else {
+            //     post_url = `https://x.com/${source.user_username_source}/status/${String(signal.SourcePost.originalId)}`
+            //     // source_url = `https://x.com/${source.user_username_source}`
+            // }
 
             signalsInfo.push({
                 trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
@@ -87,8 +87,8 @@ export const getSignalsService = async (currentUser: User) => {
                         source_name: source.user_name_source,
                         is_verified: source.user_verified,
                         source_id: source.user_username_source,
-                        source_url,
-                        post_url: [post_url],
+                        source_url: source.source_url,
+                        post_url: [signal.SourcePost.post_url],
                         id: source.id
 
                     }
@@ -163,16 +163,16 @@ export const getSignalsService = async (currentUser: User) => {
                 totalAlignment += signal.sources_nbr || 0
 
                 const source = signal.Source
-                let post_url = ""
-                let source_url = ""
+                // let post_url = ""
+                // let source_url = ""
 
-                if (source.platform === PlatformName.TELEGRAM) {
-                    post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
-                    source_url = `https://t.me/${source.user_username_source}`
-                } else {
-                    post_url = `https://x.com/${source.user_username_source}/status/${String(signal.SourcePost.originalId)}`
-                    source_url = `https://x.com/${source.user_username_source}`
-                }
+                // if (source.platform === PlatformName.TELEGRAM) {
+                //     post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
+                //     source_url = `https://t.me/${source.user_username_source}`
+                // } else {
+                //     post_url = `https://x.com/${source.user_username_source}/status/${String(signal.SourcePost.originalId)}`
+                //     source_url = `https://x.com/${source.user_username_source}`
+                // }
 
                 sources.push({
                     source_image_url: source.platform_user_picture,
@@ -180,13 +180,13 @@ export const getSignalsService = async (currentUser: User) => {
                     source_name: source.user_name_source,
                     is_verified: source.user_verified,
                     source_id: source.user_username_source,
-                    source_url,
-                    post_url: [post_url],
+                    source_url: source.source_url,
+                    post_url: [signal.SourcePost.post_url],
                     id: source.id
                 })
             }
 
-            const signalTrendLevel = getSignalTrendLevel(oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish", totalAlignment, metasignal_quorum_min)
+            const signalTrendLevel = getSignalTrendLevel(oldestSignal.signal_trend, totalAlignment, metasignal_quorum_min)
             metaSignalsInfo.push({
                 trend: oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish",
                 id: oldestSignal.id, // Use oldest signal ID as representative

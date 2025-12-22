@@ -201,6 +201,8 @@ export const calculateSourceStats = (signals: any[]) => {
         // other stats
         allPnls.push(signal.pnlP)
 
+
+        // pieChatTokensData 
         const signalMeta = signal.meta as unknown as PivotCalculationMeta
         const signalMetaPivotData = signalMeta?.pivotData || []
 
