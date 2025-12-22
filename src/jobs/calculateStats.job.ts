@@ -22,7 +22,7 @@ export const statsWorker = new Worker("stats", async (job) => {
             }
         })
 
-        for (const source of sources.slice(0, 1)) {
+        for (const source of sources) {
             console.log("----------------------- STATS JOB: calculating Source > Stat -----------------------", source.user_name_source)
 
             const signals = source.Signal
@@ -93,12 +93,12 @@ export const scheduleStatsCalculation = async () => {
         {
             jobId: "daily-stats-calculation",
             repeat: {
-                pattern: "0 4 * * *", // Cron: Every day at 4:00 AM,
+                pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
                 tz: "Europe/Paris"
             },
         }
     )
-    console.log("📅 Stats calculation scheduled (Daily at 4:00 AM via BullMQ) ")
+    console.log("📅 Stats calculation scheduled (Daily at 6:00 AM via BullMQ) ")
 
     // await statsQueue.add(
     //     "calculateSourceStats",

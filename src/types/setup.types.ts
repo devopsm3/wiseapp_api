@@ -9,8 +9,8 @@
     // Metasignals Configuration  
     metasignal_quorum_min: number // sources minimum
     metasignal_time_window: number // hours
-    metasignal_correlation_weight: number // 0-1
-    metasignal_profitability_weight: number // 0-1
+    // metasignal_correlation_weight: number // 0-1
+    // metasignal_profitability_weight: number // 0-1
 
     // Trading Configuration
     take_profit_percentage: number // %

@@ -164,7 +164,7 @@ export const getOHLCVData = async (
     today.setUTCHours(0, 0, 0, 0)
 
     if (timeStart.getTime() === today.getTime()) {
-        console.warn(`Skipping OHLCV data fetch for today (${timeStart.toISOString()}) as it's not yet available.`)
+        console.warn(`\n Skipping OHLCV data fetch for today (${timeStart.toISOString()}) as it's not yet available. \n `)
         return null
     }
 
@@ -180,7 +180,7 @@ export const getOHLCVData = async (
         convert: "USD"
     })
 
-    console.log(" 🚀   -->  params OHLCV:", params)
+    console.log("\n  🚀   -->  params OHLCV :", params , " \n")
 
     const options = {
         method: "GET",
@@ -195,13 +195,13 @@ export const getOHLCVData = async (
         const data: any = await response.json()
 
         if (!data.data || !data.data.quotes || data.data.quotes.length === 0) {
-            console.warn(`No OHLC data found from ${startDate.toISOString()} to ${endDate.toISOString()}`)
+            // console.warn(`\n No OHLC data found from ${startDate.toISOString()} to ${endDate.toISOString()} \n`)
             return null
         }
 
         return data.data.quotes
     } catch (error) {
-        console.error("Error fetching OHLCV data:", error)
+        console.error("\n Error fetching OHLCV data : ", error, " \n ")
         return null
     }
 }
@@ -228,7 +228,7 @@ export const calculateMaxPivotFrom21Days = async (
 
     const coinId = getCoinMarketCapSymbolId(symbol)
     if (!coinId) {
-        console.warn(`Could not find CoinMarketCap ID for ${symbol}`)
+        console.warn(`\n Could not find CoinMarketCap ID for ${symbol} \n`)
         return null
     }
 
@@ -237,7 +237,7 @@ export const calculateMaxPivotFrom21Days = async (
 
     console.log(" 🚀   -->  priceAtStart:", priceAtStart)
     if (!priceAtStart) {
-        console.warn(`Could not fetch price for ${symbol} at ${startDate.toISOString()}`)
+        console.warn(`\n Could not fetch price for ${symbol} at ${startDate.toISOString()} \n`)
         return null
     }
 
@@ -247,7 +247,7 @@ export const calculateMaxPivotFrom21Days = async (
     const quotes = await getOHLCVData(coinId, startDate, endDate)
 
     if (!quotes || quotes.length === 0) {
-        console.warn(`No OHLC data found for ${symbol} from ${startDate.toISOString()}`)
+        console.warn(`\n No OHLC data found for ${symbol} from ${startDate.toISOString()} \n`)
         return {
             priceAtStart,
             validDays: 0,
@@ -348,15 +348,12 @@ export const calculateMaxPivotFrom21Days = async (
 
     const successEmoji = signalSuccess === true ? "✅" : signalSuccess === false ? "❌" : "⏳"
     const profitEmoji = theoreticalProfitPercent > 0 ? "📈" : "📉"
-    console.log(`📊 ${successEmoji} ${symbol} (${direction}): ${pivotData.length} days
+    console.log(`\n 📊 ${successEmoji} ${symbol} (${direction}): ${pivotData.length} days
         Entry: $${priceAtStart.toFixed(2)}
         Max: $${maxPivot.toFixed(2)} | Min: $${minPivot.toFixed(2)}
         Best Price: $${bestPrice.toFixed(2)}
         ${profitEmoji} Theoretical Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
-        Success: ${signalSuccess === null ? "PENDING" : signalSuccess}`)
-    console.log(" ")
-    console.log(" ")
-    console.log(" ")
+        Success: ${signalSuccess === null ? "PENDING" : signalSuccess} \n `)
     return {
         priceAtStart,
         validDays: pivotData.length,

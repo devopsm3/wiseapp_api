@@ -55,16 +55,6 @@ export const getSignalsService = async (currentUser: User) => {
         for (let i = 0; i < signalsData.length; i++) {
             const signal = signalsData[i]
             const source = signal.Source
-            // let post_url = ""
-            // // let source_url = ""
-
-            // if (source.platform === PlatformName.TELEGRAM) {
-            //     post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
-            //     // source_url = `https://t.me/${source.user_username_source}`
-            // } else {
-            //     post_url = `https://x.com/${source.user_username_source}/status/${String(signal.SourcePost.originalId)}`
-            //     // source_url = `https://x.com/${source.user_username_source}`
-            // }
 
             signalsInfo.push({
                 trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",
@@ -101,48 +91,69 @@ export const getSignalsService = async (currentUser: User) => {
         filteredSignals.sort((a, b) => new Date(a.entry_timestamp).getTime() - new Date(b.entry_timestamp).getTime())
         const metaSignalsInfo = []
         const processedSignals = []
-        const tempGroups: { [key: string]: { signals: typeof filteredSignals, sourceIds: Set<number> } } = {}
         const { metasignal_quorum_min, metasignal_time_window } = await getUserSettings(currentUser)
-        
+
+        // 1. Bucket signals by Currency-Trend
+        const buckets: { [key: string]: typeof filteredSignals } = {}
         for (const signal of filteredSignals) {
             const key = `${signal.currency_label.toUpperCase()}-${signal.signal_trend.toUpperCase()}`
-            const sourceId = signal.Source.id
+            if (!buckets[key]) {
+                buckets[key] = []
+            }
+            buckets[key].push(signal)
+        }
 
-            if (!tempGroups[key]) {
-                tempGroups[key] = {
-                    signals: [signal],
-                    sourceIds: new Set([sourceId])
-                }
-            } else {
-                const currentGroup = tempGroups[key]
+        // 2. Cluster signals within each bucket
+        const usedSignalIds = new Set<number>()
 
-                // Skip if this source is already in the current group
-                if (currentGroup.sourceIds.has(sourceId)) {
-                    continue
-                }
+        for (const key in buckets) {
+            const groupSignals = buckets[key]
+            
+            for (let i = 0; i < groupSignals.length; i++) {
+                const rootSignal = groupSignals[i]
+                
+                // Skip if this signal is already part of a valid group
+                if (usedSignalIds.has(rootSignal.id)) continue
 
-                const firstSignal = currentGroup.signals[0]
-                const timeDiff = new Date(signal.entry_timestamp).getTime() - new Date(firstSignal.entry_timestamp).getTime()
-                const daysDiff = timeDiff / (1000 * 3600 * 24)
+                const potentialGroup = [rootSignal]
+                const groupSourceIds = new Set([rootSignal.Source.id])
 
-                if (daysDiff <= (metasignal_time_window * 24)) {
-                    currentGroup.signals.push(signal)
-                    currentGroup.sourceIds.add(sourceId)
-                } else {
-                    // Push the completed group to processed list
-                    processedSignals.push([...currentGroup.signals])
+                // Look ahead for compatible signals
+                for (let j = i + 1; j < groupSignals.length; j++) {
+                    const nextSignal = groupSignals[j]
+                    
+                    // Skip if used
+                    if (usedSignalIds.has(nextSignal.id)) continue
 
-                    // Start new group
-                    tempGroups[key] = {
-                        signals: [signal],
-                        sourceIds: new Set([sourceId])
+                    // Check time window (hours)
+                    const timeDiffMs = new Date(nextSignal.entry_timestamp).getTime() - new Date(rootSignal.entry_timestamp).getTime()
+                    const hoursDiff = timeDiffMs / (1000 * 3600)
+
+                    if (hoursDiff > metasignal_time_window) {
+                        // Since signals are sorted, any further signals will also be outside the window
+                        break
                     }
+
+                    // Check source uniqueness
+                    if (groupSourceIds.has(nextSignal.Source.id)) {
+                        // Duplicate source in this window - skip for this group, 
+                        // but don't mark as used so it can potentially form its own group later
+                        continue
+                    }
+
+                    // Add to group
+                    potentialGroup.push(nextSignal)
+                    groupSourceIds.add(nextSignal.Source.id)
+                }
+
+                // Check Quorum
+                if (potentialGroup.length >= metasignal_quorum_min) {
+                    processedSignals.push(potentialGroup)
+                    // Mark all signals in this group as used
+                    potentialGroup.forEach(s => usedSignalIds.add(s.id))
                 }
             }
         }
-
-        // Add remaining groups
-        Object.values(tempGroups).forEach(group => processedSignals.push(group.signals))
 
         for (const group of processedSignals) {
             // Skip groups with less than metasignal_quorum_min signals (need at least 2 different sources)
@@ -163,16 +174,6 @@ export const getSignalsService = async (currentUser: User) => {
                 totalAlignment += signal.sources_nbr || 0
 
                 const source = signal.Source
-                // let post_url = ""
-                // let source_url = ""
-
-                // if (source.platform === PlatformName.TELEGRAM) {
-                //     post_url = `https://t.me/${source.user_username_source}/${String(signal.SourcePost.originalId)}`
-                //     source_url = `https://t.me/${source.user_username_source}`
-                // } else {
-                //     post_url = `https://x.com/${source.user_username_source}/status/${String(signal.SourcePost.originalId)}`
-                //     source_url = `https://x.com/${source.user_username_source}`
-                // }
 
                 sources.push({
                     source_image_url: source.platform_user_picture,
@@ -189,7 +190,7 @@ export const getSignalsService = async (currentUser: User) => {
             const signalTrendLevel = getSignalTrendLevel(oldestSignal.signal_trend, totalAlignment, metasignal_quorum_min)
             metaSignalsInfo.push({
                 trend: oldestSignal.signal_trend === "LONG" ? "bullish" : "bearish",
-                id: oldestSignal.id, // Use oldest signal ID as representative
+                id: oldestSignal.id,
                 pnl_value: totalPnlA,
                 pnl_percent: totalPnlP,
                 status: oldestSignal.status.toLowerCase(),
