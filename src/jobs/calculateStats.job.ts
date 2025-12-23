@@ -87,18 +87,24 @@ statsWorker.on("failed", (job, err) => {
 
 
 export const scheduleStatsCalculation = async () => {
+    const repeatableJobs = await statsQueue.getRepeatableJobs()
+    for (const job of repeatableJobs) {
+        await statsQueue.removeRepeatableByKey(job.key)
+    }
+
     await statsQueue.add(
         "calculateSourceStats",
         {},
         {
             jobId: "daily-stats-calculation",
             repeat: {
-                pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
+                pattern: "38 14 * * *", // Cron: Every day at 14:35 AM,
+                // pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
                 tz: "Europe/Paris"
             },
         }
     )
-    console.log("📅 Stats calculation scheduled (Daily at 6:00 AM via BullMQ) ")
+    console.log("\n 📅 Stats calculation scheduled (Daily at 6:00 AM via BullMQ) \n")
 
     // await statsQueue.add(
     //     "calculateSourceStats",

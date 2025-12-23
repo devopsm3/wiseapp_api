@@ -10,6 +10,13 @@ const getUserSettings = async (currentUser: User) => {
     let setupsettings: Partial<GlobalSettings> = {
         metasignal_quorum_min: 2,
         metasignal_time_window: 72,
+        metasignal_filter_btc: true,
+        metasignal_filter_eth: true,
+        metasignal_filter_sol: true,
+        metasignal_filter_alts: true,
+        metasignal_filter_bullish: true,
+        metasignal_filter_bearish: true
+        // metasignal_filter_binance_only: false,
     }
 
     const setup = await prisma.setup.findFirst({
@@ -21,9 +28,27 @@ const getUserSettings = async (currentUser: User) => {
         setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
     }
 
-    const metasignal_quorum_min = setupsettings.metasignal_quorum_min || 3
-    const metasignal_time_window = setupsettings.metasignal_time_window || 72
-    return { metasignal_quorum_min, metasignal_time_window }
+    const metasignal_quorum_min = setupsettings.metasignal_quorum_min ?? 3
+    const metasignal_time_window = setupsettings.metasignal_time_window ?? 72
+    const metasignal_filter_btc = setupsettings.metasignal_filter_btc ?? true
+    const metasignal_filter_eth = setupsettings.metasignal_filter_eth ?? true
+    const metasignal_filter_sol = setupsettings.metasignal_filter_sol ?? true
+    const metasignal_filter_alts = setupsettings.metasignal_filter_alts ?? true
+    const metasignal_filter_bullish = setupsettings.metasignal_filter_bullish ?? true
+    const metasignal_filter_bearish = setupsettings.metasignal_filter_bearish ?? true
+    // const metasignal_filter_binance_only = setupsettings.metasignal_filter_binance_only || true
+
+    return {
+        metasignal_quorum_min,
+        metasignal_time_window,
+        metasignal_filter_btc,
+        metasignal_filter_eth,
+        metasignal_filter_sol,
+        metasignal_filter_alts,
+        metasignal_filter_bullish,
+        metasignal_filter_bearish
+        // metasignal_filter_binance_only
+    }
 }
 
 export const getSignalsService = async (currentUser: User) => {
@@ -50,7 +75,7 @@ export const getSignalsService = async (currentUser: User) => {
         // Flatten signals from all user's sources
         const signalsData = userSources.flatMap(us => us.Source.Signal)
 
-        // Format signals data
+        // 1- signals data
         const signalsInfo = []
         for (let i = 0; i < signalsData.length; i++) {
             const signal = signalsData[i]
@@ -86,17 +111,36 @@ export const getSignalsService = async (currentUser: User) => {
             })
         }
 
-        // Format Meta signals data
+        // 2- Meta_signals data
         let filteredSignals = signalsData
         filteredSignals.sort((a, b) => new Date(a.entry_timestamp).getTime() - new Date(b.entry_timestamp).getTime())
         const metaSignalsInfo = []
         const processedSignals = []
-        const { metasignal_quorum_min, metasignal_time_window } = await getUserSettings(currentUser)
+        const { metasignal_quorum_min,
+            metasignal_time_window,
+            metasignal_filter_btc,
+            metasignal_filter_eth,
+            metasignal_filter_sol,
+            metasignal_filter_alts,
+            metasignal_filter_bullish,
+            metasignal_filter_bearish } = await getUserSettings(currentUser)
 
         // 1. Bucket signals by Currency-Trend
         const buckets: { [key: string]: typeof filteredSignals } = {}
         for (const signal of filteredSignals) {
-            const key = `${signal.currency_label.toUpperCase()}-${signal.signal_trend.toUpperCase()}`
+            const coinLabel = signal.currency_label.toUpperCase()
+            const isMajor = ["BTC", "ETH", "SOL"].includes(coinLabel)
+
+            if (!metasignal_filter_btc && coinLabel === "BTC") continue
+            if (!metasignal_filter_eth && coinLabel === "ETH") continue
+            if (!metasignal_filter_sol && coinLabel === "SOL") continue
+            if (!metasignal_filter_alts && !isMajor) continue
+
+            if (!metasignal_filter_bullish && signal.signal_trend === "LONG") continue
+            if (!metasignal_filter_bearish && signal.signal_trend === "SHORT") continue
+
+            const key = `${coinLabel}-${signal.signal_trend}`
+
             if (!buckets[key]) {
                 buckets[key] = []
             }

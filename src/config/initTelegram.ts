@@ -20,14 +20,14 @@ export const client = new TelegramClient(session, Number(config.TELEGRAM_API_ID!
 
 export async function initTelegram() {
     if (!client.connected) {
-        console.log("Connecting to Telegram...")
+        console.log("\n  Connecting to Telegram... \n")
         await client.start({
             phoneNumber: async () => await input.text("📱 Enter phone number: "),
             password: async () => await input.text("🔑 Enter 2FA password: "),
             phoneCode: async () => await input.text("📨 Enter the code you received: "),
             onError: (err) => console.error(err),
         })
-        console.log("✅ Telegram connected")
+        console.log("\n ✅ Telegram connected \n")
         const sessionString = client.session.save()
         fs.writeFileSync(sessionFile, String(sessionString), "utf-8")
     }

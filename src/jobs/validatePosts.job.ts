@@ -265,12 +265,18 @@ postValidationWorker.on("failed", (job, err) => {
  * Schedule recurring job to run daily at 5:00 AM + run immediately on startup
  */
 export const schedulePostValidation = async () => {
+    const repeatableJobs = await postValidationQueue.getRepeatableJobs()
+    for (const job of repeatableJobs) {
+        await postValidationQueue.removeRepeatableByKey(job.key)
+    }
+
     await postValidationQueue.add(
         "dailyPostValidation",
         {},
         {
             repeat: {
-                pattern: "0 2 * * *", // Cron: Every day at 2:00 AM,
+                pattern: "43 14 * * *", // Cron: Every day at 14:35 AM,
+                // pattern: "0 2 * * *", // Cron: Every day at 2:00 AM,
                 tz: "Europe/Paris"
             },
             removeOnComplete: {
@@ -283,7 +289,7 @@ export const schedulePostValidation = async () => {
         }
     )
 
-    console.log("✅ Post validation job scheduled (Daily at 2:00 AM via BullMQ)")
+    console.log("\n 📅 Post validation job scheduled (Daily at 14:43 AM via BullMQ) \n")
 
     // // Trigger immediate validation on server startup
     // await postValidationQueue.add(

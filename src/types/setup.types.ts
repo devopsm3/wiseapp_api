@@ -9,6 +9,14 @@
     // Metasignals Configuration  
     metasignal_quorum_min: number // sources minimum
     metasignal_time_window: number // hours
+
+    metasignal_filter_btc: boolean
+    metasignal_filter_eth: boolean
+    metasignal_filter_sol: boolean
+    metasignal_filter_alts: boolean
+    metasignal_filter_bullish: boolean
+    metasignal_filter_bearish: boolean
+    metasignal_filter_binance_only: boolean
     // metasignal_correlation_weight: number // 0-1
     // metasignal_profitability_weight: number // 0-1
 

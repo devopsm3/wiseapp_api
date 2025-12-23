@@ -236,13 +236,19 @@ signalPivotWorker.on("failed", (job, err) => {
  * Schedule recurring job to run daily at 4:00 AM
  */
 export const scheduleSignalPivotUpdate = async () => {
+    const repeatableJobs = await signalPivotQueue.getRepeatableJobs()
+    for (const job of repeatableJobs) {
+        await signalPivotQueue.removeRepeatableByKey(job.key)
+    }
+
     await signalPivotQueue.add(
         "dailyPivotUpdate",
         {},
         {
             jobId: "daily-pivot-update",
             repeat: {
-                pattern: "0 4 * * *", // Cron: Every day at 4:00 AM,
+                pattern: "35 14 * * *", // Cron: Every day at 14:35 AM,
+                // pattern: "0 4 * * *", // Cron: Every day at 4:00 AM,
                 tz: "Europe/Paris"
             },
             removeOnComplete: {
@@ -256,7 +262,7 @@ export const scheduleSignalPivotUpdate = async () => {
     )
 
     console.log(
-        "✅ Signal pivot update job scheduled (Daily at 4:00 AM via BullMQ)"
+        "\n 📅 Signal pivot update job scheduled (Daily at 4:00 AM via BullMQ)\n"
     )
 
     // Trigger immediate signal pivot update on server startup

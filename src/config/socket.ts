@@ -32,24 +32,24 @@ export function initSocket(server: any) {
                 if (user) {
                     socket.join("user_" + user.id)
                     io.to(socket.id).emit("user_connected", socket.id)
-                    console.log("User connected:", user.email, socket.id)
+                    console.log("\n ✅ User connected:", user.email, socket.id, " \n")
                 } else {
-                    console.log("Invalid token:", tokenHeader)
+                    console.log("\n ❌ Invalid token:", tokenHeader, " \n")
                     socket.disconnect(true)
                 }
             } catch (error) {
-                console.error("Failed to decode or verify token:", error)
+                console.error("\n ❌ Failed to decode or verify token:", error, " \n")
                 socket.disconnect(true)
                 return
             }
 
         } else {
-            console.log("No refreshToken found in cookies for socket:", socket.id)
+            console.log("\n ❌ No refreshToken found in cookies for socket:", socket.id, " \n")
             socket.disconnect(true)
         }
     })
     io.on("disconnect", (socket) => {
-        console.log("❌ User disconnected:", socket.id)
+        console.log("\n ❌ User disconnected:", socket.id, " \n")
     })
 
     return io
