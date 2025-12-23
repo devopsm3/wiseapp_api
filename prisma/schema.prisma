@@ -103,9 +103,28 @@ model UserSource {
   User   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
   Source Source @relation(fields: [source_id], references: [id], onDelete: Cascade)
 
+  SourceSetup SourceSetup?
+
   @@unique([user_id, source_id])
   @@index([user_id])
   @@index([source_id])
+}
+
+model SourceSetup {
+  id           Int        @id @default(autoincrement())
+  userSourceId Int        @unique
+  UserSource   UserSource @relation(fields: [userSourceId], references: [id], onDelete: Cascade)
+
+  source_setup_filter_btc          Boolean @default(true)
+  source_setup_filter_eth          Boolean @default(true)
+  source_setup_filter_sol          Boolean @default(true)
+  source_setup_filter_alts         Boolean @default(true)
+  source_setup_filter_bullish      Boolean @default(true)
+  source_setup_filter_bearish      Boolean @default(true)
+  source_setup_filter_binance_only Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model SourceStats {

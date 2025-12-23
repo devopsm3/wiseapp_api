@@ -1,4 +1,4 @@
-﻿import { User } from "@prisma/client"
+﻿import { SourceSetup, User } from "@prisma/client"
 import { prisma } from "../../prisma"
 
 export const getSetupsService = async (currentUser: User) => {
@@ -16,23 +16,6 @@ export const getSetupsService = async (currentUser: User) => {
     }
 }
 
-// // get signal by id
-// export const getSetupByIdService = async (id: number, currentUser: User) => {
-//     try {
-//         const setup = await prisma.setup.findUnique({
-//             where: {
-//                 id: id,
-//                 user_db_id: currentUser.id,
-//             },
-//         })
-//         if (!setup) {
-//             return null
-//         }
-//         return setup
-//     } catch (error) {
-//         return error
-//     }
-// }
 
 export const addSetupService = async (currentUser: User, setupData: any) => {
     try {
@@ -73,3 +56,49 @@ export const updateSetupService = async (setupId: number, setupData: any, curren
         return null
     }
 }
+
+export const getSourcesSetupsService = async (currentUser: User) => {
+    try {
+        const userSources = await prisma.userSource.findMany({
+            where: {
+                user_id: currentUser.id,
+                source_activated: true,
+            },
+            // include: {
+            //     Source: true,
+            // },
+            select: {
+                id: true,
+                Source: true,
+            },
+        })
+
+        const setups = await prisma.sourceSetup.findMany({
+            where: {
+                userSourceId: {
+                    in: userSources.map(us => us.id),
+                },
+            },
+        })
+        const setupsData = userSources.map(us => {
+            const setup = setups.find(sd => sd.userSourceId === us.id)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const {createdAt, updatedAt, ...rest} = setup as SourceSetup
+            return {
+                id: us.Source.id,
+                source_image_url: us.Source.platform_user_picture,
+                platform: us.Source.platform,
+                source_name: us.Source.user_name_source,
+                is_verified: us.Source.user_verified,
+                source_id: us.Source.user_username_source,
+                source_url: us.Source.source_url,
+                setup: rest,
+            }
+        })
+        return setupsData.length ? {status: true, data: setupsData} : {status: true, data: []}
+    } catch (error) {
+        console.log(" 🚀   -->  error:", error)
+        return {status: false, data: []}
+    }
+}
+

@@ -541,3 +541,140 @@ export const getSourceRecommendationsService = async (sourceId: number, currentU
         }
     }
 }
+
+export const getSourceSetupService = async (sourceId: number, currentUser: User) => {
+    try {
+        const source = await prisma.source.findUnique({
+            where: {
+                id: sourceId,
+            },
+        })
+
+        if (!source) {
+            return {
+                status: false,
+                message: "Source not found"
+            }
+        }
+
+        const userSource = await prisma.userSource.findUnique({
+            where: {
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: sourceId
+                }
+            },
+            include: {
+                SourceSetup: true
+            }
+        })
+
+        if (!userSource) {
+            return {
+                status: false,
+                message: "You don't have access to this source"
+            }
+        }
+
+        if (userSource.SourceSetup) {
+            return {
+                status: true,
+                data: {
+                    source_setup_filter_btc: userSource.SourceSetup.source_setup_filter_btc,
+                    source_setup_filter_eth: userSource.SourceSetup.source_setup_filter_eth,
+                    source_setup_filter_sol: userSource.SourceSetup.source_setup_filter_sol,
+                    source_setup_filter_alts: userSource.SourceSetup.source_setup_filter_alts,
+                    source_setup_filter_bullish: userSource.SourceSetup.source_setup_filter_bullish,
+                    source_setup_filter_bearish: userSource.SourceSetup.source_setup_filter_bearish,
+                    source_setup_filter_binance_only: userSource.SourceSetup.source_setup_filter_binance_only
+                }
+            }
+        }
+
+        // Return default setup if not exists (all true except binance)
+        const defaultSetup: any = {
+            source_setup_filter_btc: true,
+            source_setup_filter_eth: true,
+            source_setup_filter_sol: true,
+            source_setup_filter_alts: true,
+            source_setup_filter_bullish: true,
+            source_setup_filter_bearish: true,
+            source_setup_filter_binance_only: false
+        }
+
+        return {
+            status: true,
+            data: defaultSetup
+        }
+
+    } catch (error: any) {
+        return {
+            status: false,
+            message: error.message
+        }
+    }
+}
+
+export const setSourceSetupService = async (sourceId: number, setupData: any, currentUser: User) => {
+    try {
+        const userSource = await prisma.userSource.findUnique({
+            where: {
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: sourceId
+                }
+            }
+        })
+
+        if (!userSource) {
+            return {
+                status: false,
+                message: "You don't have access to this source"
+            }
+        }
+
+        const setup = await prisma.sourceSetup.upsert({
+            where: {
+                userSourceId: userSource.id
+            },
+            update: {
+                source_setup_filter_btc: setupData.source_setup_filter_btc,
+                source_setup_filter_eth: setupData.source_setup_filter_eth,
+                source_setup_filter_sol: setupData.source_setup_filter_sol,
+                source_setup_filter_alts: setupData.source_setup_filter_alts,
+                source_setup_filter_bullish: setupData.source_setup_filter_bullish,
+                source_setup_filter_bearish: setupData.source_setup_filter_bearish,
+                source_setup_filter_binance_only: setupData.source_setup_filter_binance_only ?? false
+            },
+            create: {
+                userSourceId: userSource.id,
+                source_setup_filter_btc: setupData.source_setup_filter_btc ?? true,
+                source_setup_filter_eth: setupData.source_setup_filter_eth ?? true,
+                source_setup_filter_sol: setupData.source_setup_filter_sol ?? true,
+                source_setup_filter_alts: setupData.source_setup_filter_alts ?? true,
+                source_setup_filter_bullish: setupData.source_setup_filter_bullish ?? true,
+                source_setup_filter_bearish: setupData.source_setup_filter_bearish ?? true,
+                source_setup_filter_binance_only: setupData.source_setup_filter_binance_only ?? false
+            }
+        })
+
+        return {
+            status: true,
+            data: {
+                source_setup_filter_btc: setup.source_setup_filter_btc,
+                source_setup_filter_eth: setup.source_setup_filter_eth,
+                source_setup_filter_sol: setup.source_setup_filter_sol,
+                source_setup_filter_alts: setup.source_setup_filter_alts,
+                source_setup_filter_bullish: setup.source_setup_filter_bullish,
+                source_setup_filter_bearish: setup.source_setup_filter_bearish,
+                source_setup_filter_binance_only: setup.source_setup_filter_binance_only
+            }
+        }
+
+    } catch (error: any) {
+        return {
+            status: false,
+            message: error.message
+        }
+    }
+}

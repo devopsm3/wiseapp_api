@@ -17,8 +17,6 @@
     metasignal_filter_bullish: boolean
     metasignal_filter_bearish: boolean
     metasignal_filter_binance_only: boolean
-    // metasignal_correlation_weight: number // 0-1
-    // metasignal_profitability_weight: number // 0-1
 
     // Trading Configuration
     take_profit_percentage: number // %
@@ -34,4 +32,30 @@
     profitability_calculation_time: string // HH:MM format
     signal_expiry_hours: number
     id: number;
+}
+
+export interface SourceSetup {
+  source_setup_filter_btc: boolean
+  source_setup_filter_eth: boolean
+  source_setup_filter_sol: boolean
+  source_setup_filter_alts: boolean
+  source_setup_filter_bullish: boolean
+  source_setup_filter_bearish: boolean
+  source_setup_filter_binance_only: boolean
+}
+
+export interface SourceSetupData {
+  id: number
+  source_image_url: string
+  platform: string
+  source_name: string
+  is_verified: boolean
+  source_id: string
+  source_url: string
+  setup: SourceSetup & { id: number; userSourceId: number } // includes extra IDs inside setup
+}
+
+export interface SourcesSetupsResponse {
+  status: boolean
+  data: SourceSetupData[]
 }

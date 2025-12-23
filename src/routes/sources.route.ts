@@ -5,7 +5,9 @@ import {
     deleteSourceById,
     toggleSourceActivation,
     getSourceSignalsDetails,
-    getSourceRecommendations
+    getSourceRecommendations,
+    getSourceSetup,
+    setSourceSetup
 } from "../modules/sources/sources.controller"
 
 const SourcesRouter = Router()
@@ -16,5 +18,7 @@ SourcesRouter.delete("/delete-source/:id", deleteSourceById)
 SourcesRouter.put("/toggle-source-activation/:id", toggleSourceActivation)
 SourcesRouter.get("/:id/signals-details", getSourceSignalsDetails)
 SourcesRouter.get("/:id/recommendations", getSourceRecommendations)
+SourcesRouter.get("/:id/setup", getSourceSetup)
+SourcesRouter.put("/:id/setup", setSourceSetup)
 
 export default SourcesRouter

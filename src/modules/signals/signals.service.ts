@@ -59,6 +59,7 @@ export const getSignalsService = async (currentUser: User) => {
                 user_id: currentUser.id,
             },
             include: {
+                SourceSetup: true,
                 Source: {
                     include: {
                         Signal: {
@@ -80,6 +81,28 @@ export const getSignalsService = async (currentUser: User) => {
         for (let i = 0; i < signalsData.length; i++) {
             const signal = signalsData[i]
             const source = signal.Source
+
+            // Check if signal matches user preference for filter
+            const userSource = userSources.find(us => us.source_id === source.id)
+
+            if (userSource && userSource.SourceSetup) {
+                const setup = userSource.SourceSetup
+                const isBullish = signal.signal_trend === "LONG"
+                const isBearish = signal.signal_trend === "SHORT"
+                const coinLabel = signal.currency_label.toUpperCase()
+                const isBtc = coinLabel === "BTC"
+                const isEth = coinLabel === "ETH"
+                const isSol = coinLabel === "SOL"
+                const isAlts = !isBtc && !isEth && !isSol
+
+                if (!setup.source_setup_filter_btc && isBtc) continue
+                if (!setup.source_setup_filter_eth && isEth) continue
+                if (!setup.source_setup_filter_sol && isSol) continue
+                if (!setup.source_setup_filter_alts && isAlts) continue
+                if (!setup.source_setup_filter_bullish && isBullish) continue
+                if (!setup.source_setup_filter_bearish && isBearish) continue
+                // if (setup.source_setup_filter_binance_only && ...) // Logic for binance only if needed
+            }
 
             signalsInfo.push({
                 trend: signal.signal_trend === "LONG" ? "bullish" : "bearish",

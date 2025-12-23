@@ -1,9 +1,10 @@
 ﻿import { Router } from "express"
-import { addSetup, getSetups, updateSetup } from "../modules/setups/setups.controller"
+import { addSetup, getSetups, getSourcesSetups, updateSetup } from "../modules/setups/setups.controller"
 
 const SetupsRouter = Router()
 
 SetupsRouter.get("/get-setups", getSetups)
+SetupsRouter.get("/get-sources-setups", getSourcesSetups)
 // SetupsRouter.get("/get-setup/:id", getSetupById)
 SetupsRouter.post("/create-setup", addSetup)
 SetupsRouter.put("/update-setup/:id", updateSetup)

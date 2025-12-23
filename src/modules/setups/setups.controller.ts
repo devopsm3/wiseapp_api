@@ -1,7 +1,7 @@
 ﻿import { NextFunction, Request, Response } from "express"
-import { addSetupService, getSetupsService, updateSetupService } from "./setups.service"
+import { addSetupService, getSetupsService, getSourcesSetupsService, updateSetupService } from "./setups.service"
 import { Setup } from "@prisma/client"
-import { GlobalSettings } from "../../types/setup.types"
+import { GlobalSettings, SourcesSetupsResponse } from "../../types/setup.types"
 
 export const getSetups = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -22,20 +22,17 @@ export const getSetups = async (req: Request, res: Response, next: NextFunction)
     }
 }
 
-// export const getSetupById = async (req: Request, res: Response, next: NextFunction) => {
-//     try {
-//         const setup = await getSetupByIdService(Number(req.params.id), req.user!)
-//         if (!setup) {
-//             return res.status(404).json({ status: false, message: "Setup not found" })
-//         }
-//         return res.status(200).json({
-//             status: true,
-//             data: setup,
-//         })
-//     } catch (error) {
-//         next(error)
-//     }
-// }
+export const getSourcesSetups = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sourceSetupsData: SourcesSetupsResponse = await getSourcesSetupsService(req.user!)
+        return res.status(200).json({
+            status: true,
+            data: sourceSetupsData.data,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
 
 export const addSetup = async (req: Request, res: Response, next: NextFunction) => {
     try {

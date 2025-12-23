@@ -5,7 +5,9 @@ import {
     deleteSourceByIdService,
     toggleSourceActivationService,
     getSourceSignalsDetailsService,
-    getSourceRecommendationsService
+    getSourceRecommendationsService,
+    setSourceSetupService,
+    getSourceSetupService
 } from "./sources.service"
 
 export const getSources = async (req: Request, res: Response, next: NextFunction) => {
@@ -91,6 +93,36 @@ export const getSourceRecommendations = async (req: Request, res: Response, next
         const result: any = await getSourceRecommendationsService(Number(req.params.id), req.user!)
         if (!result.status) {
             return res.status(404).json({ status: false, message: result.message })
+        }
+        res.status(200).json({
+            status: true,
+            data: result.data,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getSourceSetup = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result: any = await getSourceSetupService(Number(req.params.id), req.user!)
+        if (!result.status) {
+            return res.status(404).json({ status: false, message: result.message })
+        }
+        res.status(200).json({
+            status: true,
+            data: result.data,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const setSourceSetup = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result: any = await setSourceSetupService(Number(req.params.id), req.body, req.user!)
+        if (!result.status) {
+            return res.status(400).json({ status: false, message: result.message })
         }
         res.status(200).json({
             status: true,
