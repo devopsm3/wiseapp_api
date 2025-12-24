@@ -275,8 +275,8 @@ export const schedulePostValidation = async () => {
         {},
         {
             repeat: {
-                pattern: "43 14 * * *", // Cron: Every day at 14:35 AM,
-                // pattern: "0 2 * * *", // Cron: Every day at 2:00 AM,
+                // pattern: "43 14 * * *", // Cron: Every day at 14:35 AM,
+                pattern: "0 2 * * *", // Cron: Every day at 2:00 AM,
                 tz: "Europe/Paris"
             },
             removeOnComplete: {

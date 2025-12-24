@@ -98,8 +98,8 @@ export const scheduleStatsCalculation = async () => {
         {
             jobId: "daily-stats-calculation",
             repeat: {
-                pattern: "38 14 * * *", // Cron: Every day at 14:35 AM,
-                // pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
+                // pattern: "38 14 * * *", // Cron: Every day at 14:35 AM,
+                pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
                 tz: "Europe/Paris"
             },
         }
