@@ -12,28 +12,18 @@ export async function getTelegramChannelInfo(channelName: string) {
     try {
 
         const channel = await client.getEntity(channelName)
-        const full = await client.invoke(
-            new Api.channels.GetFullChannel({
-                channel: channel,
-            })
-        )
-
-        const storageDir = path.join(__dirname, `../../../storage/telegram/sources/${channelName}`)
-        fs.mkdirSync(storageDir, { recursive: true })
-
-        const channelPhoto = await client.downloadMedia(full.fullChat.chatPhoto as any)
-        fs.writeFileSync(path.join(storageDir, "channelPic.jpg"), Buffer.from(channelPhoto as any))
 
         let creationDate: number = 0
         for await (const message of client.iterMessages(channel, { reverse: true, limit: 1 })) {
             creationDate = message.date
         }
 
+        const user_username_source = (channel as Api.Channel).username || ""
         const channelInfo = {
             platform: PlatformName.TELEGRAM,
-            platform_user_picture: `storage/telegram/sources/${channelName}/channelPic.jpg`,
+            platform_user_picture: `storage/telegram/sources/${user_username_source}/channelPic.jpg`,
             user_name_source: (channel as Api.Channel).title,
-            user_username_source: (channel as Api.Channel).username || "",
+            user_username_source: user_username_source,
             user_id_source: (channel as Api.Channel).id.toString(),
             user_verified: (channel as Api.Channel).verified || false,
             followers_count: (channel as Api.Channel).participantsCount || 0,
@@ -45,6 +35,19 @@ export async function getTelegramChannelInfo(channelName: string) {
                 megagroup: (channel as Api.Channel).megagroup || false,
             },
         }
+
+        const full = await client.invoke(
+            new Api.channels.GetFullChannel({
+                channel: channel,
+            })
+        )
+
+        const storageDir = path.join(__dirname, `../../../storage/telegram/sources/${user_username_source}`)
+        fs.mkdirSync(storageDir, { recursive: true })
+
+        const channelPhoto = await client.downloadMedia(full.fullChat.chatPhoto as any)
+        fs.writeFileSync(path.join(storageDir, "channelPic.jpg"), Buffer.from(channelPhoto as any))
+
         return {
             channelInfo,
             error: null
@@ -58,7 +61,7 @@ export async function getTelegramChannelInfo(channelName: string) {
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 export async function getTelegramChannelPosts(channelName: string, lastSavedId: number = 0) {
 
     try {
@@ -67,40 +70,49 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
         const posts: any[] = []
         // const daysAgo = Number(process.env.FETCH_DAYS_AGO) || 5
         // const offsetDate = getDaysAgoTimestamp(daysAgo)
-        // for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
         // for await (const message of client.iterMessages(channelName, { offsetDate, reverse: true, limit: 30 })) {
-        for await (const message of client.iterMessages(channelName, { limit: 100 })) {
-            if (!(message instanceof Api.Message)) continue
-            if (!message.message) continue
-            // if (!message.message && !message.photo) continue
+        if (lastSavedId) {
+            for await (const message of client.iterMessages(channelName, { minId: lastSavedId })) {
+                if (!(message instanceof Api.Message)) continue
+                if (!message.message) continue
+                // // handle photo if present
+                // if (message.photo) {
+                //     const storageDir = path.join(__dirname, `../../../storage/telegram/sources/${channelName}`)
+                //     fs.mkdirSync(storageDir, { recursive: true })
 
-            // // handle photo if present
-            // if (message.photo) {
-            //     const storageDir = path.join(__dirname, `../../../storage/telegram/sources/${channelName}`)
-            //     fs.mkdirSync(storageDir, { recursive: true })
-
-            //     const fileName = `telegram_msg_${message.id}_file_${message.photo.id}.jpg`
-            //     const filePath = path.join(storageDir, fileName)
-            //     if (!fs.existsSync(filePath)) {
-            //         const buffer = await client.downloadMedia(message.photo as any)
-            //         fs.mkdirSync(storageDir, { recursive: true })
-            //         fs.writeFileSync(filePath, Buffer.from(buffer as any))
-            //         console.log("✅ Saved new media:", fileName)
-            //     }
-            // }
-            // const { postText, tokens } = countTokens(message.message)
-            // if (tokens < 3) continue
-            // if (tokens > 90) continue
-            posts.push({
-                id: message.id,
-                text: message.message,
-                originalText: message.message,
-                timestamp: message.date,
-                date: new Date(message.date * 1000),
-                senderId: message.senderId?.toString() || null,
-                mediaType: message.photo ? "photo" : "text",
-                // date: message.date,
-            })
+                //     const fileName = `telegram_msg_${message.id}_file_${message.photo.id}.jpg`
+                //     const filePath = path.join(storageDir, fileName)
+                //     if (!fs.existsSync(filePath)) {
+                //         const buffer = await client.downloadMedia(message.photo as any)
+                //         fs.mkdirSync(storageDir, { recursive: true })
+                //         fs.writeFileSync(filePath, Buffer.from(buffer as any))
+                //         console.log("✅ Saved new media:", fileName)
+                //     }
+                // }
+                posts.push({
+                    id: message.id,
+                    text: message.message,
+                    originalText: message.message,
+                    timestamp: message.date,
+                    date: new Date(message.date * 1000),
+                    senderId: message.senderId?.toString() || null,
+                    mediaType: message.photo ? "photo" : "text",
+                })
+            }
+        } else {
+            for await (const message of client.iterMessages(channelName, { limit: 1000 })) {
+                if (!(message instanceof Api.Message)) continue
+                if (!message.message) continue
+                posts.push({
+                    id: message.id,
+                    text: message.message,
+                    originalText: message.message,
+                    timestamp: message.date,
+                    date: new Date(message.date * 1000),
+                    senderId: message.senderId?.toString() || null,
+                    mediaType: message.photo ? "photo" : "text",
+                })
+            }
         }
         const analyses = await Promise.all(
             posts.map(p => agentAI_signal_analyzer(p.text))

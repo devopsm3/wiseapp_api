@@ -8,6 +8,7 @@ import { scheduleSignalPivotUpdate } from "./jobs/updateSignalPivots.job"
 // import { schedulePostValidation } from "./jobs/validatePosts.job"
 import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
 import { schedulePostValidation } from "./jobs/validatePosts.job"
+import { scheduleFetchNewSignals } from "./jobs/fetchNewSignals.job"
 
 declare global {
   interface BigInt {
@@ -37,6 +38,7 @@ initSocket(server)
 scheduleSignalPivotUpdate()
 scheduleStatsCalculation()
 schedulePostValidation()
+scheduleFetchNewSignals()
 
 server.listen(config.port, () => {
     console.log(`🚀 Server running on http://localhost:${config.port}`)

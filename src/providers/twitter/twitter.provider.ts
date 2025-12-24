@@ -75,18 +75,26 @@ export async function getTwitterChannelInfo(username: string) {
     }
 }
 
-export const getTwitterChannelPosts = async (userId: string) => {
+export const getTwitterChannelPosts = async (userId: string, lastSavedId: string = "") => {
     try {
 
         const daysAgo = Number(process.env.FETCH_DAYS_AGO) || 5
         const startTime = getStartTimeISO_LocalMidnight(daysAgo)
-        const tweets = await readOnlyClient.v2.userTimeline(userId, {
-            max_results: 100,
+        
+        const options: any = {
+            max_results: 1000,
             "tweet.fields": ["created_at", "text", "id", "author_id", "attachments"],
-            start_time: startTime,
             expansions: ["attachments.media_keys"],
             "media.fields": ["url", "preview_image_url", "type"],
-        })
+        }
+
+        if (lastSavedId) {
+            options.since_id = lastSavedId
+        } else {
+            options.start_time = startTime
+        }
+
+        const tweets = await readOnlyClient.v2.userTimeline(userId, options)
         const tweetsData = tweets.data.data || []
         const tweetsMedia  = tweets.data?.includes?.media || []
         // const tweetsData = [
