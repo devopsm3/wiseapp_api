@@ -87,13 +87,9 @@ export const createOrUpdateSignal = async ({
     })
 
     if (existingSignal) {
-        console.log(" ------------------ Signal already exists ------------------")
-        console.log(
-            `Signal already exists for ${analysis.token} (${analysis.direction}) from source ${newSourceId}`
-        )
+        console.log(`\n --------------- Signal already exists for ${analysis.token} (${analysis.direction}) from source ${newSourceId} --------------- \n`)
         return existingSignal
     } else {
-        console.log(" ------------------ Creating new signal ------------------")
         const newSignal = await prisma.signal.create({
             data: {
                 sourceId: newSourceId,
@@ -118,7 +114,7 @@ export const createOrUpdateSignal = async ({
             }
         })
 
-        console.log(`Created new signal for ${analysis.token} (${analysis.direction})`)
+        console.log(` \n --------------- Created new signal for ${analysis.token} (${analysis.direction}) --------------- \n`)
         return newSignal
     }
 }

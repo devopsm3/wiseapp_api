@@ -119,7 +119,7 @@ export const getTokenPriceAtDate = async (symbol: string, targetDate: Date, retr
         convert: "USD"
     })
 
-    console.log(" 🚀   -->  params price at date:", params)
+    // console.log(" 🚀   -->  params price at date:", params)
 
     const options = {
         method: "GET",
@@ -180,7 +180,7 @@ export const getOHLCVData = async (
         convert: "USD"
     })
 
-    console.log("\n  🚀   -->  params OHLCV :", params , " \n")
+    // console.log("\n  🚀   -->  params OHLCV :", params , " \n")
 
     const options = {
         method: "GET",
@@ -235,7 +235,7 @@ export const calculateMaxPivotFrom21Days = async (
     // const priceAtStart = 200
     const priceAtStart = await getTokenPriceAtDate(symbol, startDate)
 
-    console.log(" 🚀   -->  priceAtStart:", priceAtStart)
+    // console.log(" 🚀   -->  priceAtStart:", priceAtStart)
     if (!priceAtStart) {
         console.warn(`\n Could not fetch price for ${symbol} at ${startDate.toISOString()} \n`)
         return null
@@ -346,14 +346,14 @@ export const calculateMaxPivotFrom21Days = async (
         }
     }
 
-    const successEmoji = signalSuccess === true ? "✅" : signalSuccess === false ? "❌" : "⏳"
-    const profitEmoji = theoreticalProfitPercent > 0 ? "📈" : "📉"
-    console.log(`\n 📊 ${successEmoji} ${symbol} (${direction}): ${pivotData.length} days
-        Entry: $${priceAtStart.toFixed(2)}
-        Max: $${maxPivot.toFixed(2)} | Min: $${minPivot.toFixed(2)}
-        Best Price: $${bestPrice.toFixed(2)}
-        ${profitEmoji} Theoretical Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
-        Success: ${signalSuccess === null ? "PENDING" : signalSuccess} \n `)
+    // const successEmoji = signalSuccess === true ? "✅" : signalSuccess === false ? "❌" : "⏳"
+    // const profitEmoji = theoreticalProfitPercent > 0 ? "📈" : "📉"
+    // console.log(`\n 📊 ${successEmoji} ${symbol} (${direction}): ${pivotData.length} days
+    //     Entry: $${priceAtStart.toFixed(2)}
+    //     Max: $${maxPivot.toFixed(2)} | Min: $${minPivot.toFixed(2)}
+    //     Best Price: $${bestPrice.toFixed(2)}
+    //     ${profitEmoji} Theoretical Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
+    //     Success: ${signalSuccess === null ? "PENDING" : signalSuccess} \n `)
     return {
         priceAtStart,
         validDays: pivotData.length,

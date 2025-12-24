@@ -251,9 +251,6 @@ export const agentAI_signal_analyzer = async (
         })
         const data = await response.json()
         const raw = data.choices?.[0]?.message?.content
-        console.log(" 🚀   -->  postText:", postText)
-        
-        console.log(" 🚀   -->  raw:", raw)
         const clean = raw
             .replace(/```json/g, "")
             .replace(/```/g, "")

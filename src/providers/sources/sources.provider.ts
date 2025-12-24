@@ -15,14 +15,14 @@ import { GlobalSettings } from "../../types/setup.types"
 
 const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User) => {
 
-    console.log(" ------------------ ")
+    console.log(" ----------------------------------------------------------------------------------- ")
     console.log(" ")
     console.log(" ")
     console.log(" 🚀   -->  source:", source)
-    console.log(" 🚀   -->  messages:", messages.length)
+    console.log(" 🚀   -->  Signal Posts Found:", messages.length)
     console.log(" ")
     console.log(" ")
-    console.log(" ------------------ ")
+    console.log(" ----------------------------------------------------------------------------------- ")
     if (!channelInfo) {
         return {
             status: false,
