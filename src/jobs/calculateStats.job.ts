@@ -106,11 +106,5 @@ export const scheduleStatsCalculation = async () => {
     )
     console.log("\n 📅 Stats calculation scheduled (Daily at 6:00 AM via BullMQ) \n")
 
-    // await statsQueue.add(
-    //     "calculateSourceStats",
-    //     {},
-    //     {
-    //         priority: 1
-    //     }
-    // )
+    // await statsQueue.add("calculateSourceStats", {}, { priority: 1 })
 }

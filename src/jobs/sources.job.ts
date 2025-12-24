@@ -1,5 +1,5 @@
 ﻿import { Queue, Worker } from "bullmq"
-import { getIO } from "../config/socket"
+// import { getIO } from "../config/socket"
 import connection from "../config/redis"
 import { createSourceService } from "../providers/sources/sources.provider"
 // import { startFeedCron, startOwgFeedCron } from "../cron.js";
@@ -13,10 +13,8 @@ export const sourcesQueue = new Queue("sources", {
 export const sourcesWorker = new Worker("sources", async (job) => {
     console.log("👷 Processing sources job:", job.name)
     if (job.name === "createSourceJob") {
-        const createdSource = await createSourceService(job.data.channelInfo, job.data.source, job.data.currentUser)
+        await createSourceService(job.data.channelInfo, job.data.source, job.data.currentUser)
         console.log(" 🏁 SOURCE_CREATING JOB DONE 🏁")
-        // console.log(" 🚀   -->  createdSource:", JSON.stringify(createdSource, null, 2))
-        getIO().to("user_" + job.data.currentUser.id.toString()).emit("sources_creating_finished", createdSource)
     }
 },
 {

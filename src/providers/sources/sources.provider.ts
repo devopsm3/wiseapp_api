@@ -11,6 +11,7 @@ import { createOrUpdateSignal } from "../signals/signals.provider"
 import { calculateSourceStats, calculateTopCorrelations } from "../../modules/sources/sources.helpers"
 import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
 import { GlobalSettings } from "../../types/setup.types"
+import { getIO } from "../../config/socket"
 
 
 const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User) => {
@@ -110,8 +111,11 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                     const targetDate = new Date(element.date!)
 
                     const pivotResult = await calculateMaxPivotFrom21Days(normalizedToken, targetDate, analysis.direction!)
-                    const entryPrice = pivotResult?.priceAtStart || 0
-                    const meta = pivotResult!.meta
+                    if (!pivotResult.status || !pivotResult.data) {
+                        continue
+                    }
+                    const entryPrice = pivotResult.data.priceAtStart || 0
+                    const meta = pivotResult.data.meta
                     await createOrUpdateSignal({
                         coinId: coinInfo.id,
                         analysis: {
@@ -122,13 +126,13 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                         newSourceId: newSource!.id,
                         postCreatedId: postCreated.id,
                         currencyLogo,
-                        pnlAbsolute: pivotResult?.theoreticalProfitAbsolute || 0,
-                        pnlPercent: pivotResult?.theoreticalProfitPercent || 0,
+                        pnlAbsolute: pivotResult.data.theoreticalProfitAbsolute || 0,
+                        pnlPercent: pivotResult.data.theoreticalProfitPercent || 0,
                         entryPrice,
-                        exitPrice: pivotResult?.bestPrice || null,
+                        exitPrice: pivotResult.data.bestPrice || null,
                         entryTimestamp: new Date(element.date!),
-                        isComplete: pivotResult?.isComplete || false,
-                        pivotCalcDays: pivotResult?.validDays || 0,
+                        isComplete: pivotResult.data.isComplete || false,
+                        pivotCalcDays: pivotResult.data.validDays || 0,
                         meta
                     })
                     verifiedPosts.push(postCreated.id)
@@ -275,13 +279,31 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 
 export const createSourceService = async (channelInfo: SourceType, source: any, currentUser: User) => {
     try {
+        const globalSource = await prisma.source.findFirst({
+            where: {
+                user_username_source: channelInfo.user_username_source,
+                platform: source.sourceType,
+                source_status: SourceStatus.VALIDE,
+            },
+        })
+        if (globalSource) {
+            return {
+                status: false,
+                message: "Source already exists"
+            }
+        }
         let messages: SourcePost[] = []
         if (source.sourceType === PlatformName.TELEGRAM) {
             messages = await getTelegramChannelPosts(channelInfo?.user_id_source)
         } else {
             messages = await getTwitterChannelPosts(channelInfo?.user_id_source)
         }
-        return createSource(channelInfo, source, messages, currentUser)
+        const result = await createSource(channelInfo, source, messages, currentUser)
+        
+        getIO()
+            .to("user_" + currentUser.id.toString())
+            .emit("sources_creating_finished", result)
+
     } catch (error: any) {
         return {
             status: false,

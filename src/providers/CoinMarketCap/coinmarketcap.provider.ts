@@ -224,12 +224,15 @@ export const calculateMaxPivotFrom21Days = async (
     symbol: string,
     startDate: Date,
     direction: "LONG" | "SHORT"
-): Promise<PivotCalculationResult | null> => {
+): Promise<{ status: boolean, data: PivotCalculationResult | null}> => {
 
     const coinId = getCoinMarketCapSymbolId(symbol)
     if (!coinId) {
         console.warn(`\n Could not find CoinMarketCap ID for ${symbol} \n`)
-        return null
+        return {
+            status: false,
+            data: null
+        }
     }
 
     // const priceAtStart = 200
@@ -238,7 +241,10 @@ export const calculateMaxPivotFrom21Days = async (
     // console.log(" 🚀   -->  priceAtStart:", priceAtStart)
     if (!priceAtStart) {
         console.warn(`\n Could not fetch price for ${symbol} at ${startDate.toISOString()} \n`)
-        return null
+        return {
+            status: false,
+            data: null
+        }
     }
 
     const endDate = new Date(startDate)
@@ -249,19 +255,22 @@ export const calculateMaxPivotFrom21Days = async (
     if (!quotes || quotes.length === 0) {
         console.warn(`\n No OHLC data found for ${symbol} from ${startDate.toISOString()} \n`)
         return {
-            priceAtStart,
-            validDays: 0,
-            isComplete: false,
-            theoreticalProfitAbsolute: 0,
-            theoreticalProfitPercent: 0,
-            bestPrice: 0,
-            meta: {
-                signalSuccess: false,
-                maxPivot: 0,
-                maxPivotDate: null,
-                minPivot: 0,
-                minPivotDate: null,
-                pivotData: []
+            status: true,
+            data: {
+                priceAtStart,
+                validDays: 0,
+                isComplete: false,
+                theoreticalProfitAbsolute: 0,
+                theoreticalProfitPercent: 0,
+                bestPrice: 0,
+                meta: {
+                    signalSuccess: false,
+                    maxPivot: 0,
+                    maxPivotDate: null,
+                    minPivot: 0,
+                    minPivotDate: null,
+                    pivotData: []
+                }
             }
         }
     }
@@ -355,19 +364,22 @@ export const calculateMaxPivotFrom21Days = async (
     //     ${profitEmoji} Theoretical Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
     //     Success: ${signalSuccess === null ? "PENDING" : signalSuccess} \n `)
     return {
-        priceAtStart,
-        validDays: pivotData.length,
-        isComplete,
-        theoreticalProfitAbsolute,
-        theoreticalProfitPercent,
-        bestPrice,
-        meta: {
-            signalSuccess,
-            maxPivot,
-            maxPivotDate,
-            minPivot,
-            minPivotDate,
-            pivotData
+        status: true,
+        data: {
+            priceAtStart,
+            validDays: pivotData.length,
+            isComplete,
+            theoreticalProfitAbsolute,
+            theoreticalProfitPercent,
+            bestPrice,
+            meta: {
+                signalSuccess,
+                maxPivot,
+                maxPivotDate,
+                minPivot,
+                minPivotDate,
+                pivotData
+            }
         }
     }
 }

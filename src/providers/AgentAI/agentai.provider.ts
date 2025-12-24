@@ -251,6 +251,15 @@ export const agentAI_signal_analyzer = async (
         })
         const data = await response.json()
         const raw = data.choices?.[0]?.message?.content
+        
+        if (!raw || (raw && raw.trim() === "")) {
+            return {
+                type: "Irrelevant",
+                token: null,
+                currency: null,
+                direction: null,
+            }
+        }
         const clean = raw
             .replace(/```json/g, "")
             .replace(/```/g, "")
