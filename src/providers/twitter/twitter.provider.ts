@@ -2,6 +2,8 @@
 import { TwitterApi } from "twitter-api-v2"
 import { getStartTimeISO_LocalMidnight } from "./twitter.helpers"
 import { agentAI_signal_analyzer } from "../AgentAI/agentai.provider"
+import fs from "fs"
+import path from "path"
 
 const client = new TwitterApi(process.env.X_BAREAR_TOKEN!)
 const readOnlyClient = client.readOnly
@@ -82,9 +84,9 @@ export const getTwitterChannelPosts = async (userId: string, lastSavedId: string
         const startTime = getStartTimeISO_LocalMidnight(daysAgo)
         
         const options: any = {
-            max_results: 1000,
-            "tweet.fields": ["created_at", "text", "id", "author_id", "attachments"],
-            expansions: ["attachments.media_keys"],
+            max_results: 5,
+            "tweet.fields": ["created_at", "text", "id", "author_id", "attachments", "referenced_tweets"],
+            expansions: ["attachments.media_keys", "referenced_tweets.id.author_id"],
             "media.fields": ["url", "preview_image_url", "type"],
         }
 
@@ -95,165 +97,51 @@ export const getTwitterChannelPosts = async (userId: string, lastSavedId: string
         }
 
         const tweets = await readOnlyClient.v2.userTimeline(userId, options)
+        // save tweets in json file called tweets.json
+        // Ensure folder exists
+        const outputDir = path.join(process.cwd(), "data")
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true })
+        }
+
+        const filePath = path.join(outputDir, `tweets-${userId}.json`)
+
+        fs.writeFileSync(
+            filePath,
+            JSON.stringify(tweets.data, null, 2),
+            "utf-8"
+        )
         const tweetsData = tweets.data.data || []
-        const tweetsMedia  = tweets.data?.includes?.media || []
-        // const tweetsData = [
-        //     {
-        //         "author_id": "371027604",
-        //         "edit_history_tweet_ids": [
-        //             "1974728009732284646"
-        //         ],
-        //         "id": "1974728009732284646",
-        //         "text": "SIGNAL #ETH #ETHUSDT : ▶ Sell now",
-        //         "created_at": "2025-11-05T06:47:00.000Z"
-        //     },
-        //     {
-        //         "author_id": "371027604",
-        //         "edit_history_tweet_ids": [
-        //             "1974728009732284646"
-        //         ],
-        //         "id": "1974728009732284646",
-        //         "text": "SIGNAL #SOL #SOLUSDT : ▶ Buy now",
-        //         "created_at": "2025-11-01T06:47:00.000Z"
-        //     },
-        //     // {
-        //     //     "author_id": "371027604",
-        //     //     "edit_history_tweet_ids": [
-        //     //         "1974697773057642743"
-        //     //     ],
-        //     //     "attachments": {
-        //     //         "media_keys": [
-        //     //             "3_1974697752710799360",
-        //     //             "3_1974697752719204352"
-        //     //         ]
-        //     //     },
-        //     //     "id": "1974697773057642743",
-        //     //     "text": "🔥 SIGNAL #RAY #RAYUSDT :\n\n➡ Buy At or Below 2.9\n\n✔Target1= 2.919\n\n✔Target2= 2.961\n\n✔Target3= 3.005\n\n❌ Stop Loss= 2.845\n\n✌ To the moooooon!\n\nHistoric!\n\n#SPOT #Cryptocurrency #HODL\n\nBe part of our VIP SIGNALS channel NOW, PM ME! https://t.co/fVUJW5VwQZ",
-        //     //     "created_at": "2025-10-05T04:46:51.000Z"
-        //     // },
-        //     // {
-        //     //     "author_id": "371027604",
-        //     //     "edit_history_tweet_ids": [
-        //     //         "1974688629135151137"
-        //     //     ],
-        //     //     "attachments": {
-        //     //         "media_keys": [
-        //     //             "3_1974688608364720128",
-        //     //             "3_1974688608339578880"
-        //     //         ]
-        //     //     },
-        //     //     "id": "1974688629135151137",
-        //     //     "text": "❤ SIGNAL  #ALICE\n\n➡ Buy At or Below 0.3195\n\n☻Target1= 0.3216\n\n☻Target2= 0.3263\n\n☻Target3= 0.331\n\n❌ Stop Loss= 0.3134\n\n♫ Easy money!\n\nIt continues to surge higher! 🚀\n\n#SPOT #btc #btcusd #crypto\n\nTo Join more than 2400 happy members with us, PM ME! https://t.co/6uWxd3Wuby",
-        //     //     "created_at": "2025-10-05T04:10:31.000Z"
-        //     // },
-        //     // {
-        //     //     "author_id": "371027604",
-        //     //     "edit_history_tweet_ids": [
-        //     //         "1974670601098039738"
-        //     //     ],
-        //     //     "attachments": {
-        //     //         "media_keys": [
-        //     //             "3_1974670580453457920",
-        //     //             "3_1974670580499480576"
-        //     //         ]
-        //     //     },
-        //     //     "id": "1974670601098039738",
-        //     //     "text": "SIGNAL #STX #STXUSDT :\n\n▶ Buy now At or Under 0.595\n\n✅Target1= 0.599\n\n✅Target2= 0.608\n\n✅Target3= 0.617\n\n⛔ Stop Loss= 0.584\n\n⚠ Quick signal\n\nSeem so solid, no whales inflow. new #ath is coming?\n\n#SPOT #bitcoin #crypto\n\nGet your VIP SIGNALS channel membership, PM ME! https://t.co/lzlXEnT5DJ",
-        //     //     "created_at": "2025-10-05T02:58:53.000Z"
-        //     // },
-        //     // {
-        //     //     "author_id": "371027604",
-        //     //     "edit_history_tweet_ids": [
-        //     //         "1974664160161267892"
-        //     //     ],
-        //     //     "attachments": {
-        //     //         "media_keys": [
-        //     //             "3_1974664139919273984",
-        //     //             "3_1974664139927678976"
-        //     //         ]
-        //     //     },
-        //     //     "id": "1974664160161267892",
-        //     //     "text": "SIGNAL #CELR #CELRUSDT :\n\n▶ Buy At or Under 0.00766\n\n✅Target1= 0.00771\n\n✅Target2= 0.00782\n\n✅Target3= 0.00794\n\n⛔ Stop Loss= 0.00751\n\n⚠ Let's go!\n\nYessir!!! Let's get that new #ATH !!\n\n#SPOT #PremiumSignals #Crypto\n\nTake part of our wonderful family now, PM ME! https://t.co/eQoouEj4mM",
-        //     //     "created_at": "2025-10-05T02:33:17.000Z"
-        //     // }
-        // ]
-        // const tweetsMedia = [
-        //     {
-        //         "width": 358,
-        //         "media_key": "3_1974727989481869312",
-        //         "type": "photo",
-        //         "height": 718,
-        //         "url": "https://pbs.twimg.com/media/G2ekpNUWkAAc43T.png"
-        //     },
-        //     {
-        //         "width": 1550,
-        //         "media_key": "3_1974727989477658624",
-        //         "type": "photo",
-        //         "height": 180,
-        //         "url": "https://pbs.twimg.com/media/G2ekpNTWUAAxgaX.jpg"
-        //     },
-        //     {
-        //         "width": 358,
-        //         "media_key": "3_1974697752710799360",
-        //         "type": "photo",
-        //         "height": 718,
-        //         "url": "https://pbs.twimg.com/media/G2eJJMkW4AAeeoI.png"
-        //     },
-        //     {
-        //         "width": 1550,
-        //         "media_key": "3_1974697752719204352",
-        //         "type": "photo",
-        //         "height": 180,
-        //         "url": "https://pbs.twimg.com/media/G2eJJMmXIAAh5s1.jpg"
-        //     },
-        //     {
-        //         "width": 358,
-        //         "media_key": "3_1974688608364720128",
-        //         "type": "photo",
-        //         "height": 718,
-        //         "url": "https://pbs.twimg.com/media/G2eA07OW8AATnue.png"
-        //     },
-        //     {
-        //         "width": 1550,
-        //         "media_key": "3_1974688608339578880",
-        //         "type": "photo",
-        //         "height": 180,
-        //         "url": "https://pbs.twimg.com/media/G2eA07IXUAA2DSV.jpg"
-        //     },
-        //     {
-        //         "width": 358,
-        //         "media_key": "3_1974670580453457920",
-        //         "type": "photo",
-        //         "height": 718,
-        //         "url": "https://pbs.twimg.com/media/G2dwbkBXwAA8Rvr.png"
-        //     },
-        //     {
-        //         "width": 1550,
-        //         "media_key": "3_1974670580499480576",
-        //         "type": "photo",
-        //         "height": 180,
-        //         "url": "https://pbs.twimg.com/media/G2dwbkMWAAAIjlu.jpg"
-        //     },
-        //     {
-        //         "width": 358,
-        //         "media_key": "3_1974664139919273984",
-        //         "type": "photo",
-        //         "height": 718,
-        //         "url": "https://pbs.twimg.com/media/G2dqkrKXMAAPziX.png"
-        //     },
-        //     {
-        //         "width": 1550,
-        //         "media_key": "3_1974664139927678976",
-        //         "type": "photo",
-        //         "height": 180,
-        //         "url": "https://pbs.twimg.com/media/G2dqkrMXcAA_rPI.jpg"
-        //     }
-        // ]
+        const tweetsMedia = tweets.data?.includes?.media || []
+        const tweetsMeta = tweets.data.meta || []
+        // const includesTweets = tweets.data?.includes?.tweets || []
         const mediaMap = new Map((tweetsMedia || []).map((m) => [m.media_key, m]))
         const posts: any[] = []
 
         for (let index = 0; index < tweetsData.length; index++) {
             const message = tweetsData[index]
+
+            // Skip retweets (reposts) to avoid duplicate signals
+            // Keep "quoted" tweets as they might contain new signal context
+            // if (message.referenced_tweets?.some((ref: any) => ref.type === "retweeted")) {
+            //     continue
+            // }
+
+            // const retweetRef = message.referen   ced_tweets?.find(ref => ref.type === "retweeted")
+
+            // if (retweetRef) {
+            //     // 2. Find the original tweet in the "includes" data to see its author
+            //     const originalTweet = includesTweets.find(t => t.id === retweetRef.id)
+        
+            //     if (originalTweet?.author_id === message.author_id) {
+            //         console.log(`Tweet ${message.id} is a SELF-RETWEET (Reposted own post)`)
+            //     } else {
+            //         console.log(`Tweet ${message.id} is a REPOST of someone else`)
+            //     }
+            // } else {
+            //     console.log(`Tweet ${message.id} is an ORIGINAL post`)
+            // }
+
             const mediaKeys = message?.attachments?.media_keys || []
             // const { postText, tokens } = countTokens(message.text)
 
@@ -285,10 +173,16 @@ export const getTwitterChannelPosts = async (userId: string, lastSavedId: string
         const analysedPostsFiltered = analysedPosts.filter(
             (p) => p?.analysis?.type === "Signal" && p?.analysis?.token
         )
-        return analysedPostsFiltered
+        return {
+            analysedPostsFiltered,
+            lastSavedId: tweetsMeta.newest_id ? String(tweetsMeta.newest_id) : ""
+        }
     } catch (error) {
         console.error("Error fetching tweets:", error)
-        return []
+        return {
+            analysedPostsFiltered: [],
+            lastSavedId: ""
+        }
     }
 }
 

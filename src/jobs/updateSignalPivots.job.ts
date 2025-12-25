@@ -7,10 +7,7 @@ import {
     CoinMarketCapOHLC,
 } from "../providers/CoinMarketCap/coinmarketcap.types"
 
-// Create BullMQ Queue for signal pivot updates
-export const signalPivotQueue = new Queue("signalPivots", {
-    connection: connection,
-})
+
 
 /**
  * Update a single incomplete signal with the next day's OHLCV data
@@ -21,7 +18,7 @@ const updateSignalPivots = async (signal: any) => {
     DateToFetch.setUTCDate(DateToFetch.getUTCDate() + signal.pivot_calc_days)
     // Don't fetch future data
     if (DateToFetch.getTime() > new Date().getTime()) {
-        console.log(`⏳ Signal ${signal.id} (${signal.currency_label}): Next day is in the future, skipping...` )
+        console.log(`⏳ Signal ${signal.id} (${signal.currency_label}): Next day is in the future, skipping...`)
         return { status: "skipped", reason: "future_date" }
     }
 
@@ -157,64 +154,63 @@ const updateSignalPivots = async (signal: any) => {
     }
 }
 
-// Create BullMQ Worker
-export const signalPivotWorker = new Worker(
-    "signalPivots",
-    async (e) => {
-        if (e.name === "dailyPivotUpdate") {
+export const dailyPivotUpdate = async () => {
+    try {
+        // await 1 sec
+        await new Promise((resolve) => setTimeout(resolve, 4000))
+        console.log("\n ----------------------------------------------------------------------------------------------------------------------------------------------- \n")
+        // Fetch all incomplete signals where pivot_calc_days < 21
+        const incompleteSignals = await prisma.signal.findMany({
+            where: {
+                isComplete: false,
+                pivot_calc_days: {
+                    lt: 21,
+                },
+            },
+        })
+
+        console.log(`\n ----------------------- PIVOT calculating JOB 📊:  Found ${incompleteSignals.length} incomplete signals to update ----------------------- \n`)
+        const results: any[] = []
+        // Update each signal sequentially
+        for (const signal of incompleteSignals) {
             try {
-                // await 1 sec
-                await new Promise((resolve) => setTimeout(resolve, 1000))
-                console.log("\n ------------------------- 📊 Processing signal pivot update job:", e.id, " ------------------------- \n")
-
-                // Fetch all incomplete signals where pivot_calc_days < 21
-                const incompleteSignals = await prisma.signal.findMany({
-                    where: {
-                        isComplete: false,
-                        pivot_calc_days: {
-                            lt: 21,
-                        },
-                    },
-                })
-
-                console.log(`----------------------- PIVOT calculating JOB 📊:  Found ${incompleteSignals.length} incomplete signals to update ----------------------- \n`)
-                const results: any[] = []
-                // Update each signal sequentially
-                for (const signal of incompleteSignals) {
-                    try {
-                        const result = await updateSignalPivots(signal)
-                        results.push(result)
-                    } catch (error) {
-                        console.error(`❌ Error updating signal ${signal.id}:`, error , " \n")
-                        results.push({
-                            status: "error",
-                            signalId: signal.id,
-                            error: (error as Error).message,
-                        })
-                    }
-                }
-
-                return {
-                    processed: incompleteSignals.length,
-                    results,
-                    timestamp: new Date(),
-                }
+                const result = await updateSignalPivots(signal)
+                results.push(result)
             } catch (error) {
-                console.error(
-                    "❌ [BULLMQ] Error in daily signal pivot update job:",
-                    error
-                )
-                throw error // Will trigger retry
+                console.error(`❌ Error updating signal ${signal.id}:`, error, " \n")
+                results.push({
+                    status: "error",
+                    signalId: signal.id,
+                    error: (error as Error).message,
+                })
             }
         }
-    },
-    {
-        connection: connection,
-        // limiter: {
-        //     max: 100,
-        //     duration: 60000 // 1 job per minute
-        // }
+
+        return {
+            processed: incompleteSignals.length,
+            results,
+            timestamp: new Date(),
+        }
+    } catch (error) {
+        console.error(
+            "❌ [BULLMQ] Error in daily signal pivot update job:",
+            error
+        )
+        throw error
     }
+}
+
+// Create BullMQ Queue for signal pivot updates
+export const signalPivotQueue = new Queue("signalPivots", {
+    connection: connection,
+})
+
+// Create BullMQ Worker
+export const signalPivotWorker = new Worker("signalPivots", async (e) => {
+    if (e.name === "dailyPivotUpdate") {
+        await dailyPivotUpdate()
+    }
+}, { connection: connection }
 )
 
 // Handle worker events

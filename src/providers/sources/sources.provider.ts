@@ -14,7 +14,7 @@ import { GlobalSettings } from "../../types/setup.types"
 import { getIO } from "../../config/socket"
 
 
-const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User) => {
+const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User, lastSavedPostId: string) => {
 
     console.log(" ----------------------------------------------------------------------------------- ")
     console.log(" ")
@@ -112,6 +112,12 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 
                     const pivotResult = await calculateMaxPivotFrom21Days(normalizedToken, targetDate, analysis.direction!)
                     if (!pivotResult.status || !pivotResult.data) {
+                        console.log(`\n --------------------------- 🚨 Failed to get price/pivot data for ${normalizedToken}, skipping signal creation. --------------------------- \n`)
+                        await prisma.sourcePost.delete({
+                            where: {
+                                id: postCreated.id
+                            }
+                        })
                         continue
                     }
                     const entryPrice = pivotResult.data.priceAtStart || 0
@@ -159,8 +165,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         }
 
         // save last message id
-        const metadata = newSource?.metadata as any
-        metadata.last_message_id = messages[messages.length - 1].id
+        const currentMetadata = (newSource?.metadata || {}) as any                    
+        currentMetadata.last_message_id = lastSavedPostId
 
         await prisma.source.update({
             where: {
@@ -168,12 +174,12 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             },
             data: {
                 source_status: SourceStatus.VALIDE,
-                metadata: metadata
+                metadata: currentMetadata
             },
         })
 
         // await 1 second
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        await new Promise((resolve) => setTimeout(resolve, 2000))
         const createdSource = await prisma.source.findUnique({
             where: {
                 id: newSource!.id
@@ -207,7 +213,6 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             }
         })
 
-        // Filter valid sources and map to Source objects
         const otherSources = userOtherSources.filter(us => us.Source.source_status === SourceStatus.VALIDE).map(us => us.Source)
         let TIME_FRAME_HOURS = 72
         const setup = await prisma.setup.findFirst({
@@ -293,12 +298,17 @@ export const createSourceService = async (channelInfo: SourceType, source: any, 
             }
         }
         let messages: SourcePost[] = []
+        let lastSavedPostId = ""
         if (source.sourceType === PlatformName.TELEGRAM) {
-            messages = await getTelegramChannelPosts(channelInfo?.user_id_source)
+            const { analysedPostsFiltered, lastSavedId } = await getTelegramChannelPosts(channelInfo?.user_id_source)
+            messages = analysedPostsFiltered
+            lastSavedPostId = lastSavedId
         } else {
-            messages = await getTwitterChannelPosts(channelInfo?.user_id_source)
+            const { analysedPostsFiltered, lastSavedId } = await getTwitterChannelPosts(channelInfo?.user_id_source)
+            messages = analysedPostsFiltered
+            lastSavedPostId = lastSavedId
         }
-        const result = await createSource(channelInfo, source, messages, currentUser)
+        const result = await createSource(channelInfo, source, messages, currentUser, lastSavedPostId)
         
         getIO()
             .to("user_" + currentUser.id.toString())

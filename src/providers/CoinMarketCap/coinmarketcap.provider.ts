@@ -253,7 +253,7 @@ export const calculateMaxPivotFrom21Days = async (
     const quotes = await getOHLCVData(coinId, startDate, endDate)
 
     if (!quotes || quotes.length === 0) {
-        console.warn(`\n No OHLC data found for ${symbol} from ${startDate.toISOString()} \n`)
+        console.warn(`No OHLC data found for ${symbol} from ${startDate.toISOString()} \n`)
         return {
             status: true,
             data: {

@@ -12,8 +12,22 @@ export async function getTelegramChannelInfo(channelName: string) {
     try {
 
         const channel = await client.getEntity(channelName)
-
         let creationDate: number = 0
+
+        const fullChannel = await client.invoke(
+            new Api.channels.GetFullChannel({
+                channel: channel,
+            })
+        )
+
+        // 3. Access the participants count
+        let participantsCount = 0
+        if (fullChannel.fullChat instanceof Api.ChannelFull) {
+            participantsCount = fullChannel.fullChat.participantsCount || 0
+        } else if (fullChannel.fullChat instanceof Api.ChatFull) {
+            participantsCount = (fullChannel.fullChat as any).participantsCount || 0
+        }
+
         for await (const message of client.iterMessages(channel, { reverse: true, limit: 1 })) {
             creationDate = message.date
         }
@@ -21,12 +35,12 @@ export async function getTelegramChannelInfo(channelName: string) {
         const user_username_source = (channel as Api.Channel).username || ""
         const channelInfo = {
             platform: PlatformName.TELEGRAM,
-            platform_user_picture: `storage/telegram/sources/${user_username_source}/channelPic.jpg`,
+            platform_user_picture: `storage/telegram/sources/${user_username_source}/channelPic.png`,
             user_name_source: (channel as Api.Channel).title,
             user_username_source: user_username_source,
             user_id_source: (channel as Api.Channel).id.toString(),
             user_verified: (channel as Api.Channel).verified || false,
-            followers_count: (channel as Api.Channel).participantsCount || 0,
+            followers_count: participantsCount,
             user_creation_date: creationDate,
             metadata: {
                 title: (channel as Api.Channel).title,
@@ -36,17 +50,12 @@ export async function getTelegramChannelInfo(channelName: string) {
             },
         }
 
-        const full = await client.invoke(
-            new Api.channels.GetFullChannel({
-                channel: channel,
-            })
-        )
 
         const storageDir = path.join(__dirname, `../../../storage/telegram/sources/${user_username_source}`)
         fs.mkdirSync(storageDir, { recursive: true })
 
-        const channelPhoto = await client.downloadMedia(full.fullChat.chatPhoto as any)
-        fs.writeFileSync(path.join(storageDir, "channelPic.jpg"), Buffer.from(channelPhoto as any))
+        const channelPhoto = await client.downloadMedia(fullChannel.fullChat.chatPhoto as any)
+        fs.writeFileSync(path.join(storageDir, "channelPic.png"), Buffer.from(channelPhoto as any))
 
         return {
             channelInfo,
@@ -100,7 +109,7 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
                 })
             }
         } else {
-            for await (const message of client.iterMessages(channelName, { limit: 1000 })) {
+            for await (const message of client.iterMessages(channelName, { limit: 5 })) {
                 if (!(message instanceof Api.Message)) continue
                 if (!message.message) continue
                 posts.push({
@@ -120,20 +129,15 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
         const analysedPosts = posts
             .map((post, i) => ({ ...post, analysis: analyses[i] }))
         const analysedPostsFiltered = analysedPosts.filter(p => p?.analysis?.type === "Signal" && p?.analysis?.token)
-        return analysedPostsFiltered
+
+        return { analysedPostsFiltered, lastSavedId: posts && posts.length > 0 ? posts[0].id : "" }
 
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
-        return []
+        return { analysedPostsFiltered: [], lastSavedId: "" }
     }
 }
 
-/**
- * Check if a Telegram post (message) still exists in a channel
- * @param channelName - The channel username or ID
- * @param messageId - The message ID to check
- * @returns Object with exists boolean and optional error message
- */
 export async function checkTelegramPostExists(
     channelName: string,
     messageId: number

@@ -4,10 +4,10 @@ import config from "./config/config"
 import { initTelegram } from "./config/initTelegram"
 import http from "http"
 import { initSocket } from "./config/socket"
-import { scheduleSignalPivotUpdate } from "./jobs/updateSignalPivots.job"
+// import { scheduleSignalPivotUpdate } from "./jobs/updateSignalPivots.job"
 // import { schedulePostValidation } from "./jobs/validatePosts.job"
-import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
-import { schedulePostValidation } from "./jobs/validatePosts.job"
+// import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
+// import { schedulePostValidation } from "./jobs/validatePosts.job"
 import { scheduleFetchNewSignals } from "./jobs/fetchNewSignals.job"
 
 declare global {
@@ -35,10 +35,10 @@ const server = http.createServer(app)
 initSocket(server)
 
 // Start BullMQ jobs
-scheduleSignalPivotUpdate()
-scheduleStatsCalculation()
-schedulePostValidation()
 scheduleFetchNewSignals()
+// schedulePostValidation()
+// scheduleSignalPivotUpdate()
+// scheduleStatsCalculation()
 
 server.listen(config.port, () => {
     console.log(`🚀 Server running on http://localhost:${config.port}`)
