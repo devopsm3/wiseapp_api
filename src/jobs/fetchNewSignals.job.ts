@@ -193,7 +193,7 @@ export const scheduleFetchNewSignals = async () => {
         {
             jobId: "daily-fetch-new-signals",
             repeat: {
-                pattern: "0 5 * * *", // Cron: Every day at 1:00 AM
+                pattern: "0 4 * * *", // Cron: Every day at 1:00 AM
                 tz: "Europe/Paris"
             },
         }
