@@ -7,7 +7,8 @@ import {
     getSourceSignalsDetailsService,
     getSourceRecommendationsService,
     setSourceSetupService,
-    getSourceSetupService
+    getSourceSetupService,
+    getSourcePostsService
 } from "./sources.service"
 
 export const getSources = async (req: Request, res: Response, next: NextFunction) => {
@@ -123,6 +124,21 @@ export const setSourceSetup = async (req: Request, res: Response, next: NextFunc
         const result: any = await setSourceSetupService(Number(req.params.id), req.body, req.user!)
         if (!result.status) {
             return res.status(400).json({ status: false, message: result.message })
+        }
+        res.status(200).json({
+            status: true,
+            data: result.data,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getSourcePosts = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result: any = await getSourcePostsService(Number(req.params.id), req.user!)
+        if (!result.status) {
+            return res.status(404).json({ status: false, message: result.message })
         }
         res.status(200).json({
             status: true,

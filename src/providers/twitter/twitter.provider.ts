@@ -1,7 +1,7 @@
 ﻿import { PlatformName } from "@prisma/client"
 import { TwitterApi } from "twitter-api-v2"
 import { getStartTimeISO_LocalMidnight } from "./twitter.helpers"
-import { agentAI_signal_analyzer } from "../AgentAI/agentai.provider"
+import { agentAI_signal_analyzer, agentAI_batch_analyzer } from "../AgentAI/agentai.provider"
 import fs from "fs"
 import path from "path"
 
@@ -84,7 +84,7 @@ export const getTwitterChannelPosts = async (userId: string, lastSavedId: string
         const startTime = getStartTimeISO_LocalMidnight(daysAgo)
         
         const options: any = {
-            max_results: 5,
+            max_results: 100,
             "tweet.fields": ["created_at", "text", "id", "author_id", "attachments", "referenced_tweets"],
             expansions: ["attachments.media_keys", "referenced_tweets.id.author_id"],
             "media.fields": ["url", "preview_image_url", "type"],
@@ -143,10 +143,6 @@ export const getTwitterChannelPosts = async (userId: string, lastSavedId: string
             // }
 
             const mediaKeys = message?.attachments?.media_keys || []
-            // const { postText, tokens } = countTokens(message.text)
-
-            // if (tokens < 2 || mediaKeys.length === 0) continue
-            // if (tokens > 100) continue
 
             const media = mediaKeys.map((key) => mediaMap.get(key)).filter(Boolean)
             posts.push({
@@ -165,16 +161,41 @@ export const getTwitterChannelPosts = async (userId: string, lastSavedId: string
             })
         }
 
-        const analyses = await Promise.all(
-            posts.map((p) => agentAI_signal_analyzer(p.text, p.mediaPhotos))
+        const textOnlyPosts = posts.filter(p => !p.mediaPhotos || p.mediaPhotos.length === 0)
+        const imagePosts = posts.filter(p => p.mediaPhotos && p.mediaPhotos.length > 0)
+
+        // 1. Process image posts individually (safety first for vision tasks)
+        const imageAnalyses = await Promise.all(
+            imagePosts.map((p) => agentAI_signal_analyzer(p.text, p.mediaPhotos))
         )
 
-        const analysedPosts = posts.map((post, i) => ({ ...post, analysis: analyses[i] }))
-        const analysedPostsFiltered = analysedPosts.filter(
-            (p) => p?.analysis?.type === "Signal" && p?.analysis?.token
-        )
+        // 2. Process text-only posts in batches of 10 (saves ~80% cost)
+        const batchResults: any[] = []
+        const batchSize = 10
+        for (let i = 0; i < textOnlyPosts.length; i += batchSize) {
+            const chunk = textOnlyPosts.slice(i, i + batchSize)
+            const results = await agentAI_batch_analyzer(
+                chunk.map((p) => ({ id: p.id, text: p.text }))
+            )
+            batchResults.push(...results)
+        }
+
+        // 3. Re-assemble all results
+        const analysedPosts = posts.map((post) => {
+            const imgIndex = imagePosts.findIndex((ip) => ip.id === post.id)
+            if (imgIndex !== -1) {
+                return { ...post, analysis: imageAnalyses[imgIndex] }
+            }
+
+            const txtAnalysis = batchResults.find((br) => String(br.id) === String(post.id))
+            return {
+                ...post,
+                analysis: txtAnalysis || { type: "Irrelevant", token: null, direction: null },
+            }
+        })
+        // const analysedPostsFiltered = analysedPosts.filter((p) => p?.analysis?.type === "Signal" && p?.analysis?.token)
         return {
-            analysedPostsFiltered,
+            analysedPostsFiltered: analysedPosts,
             lastSavedId: tweetsMeta.newest_id ? String(tweetsMeta.newest_id) : ""
         }
     } catch (error) {

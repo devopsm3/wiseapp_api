@@ -64,15 +64,11 @@ export const getSourcesSetupsService = async (currentUser: User) => {
                 user_id: currentUser.id,
                 source_activated: true,
             },
-            // include: {
-            //     Source: true,
-            // },
             select: {
                 id: true,
                 Source: true,
             },
         })
-
         const setups = await prisma.sourceSetup.findMany({
             where: {
                 userSourceId: {
@@ -81,7 +77,22 @@ export const getSourcesSetupsService = async (currentUser: User) => {
             },
         })
         const setupsData = userSources.map(us => {
-            const setup = setups.find(sd => sd.userSourceId === us.id)
+            let setup = null
+            const sourceSetup = setups.find(sd => sd.userSourceId === us.id)
+            if (!sourceSetup) {
+                setup = {
+                    source_setup_filter_btc: true,
+                    source_setup_filter_eth: true,
+                    source_setup_filter_sol: true,
+                    source_setup_filter_alts: true,
+                    source_setup_filter_bullish: true,
+                    source_setup_filter_bearish: true,
+                    source_setup_filter_binance_only: false,
+                    userSourceId: us.id,
+                }
+            } else {
+                setup = sourceSetup
+            }
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const {createdAt, updatedAt, ...rest} = setup as SourceSetup
             return {
@@ -94,7 +105,7 @@ export const getSourcesSetupsService = async (currentUser: User) => {
                 source_url: us.Source.source_url,
                 setup: rest,
             }
-        })
+        }).filter((item) => item !== null)
         return setupsData.length ? {status: true, data: setupsData} : {status: true, data: []}
     } catch (error) {
         console.log(" 🚀   -->  error:", error)

@@ -72,32 +72,32 @@ export const fetchNewSignalsWorker = new Worker("fetchNewSignals", async (job) =
                 if (messages.length > 0) {
                     for (const element of messages) {
                         const analysis = element.analysis as unknown as SourcePostAnalysis
+                        let post_url = ""
+                        if (source.platform === PlatformName.TELEGRAM) {
+                            post_url = `https://t.me/${source.user_username_source}/${String(element.id)}`
+                        } else {
+                            post_url = `https://x.com/${source.user_username_source}/status/${String(element.id)}`
+                        }
+
+                        const postCreated = await prisma.sourcePost.create({
+                            data: {
+                                sourceId: source.id,
+                                platform: source.platform as PlatformName,
+                                date: element.date,
+                                timestamp: element.timestamp,
+                                originalId: String(element.id),
+                                mediaType: element.mediaType,
+                                senderId: element.senderId,
+                                text: element.text,
+                                originalText: element.originalText,
+                                analysis: element.analysis!,
+                                post_url
+                            }
+                        })
                         if (analysis?.token && analysis?.type === "Signal") {
                             const normalizedToken = normalizeToken(analysis.token)
                             const coinInfo = await getCoinInfo(normalizedToken)
                             if (coinInfo) {
-                                let post_url = ""
-                                if (source.platform === PlatformName.TELEGRAM) {
-                                    post_url = `https://t.me/${source.user_username_source}/${String(element.id)}`
-                                } else {
-                                    post_url = `https://x.com/${source.user_username_source}/status/${String(element.id)}`
-                                }
-
-                                const postCreated = await prisma.sourcePost.create({
-                                    data: {
-                                        sourceId: source.id,
-                                        platform: source.platform as PlatformName,
-                                        date: element.date,
-                                        timestamp: element.timestamp,
-                                        originalId: String(element.id),
-                                        mediaType: element.mediaType,
-                                        senderId: element.senderId,
-                                        text: element.text,
-                                        originalText: element.originalText,
-                                        analysis: element.analysis!,
-                                        post_url
-                                    }
-                                })
 
                                 const currencyLogo = coinInfo.logo
                                 const targetDate = new Date(element.date!)

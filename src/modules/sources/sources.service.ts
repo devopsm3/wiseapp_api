@@ -678,3 +678,49 @@ export const setSourceSetupService = async (sourceId: number, setupData: any, cu
         }
     }
 }
+
+export const getSourcePostsService = async (sourceId: number, currentUser: User) => {
+    try {
+        const userSource = await prisma.userSource.findUnique({
+            where: {
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: sourceId
+                }
+            }
+        })
+
+        if (!userSource) {
+            return {
+                status: false,
+                message: "You don't have access to this source"
+            }
+        }
+
+        const posts = await prisma.sourcePost.findMany({
+            where: {
+                sourceId
+            }
+        })
+
+        return {
+            status: true,
+            data: posts.map((post) => {
+                return {
+                    id: post.id,
+                    post_url: post.post_url,
+                    text: post.originalText,
+                    posted_at: post.date,
+                    post_type: (post.analysis as any).type,
+                    post_trend: (post.analysis as any).direction,
+                    post_token: (post.analysis as any).token
+                }
+            })
+        }
+    } catch (error: any) {
+        return {
+            status: false,
+            message: error.message
+        }
+    }
+}

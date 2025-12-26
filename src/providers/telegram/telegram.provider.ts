@@ -4,7 +4,7 @@ import { client } from "../../config/initTelegram"
 import { Api } from "telegram"
 import { PlatformName } from "@prisma/client"
 // import { getDaysAgoTimestamp } from "../../utils/global.helpers"
-import { agentAI_signal_analyzer } from "../AgentAI/agentai.provider"
+import { agentAI_batch_analyzer } from "../AgentAI/agentai.provider"
 
 
 
@@ -109,7 +109,7 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
                 })
             }
         } else {
-            for await (const message of client.iterMessages(channelName, { limit: 5 })) {
+            for await (const message of client.iterMessages(channelName, { limit: 10 })) {
                 if (!(message instanceof Api.Message)) continue
                 if (!message.message) continue
                 posts.push({
@@ -123,14 +123,25 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
                 })
             }
         }
-        const analyses = await Promise.all(
-            posts.map(p => agentAI_signal_analyzer(p.text))
-        )
-        const analysedPosts = posts
-            .map((post, i) => ({ ...post, analysis: analyses[i] }))
-        const analysedPostsFiltered = analysedPosts.filter(p => p?.analysis?.type === "Signal" && p?.analysis?.token)
+        const batchResults: any[] = []
+        const batchSize = 10
+        for (let i = 0; i < posts.length; i += batchSize) {
+            const chunk = posts.slice(i, i + batchSize)
+            const results = await agentAI_batch_analyzer(
+                chunk.map((p) => ({ id: p.id, text: p.text }))
+            )
+            batchResults.push(...results)
+        }
 
-        return { analysedPostsFiltered, lastSavedId: posts && posts.length > 0 ? posts[0].id : "" }
+        const analysedPosts = posts.map((post) => {
+            const analysis = batchResults.find((br) => String(br.id) === String(post.id))
+            return {
+                ...post,
+                analysis: analysis || { type: "Irrelevant", token: null, direction: null },
+            }
+        })
+        // const analysedPostsFiltered = analysedPosts.filter((p) => p?.analysis?.type === "Signal" && p?.analysis?.token)
+        return { analysedPostsFiltered: analysedPosts, lastSavedId: posts && posts.length > 0 ? posts[0].id : "" }
 
     } catch (error) {
         console.log(" 🚀   -->  error:", error)

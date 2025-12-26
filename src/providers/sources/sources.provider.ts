@@ -9,7 +9,7 @@ import { getTwitterChannelPosts } from "../twitter/twitter.provider"
 import { calculateMaxPivotFrom21Days, getCoinInfo } from "../CoinMarketCap/coinmarketcap.provider"
 import { createOrUpdateSignal } from "../signals/signals.provider"
 import { calculateSourceStats, calculateTopCorrelations } from "../../modules/sources/sources.helpers"
-import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
+// import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
 import { GlobalSettings } from "../../types/setup.types"
 import { getIO } from "../../config/socket"
 
@@ -32,7 +32,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 : `User '${source.sourceId}' could not be found or the profile is unavailable.`
         }
     }
-
+    
     if (!messages.length) {
         return {
             status: false,
@@ -40,14 +40,14 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         }
     }
 
-    const signalsPosts = messages.filter((m) => m.analysis.type === "Signal" || m.analysis.type === "directSignal")
+    // const signalsPosts = messages.filter((m) => m.analysis.type === "Signal" || m.analysis.type === "directSignal")
 
-    if (!signalsPosts.length) {
-        return {
-            status: false,
-            message: `No valid signals detected for the source '${source.sourceId}'`
-        }
-    }
+    // if (!signalsPosts.length) {
+    //     return {
+    //         status: false,
+    //         message: `No valid signals detected for the source '${source.sourceId}'`
+    //     }
+    // }
 
     let source_url = ""
     if (channelInfo.platform === PlatformName.TELEGRAM) {
@@ -78,35 +78,43 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
     // Only process signals if this is a new source
     try {
         const verifiedPosts: any[] = []
-        for (let index = 0; index < signalsPosts.length; index++) {
-            const element = signalsPosts[index]
+        for (let index = 0; index < messages.length; index++) {
+            const element = messages[index]
             const analysis = element.analysis as unknown as SourcePostAnalysis
+
+            let post_url = ""
+            if (channelInfo.platform === PlatformName.TELEGRAM) {
+                post_url = `https://t.me/${channelInfo.user_username_source}/${String(element.id)}`
+            } else {
+                post_url = `https://x.com/${channelInfo.user_username_source}/status/${String(element.id)}`
+            }
+            const postCreated = await prisma.sourcePost.create({
+                data: {
+                    sourceId: newSource!.id,
+                    platform: channelInfo.platform as PlatformName,
+                    date: element.date,
+                    timestamp: element.timestamp,
+                    originalId: String(element.id),
+                    mediaType: element.mediaType,
+                    senderId: element.senderId,
+                    text: element.text,
+                    originalText: element.originalText,
+                    analysis: element.analysis!,
+                    post_url
+                }
+            })
 
             if (analysis?.token && analysis?.type === "Signal") {
                 const normalizedToken = normalizeToken(analysis.token)
+
+
+                console.log(" 🚀   -->  analysis.token:", analysis.token)
+                console.log(" 🚀   -->  normalizedToken:", normalizedToken)
                 const coinInfo = await getCoinInfo(normalizedToken)
                 if (coinInfo) {
-                    let post_url = ""
-                    if (channelInfo.platform === PlatformName.TELEGRAM) {
-                        post_url = `https://t.me/${channelInfo.user_username_source}/${String(element.id)}`
-                    } else {
-                        post_url = `https://x.com/${channelInfo.user_username_source}/status/${String(element.id)}`
-                    }
-                    const postCreated = await prisma.sourcePost.create({
-                        data: {
-                            sourceId: newSource!.id,
-                            platform: channelInfo.platform as PlatformName,
-                            date: element.date,
-                            timestamp: element.timestamp,
-                            originalId: String(element.id),
-                            mediaType: element.mediaType,
-                            senderId: element.senderId,
-                            text: element.text,
-                            originalText: element.originalText,
-                            analysis: element.analysis!,
-                            post_url
-                        }
-                    })
+                    console.log(" 🚀   -->  coinInfo:", coinInfo?.id)
+                    console.log(" ")
+                    console.log(" ")
                     const currencyLogo = coinInfo.logo
                     const targetDate = new Date(element.date!)
 
@@ -147,7 +155,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                     console.log(`Token ${analysis.token} not found in CoinMarketCap API`)
                 }
             } else {
-                console.log(`Token ${analysis.token} not found in CoinMarketCap API`)
+                console.log(`Invalid signal type: ${analysis.type}`)
             }
         }
         if (!verifiedPosts.length) {
@@ -231,19 +239,19 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         )
 
         console.log("----------------------- Adding Source : calculating Source > Recommendations ----------------------- \n")
-        const recommendations = await generateSourceRecommendations({
-            sourceName: createdSource.user_name_source,
-            platform: createdSource.platform,
-            stats: stats,
-            recentSignalsCount: createdSource.Signal?.length || 0,
-            followers: createdSource.followers_count
-        })
+        // const recommendations = await generateSourceRecommendations({
+        //     sourceName: createdSource.user_name_source,
+        //     platform: createdSource.platform,
+        //     stats: stats,
+        //     recentSignalsCount: createdSource.Signal?.length || 0,
+        //     followers: createdSource.followers_count
+        // })
 
         await prisma.sourceStats.create({
             data: {
                 sourceId: newSource!.id,
                 stats: stats,
-                recommendations: recommendations,
+                // recommendations: recommendations,
                 topCorrelations,
                 period: "ALL"
             }
