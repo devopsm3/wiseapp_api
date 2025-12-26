@@ -109,7 +109,7 @@ export async function getTelegramChannelPosts(channelName: string, lastSavedId: 
                 })
             }
         } else {
-            for await (const message of client.iterMessages(channelName, { limit: 10 })) {
+            for await (const message of client.iterMessages(channelName, { limit: 100 })) {
                 if (!(message instanceof Api.Message)) continue
                 if (!message.message) continue
                 posts.push({

@@ -700,12 +700,19 @@ export const getSourcePostsService = async (sourceId: number, currentUser: User)
         const posts = await prisma.sourcePost.findMany({
             where: {
                 sourceId
+            },
+            include: {
+                Signal: true
             }
         })
-
         return {
             status: true,
             data: posts.map((post) => {
+                const signal = post.Signal.find((signal) => signal.source_post_id === post.id)
+                let signal_id = null
+                if (signal) {
+                    signal_id = signal.id
+                }
                 return {
                     id: post.id,
                     post_url: post.post_url,
@@ -713,7 +720,8 @@ export const getSourcePostsService = async (sourceId: number, currentUser: User)
                     posted_at: post.date,
                     post_type: (post.analysis as any).type,
                     post_trend: (post.analysis as any).direction,
-                    post_token: (post.analysis as any).token
+                    post_token: (post.analysis as any).token,
+                    signal_id: signal_id
                 }
             })
         }
