@@ -8,8 +8,7 @@ import { calculateMaxPivotFrom21Days, getCoinInfo } from "../providers/CoinMarke
 import { createOrUpdateSignal } from "../providers/signals/signals.provider"
 import { normalizeToken } from "../providers/signals/signals.helpers"
 import { SourcePostAnalysis } from "../providers/sources/sources.types"
-import { dailyPivotUpdate } from "./updateSignalPivots.job"
-import { calculateSourceStatsJob } from "./calculateStats.job"
+import { signalPivotQueue } from "./updateSignalPivots.job"
 
 export const fetchNewSignalsQueue = new Queue("fetchNewSignals", {
     connection: connection
@@ -157,12 +156,18 @@ export const fetchNewSignalsWorker = new Worker("fetchNewSignals", async (job) =
                             metadata: newMetadata
                         }
                     })
-                    console.log(`\n ✅ --------------------------- ${source.user_name_source} is Updated ---------------------------`)
+                    console.log(`\n  --------------------------- ${source.user_name_source} is Updated ---------------------------`)
                 }
             } catch (error: any) {
                 console.error(`\n ❌ --------------------------- Error processing source ${source.user_name_source}:`, error.message)
             }
         }
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        await signalPivotQueue.add("dailyPivotUpdate", {}, {
+            jobId: `chain-pivot-update-${new Date().toISOString().split("T")[0]}`,
+            removeOnComplete: true,
+            removeOnFail: false
+        })
     }
 }, {
     connection: connection
@@ -170,14 +175,9 @@ export const fetchNewSignalsWorker = new Worker("fetchNewSignals", async (job) =
 
 fetchNewSignalsWorker.on("completed", async (job) => {
     console.log(`\n ✅ ------------------------------------------------------ [BULLMQ] Fetch new signals job DONE  - Job ${job.id} \n`)
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    await dailyPivotUpdate()
-    await calculateSourceStatsJob()
 })
 
 fetchNewSignalsWorker.on("failed", async (job, err) => {
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    await scheduleFetchNewSignals()
     console.error(`\n ❌ --------------------------- [BULLMQ] Fetch new signals job failed! - Job ${job?.id}:`, err.message, " --------------------------- \n")
 })
 
@@ -193,7 +193,7 @@ export const scheduleFetchNewSignals = async () => {
         {
             jobId: "daily-fetch-new-signals",
             repeat: {
-                pattern: "0 1 * * *", // Cron: Every day at 1:00 AM
+                pattern: "0 5 * * *", // Cron: Every day at 1:00 AM
                 tz: "Europe/Paris"
             },
         }

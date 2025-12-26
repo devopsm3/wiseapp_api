@@ -60,6 +60,12 @@ export const generateSourceRecommendations = async (sourceStats: any) => {
         const data = await response.json()
         const raw = data.choices?.[0]?.message?.content
 
+        console.log(" 🚀   -->  raw:", raw)
+
+        if (!raw) {
+            return []
+        }
+
         const clean = raw
             .replace(/```json/g, "")
             .replace(/```/g, "")

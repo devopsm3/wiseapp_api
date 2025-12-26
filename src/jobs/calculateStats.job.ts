@@ -69,8 +69,6 @@ export const calculateSourceStatsJob = async () => {
                 topCorrelations: topCorrelations as any
             }
         })
-
-        console.log("\n ✅ ------------------------------------------------------ [BULLMQ] Daily stats calculation job DONE \n")
     }
 }
 
@@ -90,7 +88,7 @@ export const statsWorker = new Worker("stats", async (job) => {
 })
 
 statsWorker.on("completed", (job) => {
-    console.log(`✅ [BULLMQ] Daily stats calculation job completed! - Job ${job.id} \n`)
+    console.log(`✅ ------------------------------------------------------ Daily stats calculation job completed! - Job ${job.id} \n`)
 })
 
 statsWorker.on("failed", (job, err) => {
@@ -105,19 +103,19 @@ export const scheduleStatsCalculation = async () => {
         await statsQueue.removeRepeatableByKey(job.key)
     }
 
-    await statsQueue.add(
-        "calculateSourceStats",
-        {},
-        {
-            jobId: "daily-stats-calculation",
-            repeat: {
-                // pattern: "38 14 * * *", // Cron: Every day at 14:35 AM,
-                pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
-                tz: "Europe/Paris"
-            },
-        }
-    )
-    console.log("\n 📅 Stats calculation scheduled (Daily at 6:00 AM via BullMQ) \n")
+    // await statsQueue.add(
+    //     "calculateSourceStats",
+    //     {},
+    //     {
+    //         jobId: "daily-stats-calculation",
+    //         repeat: {
+    //             // pattern: "38 14 * * *", // Cron: Every day at 14:35 AM,
+    //             pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
+    //             tz: "Europe/Paris"
+    //         },
+    //     }
+    // )
+    // console.log("\n 📅 Stats calculation scheduled (Daily at 6:00 AM via BullMQ) \n")
 
     // await statsQueue.add("calculateSourceStats", {}, { priority: 1 })
 }
