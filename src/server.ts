@@ -9,6 +9,8 @@ import { initSocket } from "./config/socket"
 // import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
 // import { schedulePostValidation } from "./jobs/validatePosts.job"
 import { scheduleFetchNewSignals } from "./jobs/fetchNewSignals.job"
+import { scheduleSignalPivotUpdate } from "./jobs/updateSignalPivots.job"
+import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
 
 declare global {
   interface BigInt {
@@ -35,10 +37,10 @@ const server = http.createServer(app)
 initSocket(server)
 
 // Start BullMQ jobs
-// scheduleFetchNewSignals()
+scheduleFetchNewSignals()
 // schedulePostValidation()
-// scheduleSignalPivotUpdate()
-// scheduleStatsCalculation()
+scheduleSignalPivotUpdate()
+scheduleStatsCalculation()
 
 server.listen(config.port, () => {
     console.log(`🚀 Server running on http://localhost:${config.port}`)

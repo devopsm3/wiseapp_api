@@ -8,14 +8,13 @@ import { calculateMaxPivotFrom21Days, getCoinInfo } from "../providers/CoinMarke
 import { createOrUpdateSignal } from "../providers/signals/signals.provider"
 import { normalizeToken } from "../providers/signals/signals.helpers"
 import { SourcePostAnalysis } from "../providers/sources/sources.types"
-import { signalPivotQueue } from "./updateSignalPivots.job"
 
 export const fetchNewSignalsQueue = new Queue("fetchNewSignals", {
     connection: connection
 })
 
 export const fetchNewSignalsWorker = new Worker("fetchNewSignals", async (job) => {
-    await new Promise(resolve => setTimeout(resolve, 4000))
+    await new Promise(resolve => setTimeout(resolve, 3000))
     console.log("\n ----------------------------------------------------------------------------------------------------------------------------------------------- \n")
     console.log("\n --------------------------- 📡 Processing fetchNewSignals job: ", job.id, " --------------------------- \n")
     if (job.name === "fetchNewSignals") {
@@ -162,12 +161,6 @@ export const fetchNewSignalsWorker = new Worker("fetchNewSignals", async (job) =
                 console.error(`\n ❌ --------------------------- Error processing source ${source.user_name_source}:`, error.message)
             }
         }
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        await signalPivotQueue.add("dailyPivotUpdate", {}, {
-            jobId: `chain-pivot-update-${new Date().toISOString().split("T")[0]}`,
-            removeOnComplete: true,
-            removeOnFail: false
-        })
     }
 }, {
     connection: connection

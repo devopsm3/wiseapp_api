@@ -3,6 +3,38 @@ import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketca
 
 
 
+
+export const calculateSuspensionMetrics = (signals: Signal[]) => {
+    const now = new Date()
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+    // 1. Calculate signals_count_last_30d
+    const signals_count_last_30d = signals.filter(s => new Date(s.entry_timestamp) >= thirtyDaysAgo).length
+
+    // 2. Calculate bad_signals_count (Consecutive losses)
+    // Filter for closed signals (isComplete) or those that have PnL calculated
+    // Sort by entry_timestamp ascending to process chronologically
+    const sortedSignals = [...signals]
+        .filter(s => s.pnlP !== null && s.pnlP !== undefined)
+        .sort((a, b) => new Date(a.entry_timestamp).getTime() - new Date(b.entry_timestamp).getTime())
+
+    let bad_signals_count = 0
+
+    for (const signal of sortedSignals) {
+        if ((signal.pnlP as number) < 0) {
+            bad_signals_count++
+        } else {
+            // Reset on gain
+            bad_signals_count = 0
+        }
+    }
+
+    return {
+        bad_signals_count,
+        signals_count_last_30d
+    }
+}
+
 export const getTokenProfitability = (token: string, signalDetails: Signal[]) => {
 
     const tokenSignals = signalDetails.filter(s => {

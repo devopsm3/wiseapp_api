@@ -1,13 +1,13 @@
 import { Queue, Worker } from "bullmq"
 import connection from "../config/redis"
 import { prisma } from "../prisma"
-import { calculateSourceStats, calculateTopCorrelations } from "../modules/sources/sources.helpers"
+import { calculateSourceStats, calculateTopCorrelations, calculateSuspensionMetrics } from "../modules/sources/sources.helpers"
 import { SourceStatus } from "@prisma/client"
 import { generateSourceRecommendations } from "../providers/AgentAI/recommendations.provider"
 
 export const calculateSourceStatsJob = async () => {
 
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    await new Promise(resolve => setTimeout(resolve, 3000))
     console.log("\n ----------------------------------------------------------------------------------------------------------------------------------------------- \n")
     const sources = await prisma.source.findMany({
         where: {
@@ -26,6 +26,16 @@ export const calculateSourceStatsJob = async () => {
 
         const signals = source.Signal
         const stats = calculateSourceStats(signals)
+        const suspensionMetrics = calculateSuspensionMetrics(signals)
+
+        // Update Source metrics
+        await prisma.source.update({
+            where: { id: source.id },
+            data: {
+                bad_signals_count: suspensionMetrics.bad_signals_count,
+                signals_count_last_30d: suspensionMetrics.signals_count_last_30d
+            }
+        })
 
 
         console.log("----------------------- STATS JOB: calculating Source > Correlations -----------------------", source.user_name_source)
@@ -78,7 +88,7 @@ export const statsQueue = new Queue("stats", {
 })
 
 export const statsWorker = new Worker("stats", async (job) => {
-    console.log("\n 📊 Processing stats job:", job.id, " \n")
+    console.log("\n ---------------------- 📊 Processing stats job:", job.id, " ---------------------- \n")
 
     if (job.name === "calculateSourceStats") {
         await calculateSourceStatsJob()
@@ -103,18 +113,18 @@ export const scheduleStatsCalculation = async () => {
         await statsQueue.removeRepeatableByKey(job.key)
     }
 
-    // await statsQueue.add(
-    //     "calculateSourceStats",
-    //     {},
-    //     {
-    //         jobId: "daily-stats-calculation",
-    //         repeat: {
-    //             // pattern: "38 14 * * *", // Cron: Every day at 14:35 AM,
-    //             pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
-    //             tz: "Europe/Paris"
-    //         },
-    //     }
-    // )
+    await statsQueue.add(
+        "calculateSourceStats",
+        {},
+        {
+            jobId: "daily-stats-calculating",
+            repeat: {
+                // pattern: "38 14 * * *", // Cron: Every day at 14:35 AM,
+                pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
+                tz: "Europe/Paris"
+            },
+        }
+    )
     // console.log("\n 📅 Stats calculation scheduled (Daily at 6:00 AM via BullMQ) \n")
 
     // await statsQueue.add("calculateSourceStats", {}, { priority: 1 })

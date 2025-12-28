@@ -8,7 +8,7 @@ import { getTelegramChannelPosts } from "../telegram/telegram.provider"
 import { getTwitterChannelPosts } from "../twitter/twitter.provider"
 import { calculateMaxPivotFrom21Days, getCoinInfo } from "../CoinMarketCap/coinmarketcap.provider"
 import { createOrUpdateSignal } from "../signals/signals.provider"
-import { calculateSourceStats, calculateTopCorrelations } from "../../modules/sources/sources.helpers"
+import { calculateSourceStats, calculateTopCorrelations, calculateSuspensionMetrics } from "../../modules/sources/sources.helpers"
 // import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
 import { GlobalSettings } from "../../types/setup.types"
 import { getIO } from "../../config/socket"
@@ -65,7 +65,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         },
     })
     // Create UserSource link
-    await prisma.userSource.create({
+    const userSource = await prisma.userSource.create({
         data: {
             user_id: currentUser.id,
             source_id: newSource!.id,
@@ -106,15 +106,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 
             if (analysis?.token && analysis?.type === "Signal") {
                 const normalizedToken = normalizeToken(analysis.token)
-
-
-                console.log(" 🚀   -->  analysis.token:", analysis.token)
-                console.log(" 🚀   -->  normalizedToken:", normalizedToken)
                 const coinInfo = await getCoinInfo(normalizedToken)
                 if (coinInfo) {
-                    console.log(" 🚀   -->  coinInfo:", coinInfo?.id)
-                    console.log(" ")
-                    console.log(" ")
                     const currencyLogo = coinInfo.logo
                     const targetDate = new Date(element.date!)
 
@@ -176,33 +169,21 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         const currentMetadata = (newSource?.metadata || {}) as any                    
         currentMetadata.last_message_id = lastSavedPostId
 
-        await prisma.source.update({
-            where: {
-                id: newSource!.id,
-            },
-            data: {
-                source_status: SourceStatus.VALIDE,
-                metadata: currentMetadata
-            },
-        })
-
-        // await 1 second
+        // await 2 second
         await new Promise((resolve) => setTimeout(resolve, 2000))
+        
         const createdSource = await prisma.source.findUnique({
-            where: {
-                id: newSource!.id
-            },
-            include: {
-                Signal: true,
-            },
+            where: { id: newSource!.id },
+            include: { Signal: true }
         })
-
+        
         if (!createdSource) {
             return {
                 status: true,
                 id: newSource!.user_username_source
             }
         }
+
 
         console.log("----------------------- Adding Source : calculating Source > Stat ----------------------- \n")
         const stats = calculateSourceStats(createdSource.Signal || [])
@@ -223,20 +204,48 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
 
         const otherSources = userOtherSources.filter(us => us.Source.source_status === SourceStatus.VALIDE).map(us => us.Source)
         let TIME_FRAME_HOURS = 72
+        let signalsCountLast30d = 0
         const setup = await prisma.setup.findFirst({
             where: {
                 user_db_id: currentUser.id,
             },
         })
         if (setup && setup.settings) {
-            const setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
-            TIME_FRAME_HOURS = setupsettings.metasignal_time_window || 48
+            const userSetupSettings = (setup?.settings as unknown as Partial<GlobalSettings>)
+            TIME_FRAME_HOURS = userSetupSettings.metasignal_time_window || 48
+            signalsCountLast30d = userSetupSettings.source_suspend_by_count || 0
         }
         const topCorrelations = calculateTopCorrelations(
             createdSource,
             otherSources,
             TIME_FRAME_HOURS
         )
+
+
+        const suspensionMetrics = calculateSuspensionMetrics(createdSource?.Signal || [])    
+
+        await prisma.source.update({
+            where: {
+                id: newSource!.id,
+            },
+            data: {
+                source_status: SourceStatus.VALIDE,
+                metadata: currentMetadata,
+                bad_signals_count: suspensionMetrics.bad_signals_count,
+                signals_count_last_30d: suspensionMetrics.signals_count_last_30d
+            },
+        })
+        // update user source if signalsCountLast30d && suspensionMetrics.signals_count_last_30d < signalsCountLast30d
+        if (signalsCountLast30d && suspensionMetrics.signals_count_last_30d < signalsCountLast30d) {
+            await prisma.userSource.update({
+                where: {
+                    id: userSource.id,
+                },
+                data: {
+                    source_activated: false
+                }
+            })
+        }
 
         console.log("----------------------- Adding Source : calculating Source > Recommendations ----------------------- \n")
         // const recommendations = await generateSourceRecommendations({

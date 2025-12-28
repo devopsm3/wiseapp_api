@@ -85,6 +85,9 @@ model Source {
   SourceStats SourceStats[]
   UserSource  UserSource[]
 
+  bad_signals_count      Int @default(0)
+  signals_count_last_30d Int @default(0)
+
   @@unique([platform, user_id_source])
 }
 

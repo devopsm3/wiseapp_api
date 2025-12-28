@@ -2,7 +2,6 @@ import { Queue, Worker } from "bullmq"
 import connection from "../config/redis"
 import { prisma } from "../prisma"
 import { getOHLCVData } from "../providers/CoinMarketCap/coinmarketcap.provider"
-import { statsQueue } from "./calculateStats.job"
 import {
     PivotCalculationMeta,
     CoinMarketCapOHLC,
@@ -158,7 +157,7 @@ const updateSignalPivots = async (signal: any) => {
 export const dailyPivotUpdate = async () => {
     try {
         // await 1 sec
-        await new Promise((resolve) => setTimeout(resolve, 4000))
+        await new Promise((resolve) => setTimeout(resolve, 3000))
         console.log("\n ----------------------------------------------------------------------------------------------------------------------------------------------- \n")
         // Fetch all incomplete signals where pivot_calc_days < 21
         const incompleteSignals = await prisma.signal.findMany({
@@ -210,12 +209,6 @@ export const signalPivotQueue = new Queue("signalPivots", {
 export const signalPivotWorker = new Worker("signalPivots", async (e) => {
     if (e.name === "dailyPivotUpdate") {
         await dailyPivotUpdate()
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        await statsQueue.add("calculateSourceStats", {}, {
-            jobId: `chain-stats-calc-${new Date().toISOString().split("T")[0]}`,
-            removeOnComplete: true,
-            removeOnFail: false
-        })
     }
 }, { connection: connection }
 )
@@ -242,24 +235,24 @@ export const scheduleSignalPivotUpdate = async () => {
         await signalPivotQueue.removeRepeatableByKey(job.key)
     }
 
-    //     // await signalPivotQueue.add(
-    //     //     "dailyPivotUpdate",
-    //     //     {},
-    //     //     {
-    //     //         jobId: "daily-pivot-update",
-    //     //         repeat: {
-    //     //             pattern: "0 4 * * *", // Cron: Every day at 4:00 AM,
-    //     //             tz: "Europe/Paris"
-    //     //         },
-    //     //         removeOnComplete: {
-    //     //             age: 86400 * 7, // Keep logs for 7 days
-    //     //             count: 10 // Keep last 10 completions
-    //     //         },
-    //     //         removeOnFail: {
-    //     //             age: 86400 * 14 // Keep failures for 14 days
-    //     //         }
-    //     //     }
-    //     // )
+    await signalPivotQueue.add(
+        "dailyPivotUpdate",
+        {},
+        {
+            jobId: "daily-pivot-update",
+            repeat: {
+                pattern: "0 4 * * *", // Cron: Every day at 4:00 AM,
+                tz: "Europe/Paris"
+            },
+            removeOnComplete: {
+                age: 86400 * 7, // Keep logs for 7 days
+                count: 10 // Keep last 10 completions
+            },
+            removeOnFail: {
+                age: 86400 * 14 // Keep failures for 14 days
+            }
+        }
+    )
 
     //     // console.log(
     //     //     "\n 📅 Signal pivot update job scheduled (Daily at 4:00 AM via BullMQ)\n"
