@@ -98,6 +98,7 @@ model UserSource {
   // Per-user settings (moved from Source)
   source_activated                Boolean @default(true)
   source_reverse_signal_activated Boolean @default(false)
+  is_mandatory                    Boolean @default(false)
   display_name                    String  @default("")
 
   User   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)

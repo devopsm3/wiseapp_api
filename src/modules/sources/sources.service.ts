@@ -10,6 +10,7 @@ import { normalizeSourceId } from "../../utils/global.helpers"
 import { calculateSourceStats, calculateTopCorrelations, getTokenProfitability } from "./sources.helpers"
 import { generateSourceRecommendations } from "../../providers/AgentAI/recommendations.provider"
 import { GlobalSettings } from "../../types/setup.types"
+import { removeSourceFromMandatoryListService } from "../setups/setups.service"
 
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
@@ -28,13 +29,6 @@ export const getSourcesService = async (currentUser: User) => {
         for (let index = 0; index < validUserSources.length; index++) {
             const userSource = validUserSources[index]
             const source = userSource.Source
-
-            // let source_url = ""
-            // if (source.platform === PlatformName.TELEGRAM) {
-            //     source_url = `https://t.me/${source.user_username_source}`
-            // } else {
-            //     source_url = `https://x.com/${source.user_username_source}`
-            // }
 
             const sourceStats = await prisma.sourceStats.findUnique({
                 where: {
@@ -238,6 +232,9 @@ export const deleteSourceByIdService = async (id: number, currentUser: User) => 
                 }
             },
         })
+
+        await removeSourceFromMandatoryListService(id, currentUser)
+
         return deletedSource
     } catch (error) {
         return error
@@ -261,6 +258,11 @@ export const toggleSourceActivationService = async (id: number, currentUser: Use
                 source_reverse_signal_activated: body.reverse_signal,
             },
         })
+
+        if (body.is_active === false) {
+            await removeSourceFromMandatoryListService(id, currentUser)
+        }
+
         return {
             status: true,
             updatedUserSource

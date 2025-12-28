@@ -29,7 +29,7 @@ export const addSetupService = async (currentUser: User, setupData: any) => {
         return setup
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
-        return null 
+        return null
     }
 }
 
@@ -51,7 +51,7 @@ export const updateSetupService = async (setupId: number, setupData: any, curren
         })
 
         return setup
-    } catch(error) {
+    } catch (error) {
         console.log(" 🚀   -->  error:", error)
         return null
     }
@@ -94,7 +94,7 @@ export const getSourcesSetupsService = async (currentUser: User) => {
                 setup = sourceSetup
             }
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const {createdAt, updatedAt, ...rest} = setup as SourceSetup
+            const { createdAt, updatedAt, ...rest } = setup as SourceSetup
             return {
                 id: us.Source.id,
                 source_image_url: us.Source.platform_user_picture,
@@ -106,10 +106,38 @@ export const getSourcesSetupsService = async (currentUser: User) => {
                 setup: rest,
             }
         }).filter((item) => item !== null)
-        return setupsData.length ? {status: true, data: setupsData} : {status: true, data: []}
+        return setupsData.length ? { status: true, data: setupsData } : { status: true, data: [] }
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
-        return {status: false, data: []}
+        return { status: false, data: [] }
     }
 }
 
+export const removeSourceFromMandatoryListService = async (sourceId: number, currentUser: User) => {
+    try {
+        const setup = await prisma.setup.findFirst({
+            where: {
+                user_db_id: currentUser.id,
+            },
+        })
+        if (!setup || !setup.settings) return
+        const settings = setup.settings as any
+        const mandatoryIds = settings.metasignal_mandatory_sources_ids
+        if (Array.isArray(mandatoryIds) && mandatoryIds.includes(sourceId)) {
+            const updatedMandatoryIds = mandatoryIds.filter((id: number) => id !== sourceId)
+            await prisma.setup.update({
+                where: {
+                    id: setup.id,
+                },
+                data: {
+                    settings: {
+                        ...settings,
+                        metasignal_mandatory_sources_ids: updatedMandatoryIds,
+                    },
+                },
+            })
+        }
+    } catch (error) {
+        console.log(" 🚀   -->  error in removeSourceFromMandatoryListService:", error)
+    }
+}

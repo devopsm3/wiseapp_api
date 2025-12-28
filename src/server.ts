@@ -35,7 +35,7 @@ const server = http.createServer(app)
 initSocket(server)
 
 // Start BullMQ jobs
-scheduleFetchNewSignals()
+// scheduleFetchNewSignals()
 // schedulePostValidation()
 // scheduleSignalPivotUpdate()
 // scheduleStatsCalculation()
