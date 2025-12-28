@@ -8,7 +8,31 @@ export const getSetupsService = async (currentUser: User) => {
                 user_db_id: currentUser.id,
             },
         })
-        return setupsData
+
+        // Populate metasignal_mandatory_sources_ids from UserSource
+        const mandatoryUserSources = await prisma.userSource.findMany({
+            where: {
+                user_id: currentUser.id,
+                is_mandatory: true,
+            },
+            select: {
+                source_id: true,
+            },
+        })
+
+        const mandatoryIds = mandatoryUserSources.map(us => us.source_id)
+        const processedSetups = setupsData.map(setup => {
+            const settings = (setup.settings as any) || {}
+            return {
+                ...setup,
+                settings: {
+                    ...settings,
+                    metasignal_mandatory_sources_ids: mandatoryIds,
+                }
+            }
+        })
+
+        return processedSetups
     } catch (error) {
 
         console.log(" 🚀   -->  error:", error)
@@ -35,20 +59,48 @@ export const addSetupService = async (currentUser: User, setupData: any) => {
 
 export const updateSetupService = async (setupId: number, setupData: any, currentUser: User) => {
     try {
+        const { metasignal_mandatory_sources_ids, ...otherSettings } = setupData
+
         const setup = await prisma.setup.upsert({
             where: {
                 id: setupId,
             },
             update: {
-                settings: setupData,
+                settings: otherSettings,
                 user_db_id: currentUser.id,
             },
             create: {
                 name: `global_setup_${currentUser.id}`,
-                settings: setupData,
+                settings: otherSettings,
                 user_db_id: currentUser.id,
             },
         })
+
+        // Update UserSource is_mandatory status
+        if (Array.isArray(metasignal_mandatory_sources_ids)) {
+            // Reset all to false first
+            await prisma.userSource.updateMany({
+                where: {
+                    user_id: currentUser.id,
+                },
+                data: {
+                    is_mandatory: false,
+                },
+            })
+
+            // Set true for relevant ones
+            await prisma.userSource.updateMany({
+                where: {
+                    user_id: currentUser.id,
+                    source_id: {
+                        in: metasignal_mandatory_sources_ids,
+                    },
+                },
+                data: {
+                    is_mandatory: true,
+                },
+            })
+        }
 
         return setup
     } catch (error) {
@@ -66,6 +118,7 @@ export const getSourcesSetupsService = async (currentUser: User) => {
             },
             select: {
                 id: true,
+                is_mandatory: true,
                 Source: true,
             },
         })
@@ -103,6 +156,7 @@ export const getSourcesSetupsService = async (currentUser: User) => {
                 is_verified: us.Source.user_verified,
                 source_id: us.Source.user_username_source,
                 source_url: us.Source.source_url,
+                is_mandatory: us.is_mandatory,
                 setup: rest,
             }
         }).filter((item) => item !== null)
@@ -110,34 +164,5 @@ export const getSourcesSetupsService = async (currentUser: User) => {
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
         return { status: false, data: [] }
-    }
-}
-
-export const removeSourceFromMandatoryListService = async (sourceId: number, currentUser: User) => {
-    try {
-        const setup = await prisma.setup.findFirst({
-            where: {
-                user_db_id: currentUser.id,
-            },
-        })
-        if (!setup || !setup.settings) return
-        const settings = setup.settings as any
-        const mandatoryIds = settings.metasignal_mandatory_sources_ids
-        if (Array.isArray(mandatoryIds) && mandatoryIds.includes(sourceId)) {
-            const updatedMandatoryIds = mandatoryIds.filter((id: number) => id !== sourceId)
-            await prisma.setup.update({
-                where: {
-                    id: setup.id,
-                },
-                data: {
-                    settings: {
-                        ...settings,
-                        metasignal_mandatory_sources_ids: updatedMandatoryIds,
-                    },
-                },
-            })
-        }
-    } catch (error) {
-        console.log(" 🚀   -->  error in removeSourceFromMandatoryListService:", error)
     }
 }

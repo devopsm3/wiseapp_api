@@ -38,6 +38,18 @@ const getUserSettings = async (currentUser: User) => {
     const metasignal_filter_bearish = setupsettings.metasignal_filter_bearish ?? true
     // const metasignal_filter_binance_only = setupsettings.metasignal_filter_binance_only || true
 
+    // Populate mandatory sources from UserSource
+    const mandatoryUserSources = await prisma.userSource.findMany({
+        where: {
+            user_id: currentUser.id,
+            is_mandatory: true,
+        },
+        select: {
+            source_id: true,
+        },
+    })
+    const metasignal_mandatory_sources_ids = mandatoryUserSources.map(us => us.source_id)
+
     return {
         metasignal_quorum_min,
         metasignal_time_window,
@@ -46,8 +58,8 @@ const getUserSettings = async (currentUser: User) => {
         metasignal_filter_sol,
         metasignal_filter_alts,
         metasignal_filter_bullish,
-        metasignal_filter_bearish
-        // metasignal_filter_binance_only
+        metasignal_filter_bearish,
+        metasignal_mandatory_sources_ids
     }
 }
 
@@ -127,7 +139,8 @@ export const getSignalsService = async (currentUser: User) => {
                         source_id: source.user_username_source,
                         source_url: source.source_url,
                         post_url: [signal.SourcePost.post_url],
-                        id: source.id
+                        id: source.id,
+                        is_mandatory: userSource?.is_mandatory || false
 
                     }
                 ]
@@ -146,7 +159,8 @@ export const getSignalsService = async (currentUser: User) => {
             metasignal_filter_sol,
             metasignal_filter_alts,
             metasignal_filter_bullish,
-            metasignal_filter_bearish } = await getUserSettings(currentUser)
+            metasignal_filter_bearish,
+            metasignal_mandatory_sources_ids } = await getUserSettings(currentUser)
 
         // 1. Bucket signals by Currency-Trend
         const buckets: { [key: string]: typeof filteredSignals } = {}
@@ -213,11 +227,14 @@ export const getSignalsService = async (currentUser: User) => {
                     groupSourceIds.add(nextSignal.Source.id)
                 }
 
-                // Check Quorum
+                // Check Quorum and Mandatory Sources
                 if (potentialGroup.length >= metasignal_quorum_min) {
-                    processedSignals.push(potentialGroup)
-                    // Mark all signals in this group as used
-                    potentialGroup.forEach(s => usedSignalIds.add(s.id))
+                    const hasAllMandatory = metasignal_mandatory_sources_ids.every(id => groupSourceIds.has(id))                    
+                    if (hasAllMandatory) {
+                        processedSignals.push(potentialGroup)
+                        // Mark all signals in this group as used
+                        potentialGroup.forEach(s => usedSignalIds.add(s.id))
+                    }
                 }
             }
         }
@@ -250,7 +267,8 @@ export const getSignalsService = async (currentUser: User) => {
                     source_id: source.user_username_source,
                     source_url: source.source_url,
                     post_url: [signal.SourcePost.post_url],
-                    id: source.id
+                    id: source.id,
+                    is_mandatory: userSources.find(us => us.source_id === source.id)?.is_mandatory || false
                 })
             }
 

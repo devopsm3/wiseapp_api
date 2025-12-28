@@ -10,7 +10,6 @@ import { normalizeSourceId } from "../../utils/global.helpers"
 import { calculateSourceStats, calculateTopCorrelations, getTokenProfitability } from "./sources.helpers"
 import { generateSourceRecommendations } from "../../providers/AgentAI/recommendations.provider"
 import { GlobalSettings } from "../../types/setup.types"
-import { removeSourceFromMandatoryListService } from "../setups/setups.service"
 
 // get all sources
 export const getSourcesService = async (currentUser: User) => {
@@ -46,6 +45,7 @@ export const getSourcesService = async (currentUser: User) => {
                 source_image_url: source.platform_user_picture,
                 platform: source.platform,
                 is_active: userSource.source_activated,
+                is_mandatory: userSource.is_mandatory,
                 is_paid: source.source_subscription_plan !== "FREE",
                 reverse_signal: userSource.source_reverse_signal_activated,
                 source_name: source.user_name_source,
@@ -233,8 +233,6 @@ export const deleteSourceByIdService = async (id: number, currentUser: User) => 
             },
         })
 
-        await removeSourceFromMandatoryListService(id, currentUser)
-
         return deletedSource
     } catch (error) {
         return error
@@ -256,12 +254,9 @@ export const toggleSourceActivationService = async (id: number, currentUser: Use
             data: {
                 source_activated: body.is_active,
                 source_reverse_signal_activated: body.reverse_signal,
+                is_mandatory: body.is_active === false ? false : undefined,
             },
         })
-
-        if (body.is_active === false) {
-            await removeSourceFromMandatoryListService(id, currentUser)
-        }
 
         return {
             status: true,
