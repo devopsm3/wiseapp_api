@@ -1,6 +1,7 @@
 import { Queue, Worker } from "bullmq"
 import connection from "../config/redis"
 import { prisma } from "../prisma"
+import { getIO } from "../config/socket"
 import { getOHLCVData }from "../providers/CoinMarketCap/coinmarketcap.provider"
 import {
     PivotCalculationMeta,
@@ -275,8 +276,11 @@ export const signalPivotQueue = new Queue("signalPivots", {
 })
 
 // Create BullMQ Worker
-export const signalPivotWorker = new Worker("signalPivots", async (e) => {
-    if (e.name === "dailyPivotUpdate") {
+export const signalPivotWorker = new Worker("signalPivots", async (job) => {
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_started", { jobName: "signalPivots" })
+    }
+    if (job.name === "dailyPivotUpdate") {
         await dailyPivotUpdate()
     }
 }, { connection: connection }
@@ -285,6 +289,9 @@ export const signalPivotWorker = new Worker("signalPivots", async (e) => {
 // Handle worker events
 signalPivotWorker.on("completed", async (job) => {
     console.log(`\n ✅ ------------------------------------------------------ Daily signal pivot update job completed! - Job ${job.id} \n`)
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_completed", { jobName: "signalPivots", status: true })
+    }
 })
 
 signalPivotWorker.on("failed", (job, err) => {
@@ -293,6 +300,9 @@ signalPivotWorker.on("failed", (job, err) => {
         err.message,
         "\n"
     )
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_completed", { jobName: "signalPivots", status: false, error: err.message })
+    }
 })
 
 /**

@@ -7,6 +7,7 @@ import { generateSourceRecommendations } from "../providers/AgentAI/recommendati
 import { GlobalSettings } from "../types/setup.types"
 import { NotificationType } from "@prisma/client"
 import { createNotificationService } from "../modules/notifications/notifications.service"
+import { getIO } from "../config/socket"
 
 export const calculateSourceStatsJob = async () => {
 
@@ -156,6 +157,9 @@ export const statsQueue = new Queue("stats", {
 })
 
 export const statsWorker = new Worker("stats", async (job) => {
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_started", { jobName: "stats" })
+    }
     await new Promise(resolve => setTimeout(resolve, 5000))
 
     console.log("\n ---------------------- 📊 Processing stats job:", job.id, " ---------------------- \n")
@@ -168,10 +172,16 @@ export const statsWorker = new Worker("stats", async (job) => {
 
 statsWorker.on("completed", (job) => {
     console.log(`✅ ------------------------------------------------------ Daily stats calculation job completed! - Job ${job.id} \n`)
+    if (job?.data && job?.data.isManual) {
+        getIO().to("user_" + job?.data.userId).emit("job_completed", { jobName: "stats", status: true })
+    }
 })
 
 statsWorker.on("failed", (job, err) => {
     console.error(`❌ [BULLMQ] Daily stats calculation job failed! - Job ${job?.id}:`, err.message, "\n")
+    if (job?.data && job?.data.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_completed", { jobName: "stats", status: false, error: err.message })
+    }
 })
 
 

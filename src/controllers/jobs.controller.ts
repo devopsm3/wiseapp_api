@@ -15,22 +15,22 @@ export const triggerJob = async (req: Request, res: Response) => {
     try {
         switch (jobName) {
         case "fetchNewSignals":
-            await fetchNewSignalsQueue.add("fetchNewSignals", {})
+            await fetchNewSignalsQueue.add("fetchNewSignals", { isManual: true, userId: user.id })
             break
         case "postValidation":
-            await postValidationQueue.add("dailyPostValidation", {})
+            await postValidationQueue.add("dailyPostValidation", { isManual: true, userId: user.id })
             break
         case "signalPivots":
-            await signalPivotQueue.add("dailyPivotUpdate", {})
+            await signalPivotQueue.add("dailyPivotUpdate", { isManual: true, userId: user.id })
             break
         case "stats":
-            await statsQueue.add("calculateSourceStats", {})
+            await statsQueue.add("calculateSourceStats", { isManual: true, userId: user.id })
             break
         case "all":
-            await fetchNewSignalsQueue.add("fetchNewSignals", {})
-            await postValidationQueue.add("dailyPostValidation", {})
-            await signalPivotQueue.add("dailyPivotUpdate", {})
-            await statsQueue.add("calculateSourceStats", {})
+            await fetchNewSignalsQueue.add("fetchNewSignals", { isManual: true, userId: user.id })
+            await postValidationQueue.add("dailyPostValidation", { isManual: true, userId: user.id })
+            await signalPivotQueue.add("dailyPivotUpdate", { isManual: true, userId: user.id })
+            await statsQueue.add("calculateSourceStats", { isManual: true, userId: user.id })
             break
         default:
             return res.status(400).json({ 

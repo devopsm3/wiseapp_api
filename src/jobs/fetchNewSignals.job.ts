@@ -10,12 +10,16 @@ import { normalizeToken } from "../providers/signals/signals.helpers"
 import { SourcePostAnalysis } from "../providers/sources/sources.types"
 import { createNotificationService } from "../modules/notifications/notifications.service"
 import { NotificationType } from "@prisma/client"
+import { getIO } from "../config/socket"
 
 export const fetchNewSignalsQueue = new Queue("fetchNewSignals", {
     connection: connection
 })
 
 export const fetchNewSignalsWorker = new Worker("fetchNewSignals", async (job) => {
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_started", { jobName: "fetchNewSignals" })
+    }
     await new Promise(resolve => setTimeout(resolve, 3000))
     console.log("\n ----------------------------------------------------------------------------------------------------------------------------------------------- \n")
     console.log("\n --------------------------- 📡 Processing fetchNewSignals job: ", job.id, " --------------------------- \n")
@@ -185,10 +189,16 @@ export const fetchNewSignalsWorker = new Worker("fetchNewSignals", async (job) =
 
 fetchNewSignalsWorker.on("completed", async (job) => {
     console.log(`\n ✅ ------------------------------------------------------ [BULLMQ] Fetch new signals job DONE  - Job ${job.id} \n`)
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_completed", { jobName: "fetchNewSignals", status: true })
+    }
 })
 
 fetchNewSignalsWorker.on("failed", async (job, err) => {
     console.error(`\n ❌ --------------------------- [BULLMQ] Fetch new signals job failed! - Job ${job?.id}:`, err.message, " --------------------------- \n")
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_completed", { jobName: "fetchNewSignals", status: false, error: err.message })
+    }
 })
 
 export const scheduleFetchNewSignals = async () => {

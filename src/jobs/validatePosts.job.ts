@@ -4,9 +4,9 @@ import { prisma } from "../prisma"
 import { PlatformName } from "@prisma/client"
 import { checkTwitterPostExists } from "../providers/twitter/twitter.provider"
 import { checkTelegramPostExists } from "../providers/telegram/telegram.provider"
-import { WorkerOptions } from "worker_threads"
 import { createNotificationService } from "../modules/notifications/notifications.service"
 import { NotificationType } from "@prisma/client"
+import { getIO } from "../config/socket"
 
 // Create BullMQ Queue for post validation
 export const postValidationQueue = new Queue("postValidation", {
@@ -164,8 +164,11 @@ const validateSinglePost = async (post: any) => {
 }
 
 // Create BullMQ Worker
-export const postValidationWorker = new Worker("postValidation", async (e: WorkerOptions) => {
-    if (e.name === "dailyPostValidation") {
+export const postValidationWorker = new Worker("postValidation", async (job) => {
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_started", { jobName: "postValidation" })
+    }
+    if (job.name === "dailyPostValidation") {
         console.log(" ")
         console.log(" ")
         console.log("🕐 [BULLMQ] Processing daily post validation job...")
@@ -278,10 +281,16 @@ export const postValidationWorker = new Worker("postValidation", async (e: Worke
 // Handle worker events
 postValidationWorker.on("completed", (job) => {
     console.log(`✅ [BULLMQ] Validation job ${job.id} completed successfully`)
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_completed", { jobName: "postValidation", status: true })
+    }
 })
 
 postValidationWorker.on("failed", (job, err) => {
     console.error(`❌ [BULLMQ] Validation job ${job?.id} failed:`, err.message)
+    if (job?.data && job?.data?.isManual) {
+        getIO().to("user_" + job.data.userId).emit("job_completed", { jobName: "postValidation", status: false, error: err.message })
+    }
 })
 
 /**
