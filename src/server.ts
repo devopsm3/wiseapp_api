@@ -4,13 +4,10 @@ import config from "./config/config"
 import { initTelegram } from "./config/initTelegram"
 import http from "http"
 import { initSocket } from "./config/socket"
-// import { scheduleSignalPivotUpdate } from "./jobs/updateSignalPivots.job"
-// import { schedulePostValidation } from "./jobs/validatePosts.job"
-// import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
-// import { schedulePostValidation } from "./jobs/validatePosts.job"
 import { scheduleFetchNewSignals } from "./jobs/fetchNewSignals.job"
 import { scheduleSignalPivotUpdate } from "./jobs/updateSignalPivots.job"
 import { scheduleStatsCalculation } from "./jobs/calculateStats.job"
+import { schedulePostValidation } from "./jobs/validatePosts.job"
 
 declare global {
   interface BigInt {
@@ -38,7 +35,7 @@ initSocket(server)
 
 // Start BullMQ jobs
 scheduleFetchNewSignals()
-// schedulePostValidation()
+schedulePostValidation()
 scheduleSignalPivotUpdate()
 scheduleStatsCalculation()
 

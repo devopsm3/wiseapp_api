@@ -3,7 +3,7 @@ import connection from "../config/redis"
 import { prisma } from "../prisma"
 import { calculateSourceStats, calculateTopCorrelations, calculateSuspensionMetrics } from "../modules/sources/sources.helpers"
 import { SourceStatus } from "@prisma/client"
-// import { generateSourceRecommendations } from "../providers/AgentAI/recommendations.provider"
+import { generateSourceRecommendations } from "../providers/AgentAI/recommendations.provider"
 import { GlobalSettings } from "../types/setup.types"
 import { NotificationType } from "@prisma/client"
 import { createNotificationService } from "../modules/notifications/notifications.service"
@@ -122,13 +122,12 @@ export const calculateSourceStatsJob = async () => {
         await new Promise(resolve => setTimeout(resolve, 1000))
         console.log("----------------------- STATS JOB: calculating Source > Recommendations -----------------------", source.user_name_source, " \n")
 
-        // const recommendations = await generateSourceRecommendations({
-        //     sourceName: source.user_name_source,
-        //     platform: source.platform,
-        //     stats,
-        //     followers_count: source.followers_count
-        // })
-        const recommendations: any= []
+        const recommendations = await generateSourceRecommendations({
+            sourceName: source.user_name_source,
+            platform: source.platform,
+            stats,
+            followers_count: source.followers_count
+        })
 
         await prisma.sourceStats.upsert({
             where: {

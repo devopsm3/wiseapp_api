@@ -9,11 +9,10 @@ import { getTwitterChannelPosts } from "../twitter/twitter.provider"
 import { calculateMaxPivotFrom21Days, getCoinInfo } from "../CoinMarketCap/coinmarketcap.provider"
 import { createOrUpdateSignal } from "../signals/signals.provider"
 import { calculateSourceStats, calculateTopCorrelations, calculateSuspensionMetrics } from "../../modules/sources/sources.helpers"
-// import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
 import { GlobalSettings } from "../../types/setup.types"
 import { getIO } from "../../config/socket"
 import { createNotificationService } from "../../modules/notifications/notifications.service"
-// import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
+import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
 
 
 const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User, lastSavedPostId: string) => {
@@ -273,20 +272,19 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         const stats = calculateSourceStats(createdSource.Signal || [])
 
         console.log("----------------------- Adding Source : calculating Source > Recommendations ----------------------- \n")
-        // const recommendations = await generateSourceRecommendations({
-        //     sourceName: createdSource.user_name_source,
-        //     platform: createdSource.platform,
-        //     stats: stats,
-        //     recentSignalsCount: createdSource.Signal?.length || 0,
-        //     followers: createdSource.followers_count
-        // })
+        const recommendations = await generateSourceRecommendations({
+            sourceName: createdSource.user_name_source,
+            platform: createdSource.platform,
+            stats: stats,
+            recentSignalsCount: createdSource.Signal?.length || 0,
+            followers: createdSource.followers_count
+        })
 
         await prisma.sourceStats.create({
             data: {
                 sourceId: newSource!.id,
                 stats: stats,
-                recommendations: [],
-                // recommendations: recommendations,
+                recommendations: recommendations,
                 period: "ALL"
             }
         })
