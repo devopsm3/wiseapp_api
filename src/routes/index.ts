@@ -8,6 +8,7 @@ import SignalsRouter from "./signals.route"
 import SetupsRouter from "./setups.route"
 import NotificationsRouter from "./notifications.route"
 import TestRouter from "./test.route"
+import JobsRouter from "./jobs.route"
 
 const apiRouter = Router()
 
@@ -20,5 +21,6 @@ apiRouter.use("/signals", authMiddleware, SignalsRouter)
 apiRouter.use("/setups", authMiddleware, SetupsRouter)
 apiRouter.use("/notifications", authMiddleware, NotificationsRouter)
 apiRouter.use("/test", TestRouter)
+apiRouter.use("/jobs", authMiddleware, JobsRouter)
 
 export default apiRouter

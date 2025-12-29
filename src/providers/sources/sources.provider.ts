@@ -171,7 +171,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         const currentMetadata = (newSource?.metadata || {}) as any
         currentMetadata.last_message_id = lastSavedPostId
 
-        let sourceActivated: boolean = true
+        let sourceSuspendedByBadSignals: boolean = false
+        let sourceSuspendedByCount: boolean = false
 
         // await 2 second
         await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -204,6 +205,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         const otherSources = userOtherSources.filter(us => us.Source.source_status === SourceStatus.VALIDE).map(us => us.Source)
         let TIME_FRAME_HOURS = 72
         let signalsCountLast30d = 0
+        let maxBadSignals = 0
         const setup = await prisma.setup.findFirst({
             where: {
                 user_db_id: currentUser.id,
@@ -213,12 +215,22 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             const userSetupSettings = (setup?.settings as unknown as Partial<GlobalSettings>)
             TIME_FRAME_HOURS = userSetupSettings.metasignal_time_window || 72
             signalsCountLast30d = userSetupSettings.source_suspend_by_count || 0
+            maxBadSignals = userSetupSettings.source_suspend_by_bad_signals || 0
         }
         const topCorrelations = calculateTopCorrelations(
             createdSource,
             otherSources,
             TIME_FRAME_HOURS
         )
+
+        await prisma.userSource.update({
+            where: {
+                id: userSource.id,
+            },
+            data: {
+                topCorrelations: topCorrelations as any
+            }
+        })
 
 
         const suspensionMetrics = calculateSuspensionMetrics(createdSource?.Signal || [])
@@ -234,6 +246,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 signals_count_last_30d: suspensionMetrics.signals_count_last_30d
             },
         })
+
+        // Suspend source by count
         if (signalsCountLast30d && suspensionMetrics.signals_count_last_30d < signalsCountLast30d) {
             await prisma.userSource.update({
                 where: {
@@ -241,19 +255,18 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 },
                 data: {
                     source_activated: false,
-                    topCorrelations: topCorrelations as any
                 }
             })
-            sourceActivated = false
-        } else {
+            sourceSuspendedByCount = true
+        }
+
+        // Suspend source by bad signals
+        if (maxBadSignals > 0 && suspensionMetrics.bad_signals_count >= maxBadSignals) {
             await prisma.userSource.update({
-                where: {
-                    id: userSource.id,
-                },
-                data: {
-                    topCorrelations: topCorrelations as any
-                }
+                where: { id: userSource.id },
+                data: { source_activated: false }
             })
+            sourceSuspendedByBadSignals = true
         }
 
         console.log("----------------------- Adding Source : calculating Source > Stat ----------------------- \n")
@@ -282,7 +295,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             status: true,
             id: newSource!.user_username_source,
             source_id: newSource!.id,
-            source_activated: sourceActivated,
+            sourceSuspendedByBadSignals: sourceSuspendedByBadSignals,
+            sourceSuspendedByCount: sourceSuspendedByCount,
             signals_count_last_30d: suspensionMetrics.signals_count_last_30d,
             min_count: signalsCountLast30d,
             data: {
@@ -357,12 +371,21 @@ export const createSourceService = async (channelInfo: SourceType, source: any, 
             )
             await new Promise((resolve) => setTimeout(resolve, 3000))
             // if the new craeted source is inactive we send notification to user
-            if (!result.source_activated) {
+            if (result.sourceSuspendedByCount) {
                 await createNotificationService(
                     currentUser.id,
                     NotificationType.SOURCE_SUSPENDED,
                     "Source Suspended",
                     `Source ${channelInfo.user_name_source} has been suspended due to low activity (${result.signals_count_last_30d} signals in 30 days, required: ${result.min_count}).`,
+                    `/sources?id=${result.source_id}`
+                )
+            }
+            if (result.sourceSuspendedByBadSignals) {
+                await createNotificationService(
+                    currentUser.id,
+                    NotificationType.SOURCE_SUSPENDED,
+                    "Source Suspended",
+                    `Source ${channelInfo.user_name_source} has been suspended due to ${result.signals_count_last_30d} consecutive bad signals (limit: ${result.min_count}).`,
                     `/sources?id=${result.source_id}`
                 )
             }

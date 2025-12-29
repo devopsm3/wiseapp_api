@@ -90,6 +90,13 @@ const updateSignalPivots = async (signal: any) => {
     const quote = quotes[0]
     const quoteDate = new Date(quote.time_open)
     const usdQuote = quote.quote.USD
+
+    // Validation: Skip if data is invalid (zero prices)
+    if (usdQuote.high === 0 || usdQuote.low === 0 || usdQuote.close === 0) {
+        console.warn(`-----------------------  ⚠️  Invalid OHLCV data (zero values) for : signal id: ${signal.id} on ${DateToFetch.toISOString()} ----------------------- \n`)
+        return { status: "failed", reason: "invalid_data" }
+    }
+
     const pivot = (usdQuote.high + usdQuote.low + usdQuote.close) / 3
 
     const newPivotElement: CoinMarketCapOHLC = {
@@ -105,10 +112,25 @@ const updateSignalPivots = async (signal: any) => {
     const updatedPivotData = [...existingPivotData, newPivotElement]
 
     // Optimized: Use existing max/min from meta or default to entryPrice
+    // Use || instead of ?? to recover from any accidental 0 values in database
     let maxPivot = meta?.maxPivot || entryPrice
     let maxPivotDate = meta?.maxPivotDate ? new Date(meta.maxPivotDate) : null
     let minPivot = meta?.minPivot || entryPrice
     let minPivotDate = meta?.minPivotDate ? new Date(meta.minPivotDate) : null
+
+    // Fallback: If for some reason we still have 0 (should not happen with || entryPrice but just in case)
+    // or if we want to ensure we didn't miss a better pivot in the history
+    if (maxPivot === 0 || minPivot === 0) {
+        console.log(`⚠️ Signal ${signal.id}: Recovering from 0 pivot values using history...`)
+        const pivots = updatedPivotData.map(d => d.pivot).filter(p => p > 0)
+        if (pivots.length > 0) {
+            maxPivot = Math.max(...pivots, entryPrice)
+            minPivot = Math.min(...pivots, entryPrice)
+        } else {
+            maxPivot = entryPrice
+            minPivot = entryPrice
+        }
+    }
 
     // Update with new pivot data only
     if (newPivotElement.pivot > maxPivot) {
@@ -228,9 +250,7 @@ export const dailyPivotUpdate = async () => {
         // Update each signal sequentially
         for (const signal of incompleteSignals) {
             try {
-                if ([283, 284].includes(signal.id)) {
-                    await updateSignalPivots(signal)
-                }
+                await updateSignalPivots(signal)
             } catch (error) {
                 console.error(`❌ Error updating signal ${signal.id}:`, error, " \n")
             }

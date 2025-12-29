@@ -8,7 +8,8 @@ import {
     getSourceRecommendations,
     getSourceSetup,
     setSourceSetup,
-    getSourcePosts
+    getSourcePosts,
+    createManualSignal
 } from "../modules/sources/sources.controller"
 
 const SourcesRouter = Router()
@@ -22,5 +23,6 @@ SourcesRouter.get("/:id/recommendations", getSourceRecommendations)
 SourcesRouter.get("/:id/posts", getSourcePosts)
 SourcesRouter.get("/:id/setup", getSourceSetup)
 SourcesRouter.put("/:id/setup", setSourceSetup)
+SourcesRouter.post("/:id/new_signal/:postId", createManualSignal)
 
 export default SourcesRouter

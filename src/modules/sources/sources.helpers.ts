@@ -12,10 +12,10 @@ export const calculateSuspensionMetrics = (signals: Signal[]) => {
     const signals_count_last_30d = signals.filter(s => new Date(s.entry_timestamp) >= thirtyDaysAgo).length
 
     // 2. Calculate bad_signals_count (Consecutive losses)
-    // Filter for closed signals (isComplete) or those that have PnL calculated
+    // Filter for closed signals (isComplete)
     // Sort by entry_timestamp ascending to process chronologically
     const sortedSignals = [...signals]
-        .filter(s => s.pnlP !== null && s.pnlP !== undefined)
+        .filter(s => s.isComplete && s.pnlP !== null && s.pnlP !== undefined)
         .sort((a, b) => new Date(a.entry_timestamp).getTime() - new Date(b.entry_timestamp).getTime())
 
     let bad_signals_count = 0

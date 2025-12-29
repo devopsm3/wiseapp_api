@@ -13,6 +13,9 @@ import { GlobalSettings } from "../../types/setup.types"
 
 import { createNotificationService } from "../notifications/notifications.service"
 import { NotificationType } from "@prisma/client"
+import { normalizeToken } from "../../providers/signals/signals.helpers"
+import { getCoinInfo, calculateMaxPivotFrom21Days } from "../../providers/CoinMarketCap/coinmarketcap.provider"
+import { createOrUpdateSignal } from "../../providers/signals/signals.provider"
 
 export const getSourcesService = async (currentUser: User) => {
     try {
@@ -188,6 +191,7 @@ export const addSourceService = async (source: any, currentUser: User) => {
             console.log("----------------------- Adding Source : calculating Source > TOP Correlation ----------------------- \n")
             let TIME_FRAME_HOURS = 72
             let signalsCountLast30d = 0
+            let maxBadSignals = 0
             const setup = await prisma.setup.findFirst({
                 where: {
                     user_db_id: currentUser.id,
@@ -198,6 +202,7 @@ export const addSourceService = async (source: any, currentUser: User) => {
                 const userSetupSettings = (setup?.settings as unknown as Partial<GlobalSettings>)
                 TIME_FRAME_HOURS = userSetupSettings.metasignal_time_window || 72
                 signalsCountLast30d = userSetupSettings.source_suspend_by_count || 0
+                maxBadSignals = userSetupSettings.source_suspend_by_bad_signals || 0
             }
 
             const userOtherSources = await prisma.userSource.findMany({
@@ -254,6 +259,22 @@ export const addSourceService = async (source: any, currentUser: User) => {
                     NotificationType.SOURCE_SUSPENDED,
                     "Source Suspended",
                     `The new Source ${globalSource.user_name_source} has been suspended due to low activity (${suspensionMetrics.signals_count_last_30d} signals in 30 days, required: ${signalsCountLast30d}).`,
+                    `/sources?id=${globalSource.id}`
+                )
+            }
+
+            if (maxBadSignals > 0 && suspensionMetrics.bad_signals_count >= maxBadSignals) {
+                // Suspend
+                await prisma.userSource.update({
+                    where: { id: userSource.id },
+                    data: { source_activated: false }
+                })
+
+                await createNotificationService(
+                    currentUser.id,
+                    NotificationType.SOURCE_SUSPENDED,
+                    "Source Suspended",
+                    `Source ${globalSource.user_name_source} has been suspended due to ${suspensionMetrics.bad_signals_count} consecutive bad signals (limit: ${maxBadSignals}).`,
                     `/sources?id=${globalSource.id}`
                 )
             }
@@ -780,6 +801,9 @@ export const getSourcePostsService = async (sourceId: number, currentUser: User)
             },
             include: {
                 Signal: true
+            },
+            orderBy: {
+                date: "desc"
             }
         })
         return {
@@ -802,6 +826,117 @@ export const getSourcePostsService = async (sourceId: number, currentUser: User)
                 }
             })
         }
+    } catch (error: any) {
+        return {
+            status: false,
+            message: error.message
+        }
+    }
+}
+
+export const createManualSignalService = async (sourceId: number, postId: number, body: any, currentUser: User) => {
+    try {
+        const userSource = await prisma.userSource.findUnique({
+            where: {
+                user_id_source_id: {
+                    user_id: currentUser.id,
+                    source_id: sourceId
+                }
+            }
+        })
+
+        if (!userSource) {
+            return {
+                status: false,
+                message: "You don't have access to this source"
+            }
+        }
+
+        const post = await prisma.sourcePost.findUnique({
+            where: { id: postId },
+            include: { Source: true, Signal: true }
+        })
+
+        if (!post || post.sourceId !== sourceId) {
+            return {
+                status: false,
+                message: "Post not found for this source"
+            }
+        }
+
+        const token = body.token
+        const direction = body.direction as "LONG" | "SHORT"
+
+        if (!token || !direction) {
+            return {
+                status: false,
+                message: "Token and direction are required"
+            }
+        }
+
+        const normalizedToken = normalizeToken(token)
+        const coinInfo = await getCoinInfo(normalizedToken)
+
+        if (!coinInfo) {
+            return {
+                status: false,
+                message: `Token ${token} not found in CoinMarketCap`
+            }
+        }
+
+        const targetDate = new Date(post.date!)
+        const pivotResult = await calculateMaxPivotFrom21Days(normalizedToken, targetDate, direction)
+
+        if (!pivotResult.status || !pivotResult.data) {
+            return {
+                status: false,
+                message: `Failed to get price/pivot data for ${normalizedToken}`
+            }
+        }
+
+        const entryPrice = pivotResult.data.priceAtStart || 0
+        const meta = pivotResult.data.meta
+
+        const signal = await createOrUpdateSignal({
+            coinId: coinInfo.id,
+            analysis: {
+                direction: direction,
+                token: normalizedToken.toUpperCase(),
+                token_id: coinInfo.id.toString(),
+            },
+            newSourceId: sourceId,
+            postCreatedId: postId,
+            currencyLogo: coinInfo.logo,
+            pnlAbsolute: pivotResult.data.theoreticalProfitAbsolute || 0,
+            pnlPercent: pivotResult.data.theoreticalProfitPercent || 0,
+            entryPrice,
+            exitPrice: pivotResult.data.bestPrice || null,
+            entryTimestamp: targetDate,
+            isComplete: pivotResult.data.isComplete || false,
+            pivotCalcDays: pivotResult.data.validDays || 0,
+            meta
+        })
+
+        // Notify users
+        const userSources = await prisma.userSource.findMany({
+            where: { source_id: sourceId, source_activated: true }
+        })
+
+        for (const us of userSources) {
+            await createNotificationService(
+                us.user_id,
+                NotificationType.NEW_SIGNALS,
+                "New Signal (Manual)",
+                `New signal on ${token} (${direction}) from ${post.Source.user_name_source}`,
+                `/signals?id=${signal.id}&type=classic`
+            )
+        }
+
+        return {
+            status: true,
+            data: signal
+        }
+
     } catch (error: any) {
         return {
             status: false,

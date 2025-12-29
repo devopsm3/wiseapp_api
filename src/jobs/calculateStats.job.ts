@@ -64,6 +64,23 @@ export const calculateSourceStatsJob = async () => {
                     )
                 }
 
+                const maxBadSignals = settings.source_suspend_by_bad_signals ?? 0
+                if (us.source_activated && maxBadSignals > 0 && suspensionMetrics.bad_signals_count >= maxBadSignals) {
+                    // Suspend
+                    await prisma.userSource.update({
+                        where: { id: us.id },
+                        data: { source_activated: false }
+                    })
+
+                    await createNotificationService(
+                        us.user_id,
+                        NotificationType.SOURCE_SUSPENDED,
+                        "Source Suspended",
+                        `Source ${source.user_name_source} has been suspended due to ${suspensionMetrics.bad_signals_count} consecutive bad signals (limit: ${maxBadSignals}).`,
+                        `/sources?id=${source.id}`
+                    )
+                }
+
                 console.log("----------------------- STATS JOB: calculating Source > Correlations -----------------------", source.user_name_source)
                 // Calculate Correlations per user
                 const TIME_FRAME_HOURS = settings.metasignal_time_window ?? 72

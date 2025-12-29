@@ -8,7 +8,8 @@ import {
     getSourceRecommendationsService,
     setSourceSetupService,
     getSourceSetupService,
-    getSourcePostsService
+    getSourcePostsService,
+    createManualSignalService
 } from "./sources.service"
 
 export const getSources = async (req: Request, res: Response, next: NextFunction) => {
@@ -148,4 +149,22 @@ export const getSourcePosts = async (req: Request, res: Response, next: NextFunc
         next(error)
     }
 }
-
+export const createManualSignal = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result: any = await createManualSignalService(
+            Number(req.params.id),
+            Number(req.params.postId),
+            req.body,
+            req.user!
+        )
+        if (!result.status) {
+            return res.status(400).json({ status: false, message: result.message })
+        }
+        res.status(200).json({
+            status: true,
+            data: result.data,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
