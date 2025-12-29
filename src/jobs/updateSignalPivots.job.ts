@@ -8,7 +8,7 @@ import {
     CoinMarketCapOHLC,
 } from "../providers/CoinMarketCap/coinmarketcap.types"
 
-const RECALCULATE_MODE = true
+const RECALCULATE_MODE = false
 
 /**
  * Update a single incomplete signal with the next day's OHLCV data
