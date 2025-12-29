@@ -58,6 +58,20 @@ model User {
   Setup         Setup[]
   UserSource    UserSource[]
   notifications Notification[]
+  sessions      UserSession[]
+}
+
+model UserSession {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  startTime DateTime  @default(now())
+  endTime   DateTime?
+  duration  Int? // Duration in seconds
+
+  User User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startTime])
 }
 
 model Source {

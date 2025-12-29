@@ -33,6 +33,35 @@ export function initSocket(server: any) {
                     socket.join("user_" + user.id)
                     io.to(socket.id).emit("user_connected", socket.id)
                     console.log("\n ✅ User connected:", user.email, socket.id, " \n")
+
+                    // Track session start
+                    const session = await prisma.userSession.create({
+                        data: {
+                            userId: user.id,
+                            startTime: new Date()
+                        }
+                    })
+
+                    socket.on("disconnect", async () => {
+                        console.log("\n ❌ User disconnected:", user.email, socket.id, " \n")
+                        const endTime = new Date()
+                        const duration = Math.floor((endTime.getTime() - session.startTime.getTime()) / 1000)
+                        
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: {
+                                lastLogin: endTime
+                            }
+                        })
+                        
+                        await prisma.userSession.update({
+                            where: { id: session.id },
+                            data: {
+                                endTime,
+                                duration
+                            }
+                        })
+                    })
                 } else {
                     console.log("\n ❌ Invalid token:", tokenHeader, " \n")
                     socket.disconnect(true)
@@ -47,9 +76,6 @@ export function initSocket(server: any) {
             console.log("\n ❌ No refreshToken found in cookies for socket:", socket.id, " \n")
             socket.disconnect(true)
         }
-    })
-    io.on("disconnect", (socket) => {
-        console.log("\n ❌ User disconnected:", socket.id, " \n")
     })
 
     return io
