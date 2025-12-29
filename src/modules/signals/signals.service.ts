@@ -69,6 +69,7 @@ export const getSignalsService = async (currentUser: User) => {
         const userSources = await prisma.userSource.findMany({
             where: {
                 user_id: currentUser.id,
+                source_activated: true,
             },
             include: {
                 SourceSetup: true,

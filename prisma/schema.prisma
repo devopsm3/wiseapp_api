@@ -53,10 +53,11 @@ model User {
   twoFactorAuthSecret  String?
   twoFactorAuthMethod  String? @default("AUTH_APP")
 
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @default(now()) @updatedAt()
-  Setup      Setup[]
-  UserSource UserSource[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt()
+  Setup         Setup[]
+  UserSource    UserSource[]
+  notifications Notification[]
 }
 
 model Source {
@@ -85,8 +86,9 @@ model Source {
   SourceStats SourceStats[]
   UserSource  UserSource[]
 
-  bad_signals_count      Int @default(0)
-  signals_count_last_30d Int @default(0)
+  bad_signals_count      Int            @default(0)
+  signals_count_last_30d Int            @default(0)
+  notifications          Notification[]
 
   @@unique([platform, user_id_source])
 }
@@ -103,6 +105,7 @@ model UserSource {
   source_reverse_signal_activated Boolean @default(false)
   is_mandatory                    Boolean @default(false)
   display_name                    String  @default("")
+  topCorrelations                 Json    @default("[]")
 
   User   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
   Source Source @relation(fields: [source_id], references: [id], onDelete: Cascade)
@@ -137,7 +140,6 @@ model SourceStats {
   period          String
   stats           Json
   recommendations Json     @default("[]")
-  topCorrelations Json     @default("[]")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -248,4 +250,29 @@ model Setup {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   User      User     @relation(fields: [user_db_id], references: [id], onDelete: Cascade)
+}
+
+enum NotificationType {
+  SOURCE_ADDED
+  SOURCE_SUSPENDED
+  NEW_SIGNALS
+  POST_DELETED
+  GENERIC
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      NotificationType
+  title     String
+  message   String
+  url       String?          @default("")
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  User     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source   Source? @relation(fields: [sourceId], references: [id])
+  sourceId Int?
 }

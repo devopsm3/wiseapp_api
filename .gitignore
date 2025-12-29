@@ -9,5 +9,5 @@ node_modules
 src/allowList.ts
 tel_api.session
 
-./dist
-dist/*
+/dist
+/data

@@ -7,11 +7,13 @@ import { getTelegramChannelInfo } from "../../providers/telegram/telegram.provid
 import { getTwitterChannelInfo } from "../../providers/twitter/twitter.provider"
 import { SourceType } from "../../providers/sources/sources.types"
 import { normalizeSourceId } from "../../utils/global.helpers"
-import { calculateSourceStats, calculateTopCorrelations, getTokenProfitability } from "./sources.helpers"
+import { calculateSourceStats, calculateSuspensionMetrics, calculateTopCorrelations, getTokenProfitability } from "./sources.helpers"
 import { generateSourceRecommendations } from "../../providers/AgentAI/recommendations.provider"
 import { GlobalSettings } from "../../types/setup.types"
 
-// get all sources
+import { createNotificationService } from "../notifications/notifications.service"
+import { NotificationType } from "@prisma/client"
+
 export const getSourcesService = async (currentUser: User) => {
     try {
         // Get user's sources through UserSource
@@ -132,7 +134,7 @@ export const addSourceService = async (source: any, currentUser: User) => {
             getIO().to("user_" + currentUser.id.toString()).emit("sources_creating_init")
 
 
-            await prisma.userSource.create({
+            const userSource = await prisma.userSource.create({
                 data: {
                     user_id: currentUser.id,
                     source_id: globalSource.id,
@@ -162,9 +164,10 @@ export const addSourceService = async (source: any, currentUser: User) => {
             if (hasStatsObject) {
                 stats = dbStats as any
             } else {
+                console.log("----------------------- Adding Source : calculating Source > Stat ----------------------- \n")
                 stats = calculateSourceStats(sourceWithSignals!.Signal || [])
             }
-
+          
             getIO().to("user_" + currentUser.id.toString()).emit("sources_creating_finished", {
                 status: true,
                 id: sourceWithSignals!.user_username_source,
@@ -181,6 +184,79 @@ export const addSourceService = async (source: any, currentUser: User) => {
                     bear_count: stats.globalStats.total_bear_signals
                 }
             })
+
+            console.log("----------------------- Adding Source : calculating Source > TOP Correlation ----------------------- \n")
+            let TIME_FRAME_HOURS = 72
+            let signalsCountLast30d = 0
+            const setup = await prisma.setup.findFirst({
+                where: {
+                    user_db_id: currentUser.id,
+                },
+            })
+
+            if (setup && setup.settings) {
+                const userSetupSettings = (setup?.settings as unknown as Partial<GlobalSettings>)
+                TIME_FRAME_HOURS = userSetupSettings.metasignal_time_window || 72
+                signalsCountLast30d = userSetupSettings.source_suspend_by_count || 0
+            }
+
+            const userOtherSources = await prisma.userSource.findMany({
+                where: {
+                    user_id: currentUser.id,
+                    source_id: { not: globalSource.id }
+                },
+                include: {
+                    Source: {
+                        include: { Signal: true }
+                    }
+                }
+            })
+
+            const otherSources = userOtherSources.filter(us => us.Source.source_status === SourceStatus.VALIDE).map(us => us.Source)
+            const topCorrelations = calculateTopCorrelations(
+                sourceWithSignals!,
+                otherSources,
+                TIME_FRAME_HOURS
+            )
+
+            await prisma.userSource.update({
+                where: {
+                    id: userSource.id,
+                },
+                data: {
+                    topCorrelations: topCorrelations as any
+                }
+            })
+
+            await createNotificationService(
+                currentUser.id,
+                NotificationType.SOURCE_ADDED,
+                "Source Added",
+                `Source ${globalSource.user_name_source} has been added successfully`,
+                `/sources?id=${globalSource.id}`
+            )
+
+            const suspensionMetrics = calculateSuspensionMetrics(sourceWithSignals!.Signal || [])
+            if (signalsCountLast30d && suspensionMetrics.signals_count_last_30d < signalsCountLast30d) {
+                
+                await prisma.userSource.update({
+                    where: {
+                        id: userSource.id,
+
+                    },
+                    data: {
+                        source_activated: false,
+                    }
+                })
+                await new Promise(resolve => setTimeout(resolve, 2000))
+                await createNotificationService(
+                    currentUser.id,
+                    NotificationType.SOURCE_SUSPENDED,
+                    "Source Suspended",
+                    `The new Source ${globalSource.user_name_source} has been suspended due to low activity (${suspensionMetrics.signals_count_last_30d} signals in 30 days, required: ${signalsCountLast30d}).`,
+                    `/sources?id=${globalSource.id}`
+                )
+            }
 
 
             return {
@@ -323,7 +399,7 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
             }
         })
 
-        const correlations = sourceStats?.topCorrelations
+        const correlations = userSource?.topCorrelations || []
         const hasTopCorrelationsArray = Array.isArray(correlations) && correlations.length > 0
 
         let topCorrelations: any = []
@@ -351,7 +427,7 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
             const otherSources = userOtherSources
                 .filter(us => us.Source.source_status === SourceStatus.VALIDE)
                 .map(us => us.Source)
-            let TIME_FRAME_HOURS = 48
+            let TIME_FRAME_HOURS = 72
             const setup = await prisma.setup.findFirst({
                 where: {
                     user_db_id: currentUser.id,
@@ -359,7 +435,7 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
             })
             if (setup && setup.settings) {
                 const setupsettings = (setup?.settings as unknown as Partial<GlobalSettings>)
-                TIME_FRAME_HOURS = setupsettings.metasignal_time_window || 48
+                TIME_FRAME_HOURS = setupsettings.metasignal_time_window || 72
             }
 
             topCorrelations = calculateTopCorrelations(
@@ -367,27 +443,17 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
                 otherSources,
                 TIME_FRAME_HOURS
             )
-            await prisma.sourceStats.upsert({
+            await prisma.userSource.update({
                 where: {
-                    sourceId_period: {
-                        sourceId: focusSourceId,
-                        period: "ALL",
-                    },
+                    id: userSource.id,
                 },
-                update: {
+                data: {
                     topCorrelations: topCorrelations as any,
-                },
-                create: {
-                    sourceId: focusSourceId,
-                    period: "ALL",
-                    topCorrelations: topCorrelations as any,
-                    stats: {},
-                    recommendations: []
-                },
+                }
             })
         }
 
-        const sourceSignalsStats = (sourceStats?.stats as any)?.sourceSignalsStats ||  {
+        const sourceSignalsStats = (sourceStats?.stats as any)?.sourceSignalsStats || {
             BTC: getTokenProfitability("BTC", signals),
             ETH: getTokenProfitability("ETH", signals),
             SOL: getTokenProfitability("SOL", signals),
@@ -397,11 +463,25 @@ export const getSourceSignalsDetailsService = async (focusSourceId: number, curr
             ALL: getTokenProfitability("ALL", signals)
         }
 
+        // check is sources in topCorrelation is still exists
+        const topCorrelationsFiltered = []
+        
+        for (const src of topCorrelations) {
+            const srcExists = await prisma.userSource.findFirst({
+                where: {
+                    source_id: src.id
+                }
+            })
+            if (srcExists) {
+                topCorrelationsFiltered.push(src)
+            }
+        }
+
         return {
             status: true,
             data: {
                 signalsStats: sourceSignalsStats,
-                topCorrelations
+                topCorrelations: topCorrelationsFiltered
             }
         }
     } catch (error: any) {

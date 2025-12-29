@@ -166,3 +166,44 @@ export const getSourcesSetupsService = async (currentUser: User) => {
         return { status: false, data: [] }
     }
 }
+
+export const ensureUserSetupService = async (userId: number) => {
+    try {
+        const setup = await prisma.setup.findFirst({
+            where: {
+                user_db_id: userId,
+            },
+        })
+        if (!setup) {
+            const defaultSettings = {
+                "trading_enabled": false,
+                "max_position_size": 10,
+                "auto_trading_enabled": false,
+                "stop_loss_percentage": 8,
+                "metasignal_filter_btc": true,
+                "metasignal_filter_eth": true,
+                "metasignal_filter_sol": true,
+                "metasignal_quorum_min": 3,
+                "metasignal_filter_alts": true,
+                "metasignal_time_window": 72,
+                "take_profit_percentage": 15,
+                "source_suspend_by_count": 15,
+                "metasignal_filter_bearish": true,
+                "metasignal_filter_bullish": true,
+                "reverse_signal_multiplier": 1.5,
+                "source_suspend_by_bad_signals": 10,
+                "metasignal_filter_binance_only": false
+            }
+
+            await prisma.setup.create({
+                data: {
+                    name: `global_setup_${userId}`,
+                    settings: defaultSettings,
+                    user_db_id: userId,
+                },
+            })
+        }
+    } catch (error) {
+        console.log(" 🚀   -->  ensureUserSetupService error:", error)
+    }
+}

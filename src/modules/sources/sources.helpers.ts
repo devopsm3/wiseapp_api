@@ -456,10 +456,11 @@ const isMatch = (sigA: Signal, sigB: Signal, hours: number) => {
 export const calculateTopCorrelations = (
     focusSource: SourceWithSignals,
     otherSources: SourceWithSignals[],
-    metaSignalTimeframeHours: number = 48
+    metaSignalTimeframeHours: number = 72
 ) => {
-
-    if (!focusSource || !focusSource.Signal || !focusSource.Signal.length) return []
+    if (!focusSource || !focusSource.Signal || !focusSource.Signal.length) {
+        return []
+    }
 
     const correlations = otherSources.map(otherSource => {
         let matchesTotal = 0

@@ -265,9 +265,9 @@ export const calculateMaxPivotFrom21Days = async (
                 bestPrice: 0,
                 meta: {
                     signalSuccess: false,
-                    maxPivot: 0,
+                    maxPivot: priceAtStart,
                     maxPivotDate: null,
-                    minPivot: 0,
+                    minPivot: priceAtStart,
                     minPivotDate: null,
                     pivotData: []
                 }

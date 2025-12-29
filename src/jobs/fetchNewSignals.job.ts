@@ -8,6 +8,8 @@ import { calculateMaxPivotFrom21Days, getCoinInfo } from "../providers/CoinMarke
 import { createOrUpdateSignal } from "../providers/signals/signals.provider"
 import { normalizeToken } from "../providers/signals/signals.helpers"
 import { SourcePostAnalysis } from "../providers/sources/sources.types"
+import { createNotificationService } from "../modules/notifications/notifications.service"
+import { NotificationType } from "@prisma/client"
 
 export const fetchNewSignalsQueue = new Queue("fetchNewSignals", {
     connection: connection
@@ -116,7 +118,7 @@ export const fetchNewSignalsWorker = new Worker("fetchNewSignals", async (job) =
                                 const entryPrice = pivotResult.data.priceAtStart || 0
                                 const meta = pivotResult.data.meta
 
-                                await createOrUpdateSignal({
+                                const signal = await createOrUpdateSignal({
                                     coinId: coinInfo.id,
                                     analysis: {
                                         direction: analysis.direction!,
@@ -135,6 +137,21 @@ export const fetchNewSignalsWorker = new Worker("fetchNewSignals", async (job) =
                                     pivotCalcDays: pivotResult.data.validDays || 0,
                                     meta
                                 })
+
+                                // Notify users
+                                const userSources = await prisma.userSource.findMany({
+                                    where: { source_id: source.id, source_activated: true }
+                                })
+
+                                for (const us of userSources) {
+                                    await createNotificationService(
+                                        us.user_id,
+                                        NotificationType.NEW_SIGNALS,
+                                        "New Signal",
+                                        `New signal on ${analysis.token} (${analysis.direction}) from ${source.user_name_source}`,
+                                        `/signals?id=${signal.id}&type=classic`
+                                    )
+                                }
                             } else {
                                 console.log(`\n --------------------------- Token ${analysis.token} not found in CoinMarketCap API`)
                             }

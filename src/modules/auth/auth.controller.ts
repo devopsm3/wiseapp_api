@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken"
 import config from "../../config/config"
 import speakeasy from "speakeasy"
 import QRCode from "qrcode"
+import { ensureUserSetupService } from "../setups/setups.service"
 
 export const generateTokens = (userId: number) => {
     // const a = 1
@@ -62,6 +63,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         // if (!codeVerified) {
         //     return res.status(401).json({ status: false, message: "Invalid F2A code" })
         // }
+        //     return res.status(401).json({ status: false, message: "Invalid F2A code" })
+        // }
+        // Ensure user has setup
+        await ensureUserSetupService(user.id)
+        
         const { accessToken, refreshToken } = generateTokens(user.id)
 
         // set last login
@@ -295,6 +301,8 @@ export const ActivateTwoFactorAuth = async (req: Request, res: Response) => {
 
 export const getMe = async (req: Request, res: Response) => {
     try {
+        await ensureUserSetupService(req.user!.id)
+
         const user = await prisma.user.findUnique({
             where: {
                 id: req.user!.id,

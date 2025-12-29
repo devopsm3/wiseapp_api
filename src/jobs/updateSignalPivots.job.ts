@@ -1,13 +1,11 @@
 import { Queue, Worker } from "bullmq"
 import connection from "../config/redis"
 import { prisma } from "../prisma"
-import { getOHLCVData } from "../providers/CoinMarketCap/coinmarketcap.provider"
+import { getOHLCVData }from "../providers/CoinMarketCap/coinmarketcap.provider"
 import {
     PivotCalculationMeta,
     CoinMarketCapOHLC,
 } from "../providers/CoinMarketCap/coinmarketcap.types"
-
-
 
 /**
  * Update a single incomplete signal with the next day's OHLCV data
@@ -24,7 +22,60 @@ const updateSignalPivots = async (signal: any) => {
 
     // Fetch OHLCV data for the next day only
     const quotes = await getOHLCVData(signal.coin_id, DateToFetch, DateToFetch)
+    // let quotes = []
+    // if (signal.id === 283) {
+    //     quotes = [
+    //         {
+    //             "time_open": "2025-12-27T00:00:00.000Z",
+    //             "time_close": "2025-12-27T23:59:59.999Z",
+    //             "time_high": "2025-12-27T23:52:00.000Z",
+    //             "time_low": "2025-12-27T00:23:00.000Z",
+    //             "quote": {
+    //                 "USD": {
+    //                     "open": 87301.43318567329,
+    //                     "high": 87874.78254416105,
+    //                     "low": 87182.97931520037,
+    //                     "close": 87802.15521238666,
+    //                     "volume": 13741199310.04,
+    //                     "market_cap": 1753177851333.27,
+    //                     "timestamp": "2025-12-27T23:59:59.999Z"
+    //                 }
+    //             }
+    //         }
+    //     ]
+    // } else {
+    //     quotes = [
+    //         {
+    //             "time_open": "2025-12-27T00:00:00.000Z",
+    //             "time_close": "2025-12-27T23:59:59.999Z",
+    //             "time_high": "2025-12-27T23:59:00.000Z",
+    //             "time_low": "2025-12-27T10:46:00.000Z",
+    //             "quote": {
+    //                 "USD": {
+    //                     "open": 0.0000418879088067,
+    //                     "high": 0.000042416773241305,
+    //                     "low": 0.000041337702785241,
+    //                     "close": 0.000042416773241305,
+    //                     "volume": 4001268.08,
+    //                     "market_cap": 21919259.92,
+    //                     "timestamp": "2025-12-27T23:59:59.999Z"
+    //                 }
+    //             }
+    //         }
+    //     ]
+    // }
+    // const outputDir = path.join(process.cwd(), "data")
+    // if (!fs.existsSync(outputDir)) {
+    //     fs.mkdirSync(outputDir, { recursive: true })
+    // }
 
+    // const filePath = path.join(outputDir, `ohlcv-${signal.id}.json`)
+
+    // fs.writeFileSync(
+    //     filePath,
+    //     JSON.stringify(quotes, null, 2),
+    //     "utf-8"
+    // )
     if (!quotes || quotes.length === 0) {
         console.warn(`-----------------------  ⚠️  No OHLCV data for : signal id: ${signal.id} on ${DateToFetch.toISOString()} ----------------------- \n`)
         return { status: "failed", reason: "no_data" }
@@ -47,16 +98,16 @@ const updateSignalPivots = async (signal: any) => {
         high: usdQuote.high,
         low: usdQuote.low,
         close: usdQuote.close,
-        pivot: pivot,
+        pivot: pivot
     }
 
     // Add new pivot data
     const updatedPivotData = [...existingPivotData, newPivotElement]
 
     // Optimized: Use existing max/min from meta or default to entryPrice
-    let maxPivot = meta?.maxPivot ?? entryPrice
+    let maxPivot = meta?.maxPivot || entryPrice
     let maxPivotDate = meta?.maxPivotDate ? new Date(meta.maxPivotDate) : null
-    let minPivot = meta?.minPivot ?? entryPrice
+    let minPivot = meta?.minPivot || entryPrice
     let minPivotDate = meta?.minPivotDate ? new Date(meta.minPivotDate) : null
 
     // Update with new pivot data only
@@ -64,6 +115,7 @@ const updateSignalPivots = async (signal: any) => {
         maxPivot = newPivotElement.pivot
         maxPivotDate = newPivotElement.time
     }
+
     if (newPivotElement.pivot < minPivot) {
         minPivot = newPivotElement.pivot
         minPivotDate = newPivotElement.time
@@ -72,6 +124,7 @@ const updateSignalPivots = async (signal: any) => {
     // Calculate theoretical profitability
     let theoreticalProfitAbsolute = 0
     let theoreticalProfitPercent = 0
+
     let bestPrice = 0
     const direction = signal.signal_trend
 
@@ -140,7 +193,9 @@ const updateSignalPivots = async (signal: any) => {
     const profitEmoji = theoreticalProfitPercent > 0 ? "📈" : "📉"
 
     console.log(`${statusEmoji} Signal ${signal.id} (${signal.currency_label}): Day ${newPivotCalcDays}/21
-        Best Price: $${bestPrice.toFixed(2)}
+        price at start: $${entryPrice.toFixed(6)}
+        day pivot: $${pivot.toFixed(6)}
+        Best Price: $${bestPrice.toFixed(6)}
         ${profitEmoji} Profit: $${theoreticalProfitAbsolute.toFixed(2)} (${theoreticalProfitPercent > 0 ? "+" : ""}${theoreticalProfitPercent.toFixed(2)}%)
         Complete: ${isComplete ? "YES" : "NO"} \n`)
 
@@ -170,25 +225,19 @@ export const dailyPivotUpdate = async () => {
         })
 
         console.log(`\n ----------------------- PIVOT calculating JOB 📊:  Found ${incompleteSignals.length} incomplete signals to update ----------------------- \n`)
-        const results: any[] = []
         // Update each signal sequentially
         for (const signal of incompleteSignals) {
             try {
-                const result = await updateSignalPivots(signal)
-                results.push(result)
+                if ([283, 284].includes(signal.id)) {
+                    await updateSignalPivots(signal)
+                }
             } catch (error) {
                 console.error(`❌ Error updating signal ${signal.id}:`, error, " \n")
-                results.push({
-                    status: "error",
-                    signalId: signal.id,
-                    error: (error as Error).message,
-                })
             }
         }
 
         return {
             processed: incompleteSignals.length,
-            results,
             timestamp: new Date(),
         }
     } catch (error) {
@@ -259,7 +308,7 @@ export const scheduleSignalPivotUpdate = async () => {
     //     // )
 
     //     // Trigger immediate signal pivot update on server startup
-    //     // await signalPivotQueue.add("dailyPivotUpdate", {})
+    // await signalPivotQueue.add("dailyPivotUpdate", {})
 
-//     // console.log("✅ Signal pivot update job triggered immediately")
+    // console.log("✅ Signal pivot update job triggered immediately")
 }

@@ -1,4 +1,4 @@
-﻿import { PlatformName, SourcePost, SourcePrice, SourceStatus, User } from "@prisma/client"
+﻿import { NotificationType, PlatformName, SourcePost, SourcePrice, SourceStatus, User } from "@prisma/client"
 // import { coingeckoApiServiceMarket } from "../Coingecko/coingecko.provider"
 // import { coinImages } from "../Coingecko/constants"
 import { normalizeToken } from "../signals/signals.helpers"
@@ -12,6 +12,8 @@ import { calculateSourceStats, calculateTopCorrelations, calculateSuspensionMetr
 // import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
 import { GlobalSettings } from "../../types/setup.types"
 import { getIO } from "../../config/socket"
+import { createNotificationService } from "../../modules/notifications/notifications.service"
+// import { generateSourceRecommendations } from "../AgentAI/recommendations.provider"
 
 
 const createSource = async (channelInfo: SourceType, source: any, messages: any[], currentUser: User, lastSavedPostId: string) => {
@@ -32,7 +34,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 : `User '${source.sourceId}' could not be found or the profile is unavailable.`
         }
     }
-    
+
     if (!messages.length) {
         return {
             status: false,
@@ -166,28 +168,25 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         }
 
         // save last message id
-        const currentMetadata = (newSource?.metadata || {}) as any                    
+        const currentMetadata = (newSource?.metadata || {}) as any
         currentMetadata.last_message_id = lastSavedPostId
+
+        let sourceActivated: boolean = true
 
         // await 2 second
         await new Promise((resolve) => setTimeout(resolve, 2000))
-        
+
         const createdSource = await prisma.source.findUnique({
             where: { id: newSource!.id },
             include: { Signal: true }
         })
-        
+
         if (!createdSource) {
             return {
-                status: true,
-                id: newSource!.user_username_source
+                status: false,
+                message: `Source '${newSource!.user_username_source}' not found`
             }
         }
-
-
-        console.log("----------------------- Adding Source : calculating Source > Stat ----------------------- \n")
-        const stats = calculateSourceStats(createdSource.Signal || [])
-
 
         console.log("----------------------- Adding Source : calculating Source > TOP Correlation ----------------------- \n")
         const userOtherSources = await prisma.userSource.findMany({
@@ -212,7 +211,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         })
         if (setup && setup.settings) {
             const userSetupSettings = (setup?.settings as unknown as Partial<GlobalSettings>)
-            TIME_FRAME_HOURS = userSetupSettings.metasignal_time_window || 48
+            TIME_FRAME_HOURS = userSetupSettings.metasignal_time_window || 72
             signalsCountLast30d = userSetupSettings.source_suspend_by_count || 0
         }
         const topCorrelations = calculateTopCorrelations(
@@ -222,7 +221,7 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         )
 
 
-        const suspensionMetrics = calculateSuspensionMetrics(createdSource?.Signal || [])    
+        const suspensionMetrics = calculateSuspensionMetrics(createdSource?.Signal || [])
 
         await prisma.source.update({
             where: {
@@ -235,17 +234,30 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
                 signals_count_last_30d: suspensionMetrics.signals_count_last_30d
             },
         })
-        // update user source if signalsCountLast30d && suspensionMetrics.signals_count_last_30d < signalsCountLast30d
         if (signalsCountLast30d && suspensionMetrics.signals_count_last_30d < signalsCountLast30d) {
             await prisma.userSource.update({
                 where: {
                     id: userSource.id,
                 },
                 data: {
-                    source_activated: false
+                    source_activated: false,
+                    topCorrelations: topCorrelations as any
+                }
+            })
+            sourceActivated = false
+        } else {
+            await prisma.userSource.update({
+                where: {
+                    id: userSource.id,
+                },
+                data: {
+                    topCorrelations: topCorrelations as any
                 }
             })
         }
+
+        console.log("----------------------- Adding Source : calculating Source > Stat ----------------------- \n")
+        const stats = calculateSourceStats(createdSource.Signal || [])
 
         console.log("----------------------- Adding Source : calculating Source > Recommendations ----------------------- \n")
         // const recommendations = await generateSourceRecommendations({
@@ -260,8 +272,8 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
             data: {
                 sourceId: newSource!.id,
                 stats: stats,
+                recommendations: [],
                 // recommendations: recommendations,
-                topCorrelations,
                 period: "ALL"
             }
         })
@@ -269,6 +281,10 @@ const createSource = async (channelInfo: SourceType, source: any, messages: any[
         return {
             status: true,
             id: newSource!.user_username_source,
+            source_id: newSource!.id,
+            source_activated: sourceActivated,
+            signals_count_last_30d: suspensionMetrics.signals_count_last_30d,
+            min_count: signalsCountLast30d,
             data: {
                 type: createdSource.platform,
                 name: createdSource.user_name_source,
@@ -326,11 +342,31 @@ export const createSourceService = async (channelInfo: SourceType, source: any, 
             lastSavedPostId = lastSavedId
         }
         const result = await createSource(channelInfo, source, messages, currentUser, lastSavedPostId)
-        
+
         getIO()
             .to("user_" + currentUser.id.toString())
             .emit("sources_creating_finished", result)
 
+        if (result.status) {
+            await createNotificationService(
+                currentUser.id,
+                NotificationType.SOURCE_ADDED,
+                "Source Added",
+                `Source ${channelInfo.user_name_source} has been added successfully`,
+                `/sources?id=${result.source_id}`
+            )
+            await new Promise((resolve) => setTimeout(resolve, 3000))
+            // if the new craeted source is inactive we send notification to user
+            if (!result.source_activated) {
+                await createNotificationService(
+                    currentUser.id,
+                    NotificationType.SOURCE_SUSPENDED,
+                    "Source Suspended",
+                    `Source ${channelInfo.user_name_source} has been suspended due to low activity (${result.signals_count_last_30d} signals in 30 days, required: ${result.min_count}).`,
+                    `/sources?id=${result.source_id}`
+                )
+            }
+        }
     } catch (error: any) {
         return {
             status: false,

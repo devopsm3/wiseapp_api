@@ -5,6 +5,8 @@ import { PlatformName } from "@prisma/client"
 import { checkTwitterPostExists } from "../providers/twitter/twitter.provider"
 import { checkTelegramPostExists } from "../providers/telegram/telegram.provider"
 import { WorkerOptions } from "worker_threads"
+import { createNotificationService } from "../modules/notifications/notifications.service"
+import { NotificationType } from "@prisma/client"
 
 // Create BullMQ Queue for post validation
 export const postValidationQueue = new Queue("postValidation", {
@@ -98,6 +100,27 @@ const validateSinglePost = async (post: any) => {
         const validationRecord = await prisma.postValidation.findFirst({
             where: { sourcePostId: id }
         })
+
+        if (!result.exists) {
+            const source = await prisma.source.findUnique({
+                where: { id: sourceId }
+            })
+                 
+            const userSources = await prisma.userSource.findMany({
+                where: { source_id: sourceId, source_activated: true }
+            })
+
+            for (const us of userSources) {
+                await createNotificationService(
+                    us.user_id,
+                    NotificationType.POST_DELETED,
+                    "Post Deleted",
+                    `A post from ${source?.user_name_source} has been deleted.`,
+                    `/sources?id=${sourceId}` 
+                )
+            }
+        }
+
         if (!validationRecord) {
             await prisma.postValidation.create({
                 data: {
