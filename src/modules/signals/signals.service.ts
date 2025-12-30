@@ -87,8 +87,23 @@ export const getSignalsService = async (currentUser: User) => {
             }
         })
 
-        // Flatten signals from all user's sources
-        const signalsData = userSources.flatMap(us => us.Source.Signal)
+        const followedSourceIds = userSources.map(us => us.source_id)
+
+        // Fetch all signals and filter by sourceId or sourceIds for visibility
+        const allSignalsData = await prisma.signal.findMany({
+            include: {
+                Source: true,
+                SourcePost: true
+            }
+        })
+
+        const signalsData = allSignalsData.filter(signal => {
+            const hasDirectFollow = followedSourceIds.includes(signal.sourceId)
+            if (hasDirectFollow) return true
+            
+            const sourceIds: number[] = JSON.parse(signal.sourceIds || "[]")
+            return sourceIds.some(id => followedSourceIds.includes(id))
+        })
 
         // 1- signals data
         const signalsInfo = []
@@ -230,8 +245,16 @@ export const getSignalsService = async (currentUser: User) => {
                 }
 
                 // Check Quorum and Mandatory Sources
-                if (potentialGroup.length >= metasignal_quorum_min) {
-                    const hasAllMandatory = metasignal_mandatory_sources_ids.every(id => groupSourceIds.has(id))                    
+                // Update: Also consider sources_nbr for merged signals
+                if (potentialGroup.length >= metasignal_quorum_min || rootSignal.sources_nbr >= metasignal_quorum_min) {
+                    const hasAllMandatory = metasignal_mandatory_sources_ids.every(id => {
+                        // Check if mandatory source is the owner or in the sourceIds list of ANY signal in the group
+                        return potentialGroup.some(sg => {
+                            const sgSourceIds: number[] = JSON.parse(sg.sourceIds || "[]")
+                            return sg.Source.id === id || sgSourceIds.includes(id)
+                        })
+                    })
+
                     if (hasAllMandatory) {
                         processedSignals.push(potentialGroup)
                         // Mark all signals in this group as used
@@ -270,7 +293,8 @@ export const getSignalsService = async (currentUser: User) => {
                     source_url: source.source_url,
                     post_url: [signal.SourcePost.post_url],
                     id: source.id,
-                    is_mandatory: userSources.find(us => us.source_id === source.id)?.is_mandatory || false
+                    is_mandatory: userSources.find(us => us.source_id === source.id)?.is_mandatory || false,
+                    signal_date: signal.entry_timestamp,
                 })
             }
 
@@ -290,6 +314,7 @@ export const getSignalsService = async (currentUser: User) => {
                 signal_trend_level: signalTrendLevel,
                 price_analytics: (oldestSignal.meta as unknown as PivotCalculationMeta).pivotData || [],
                 sources: sources,
+                metasignal_time_window: metasignal_time_window,
             })
         }
 

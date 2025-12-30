@@ -22,7 +22,7 @@ export const getTokenFeat_Greed = async (
             where: { token: coinLabel }
         })
 
-        if (cached && !isOlderThan15Min(cached.updatedAt)) {
+        if (cached) {
             return cached.payload as unknown as CfgiIndex
         }
 

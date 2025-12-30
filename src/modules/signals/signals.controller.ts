@@ -1,6 +1,7 @@
 ﻿import { NextFunction, Request, Response } from "express"
 import { getSignalsService, getSignalPostsArticlesService, getSignalAiPriceTraceAnalysisService, getSignalAiTokenAnalysisService, getFearAndGreedService, getTokenCfgiIndexService } from "./signals.service"
 import { getCoinMarketCapFearAndGreedHistory, getTokenPriceAtDate } from "../../providers/CoinMarketCap/coinmarketcap.provider"
+import { deduplicateExistingSignals } from "./deduplicate-signals.service"
 // import { createOrUpdateSignal } from "../../providers/signals/signals.provider"
 
 export const getSignals = async (req: Request, res: Response, next: NextFunction) => {
@@ -111,6 +112,18 @@ export const getFearAndGreedHistory = async (req: Request, res: Response, next: 
 }
 
 // 
+
+export const cleanupDuplicates = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await deduplicateExistingSignals()
+        return res.status(200).json({
+            status: true,
+            data: result
+        })
+    } catch (error) {
+        next(error)
+    }
+}
 
 export const test = async (req: Request, res: Response, next: NextFunction) => {
     try {
