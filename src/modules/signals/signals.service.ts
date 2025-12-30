@@ -5,6 +5,7 @@ import { PivotCalculationMeta } from "../../providers/CoinMarketCap/coinmarketca
 import { GlobalSettings } from "../../types/setup.types"
 import { getCoinInfo, getCoinMarketCapFearAndGreed, getCoinMarketCapFearAndGreedHistory, getCoinMarketCapLatestArticles, getCoinMarketCapLatestPosts, getCoinMarketCapTopPosts, QuotesLatest } from "../../providers/CoinMarketCap/coinmarketcap.provider"
 import { generateTokenAnalysis, getAiAnalysis } from "../../providers/AgentAI/token_analysis.provider"
+import { getTokenFeat_Greed } from "../../providers/CFGI/cfgi.provider"
 
 const getUserSettings = async (currentUser: User) => {
     let setupsettings: Partial<GlobalSettings> = {
@@ -302,22 +303,6 @@ export const getSignalsService = async (currentUser: User) => {
     }
 }
 
-export const getFearAndGreedService = async () => {
-    try {
-        const fearAndGreedIndex = await getCoinMarketCapFearAndGreed()
-
-        if (!fearAndGreedIndex) {
-            return null
-        }
-        return {
-            fear_and_greed_index: fearAndGreedIndex
-        }
-    } catch (error) {
-        console.log(" 🚀   -->  error:", error)
-        return null
-    }
-}
-
 export const getSignalPostsArticlesService = async (id: number, currentUser: User) => {
     try {
         const signal = await prisma.signal.findUnique({
@@ -500,6 +485,38 @@ export const getSignalAiTokenAnalysisService = async (id: number, currentUser: U
             aiTokenAnalysis: token_analysis ? JSON.parse(token_analysis as any) : null
         }
 
+    } catch (error) {
+        console.log(" 🚀   -->  error:", error)
+        return null
+    }
+}
+
+
+export const getTokenCfgiIndexService = async (coin: string) => {
+    try {
+        const cfgiIndex = await getTokenFeat_Greed(coin.toUpperCase())
+
+        if (!cfgiIndex) {
+            return null
+        }
+        return cfgiIndex
+
+    } catch (error) {
+        console.log(" 🚀   -->  error:", error)
+        return null
+    }
+}
+
+export const getFearAndGreedService = async () => {
+    try {
+        const fearAndGreedIndex = await getCoinMarketCapFearAndGreed()
+
+        if (!fearAndGreedIndex) {
+            return null
+        }
+        return {
+            fear_and_greed_index: fearAndGreedIndex
+        }
     } catch (error) {
         console.log(" 🚀   -->  error:", error)
         return null

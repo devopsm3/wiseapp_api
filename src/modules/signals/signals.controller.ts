@@ -1,5 +1,5 @@
 ﻿import { NextFunction, Request, Response } from "express"
-import { getSignalsService, getSignalPostsArticlesService, getSignalAiPriceTraceAnalysisService, getSignalAiTokenAnalysisService, getFearAndGreedService } from "./signals.service"
+import { getSignalsService, getSignalPostsArticlesService, getSignalAiPriceTraceAnalysisService, getSignalAiTokenAnalysisService, getFearAndGreedService, getTokenCfgiIndexService } from "./signals.service"
 import { getCoinMarketCapFearAndGreedHistory, getTokenPriceAtDate } from "../../providers/CoinMarketCap/coinmarketcap.provider"
 // import { createOrUpdateSignal } from "../../providers/signals/signals.provider"
 
@@ -18,22 +18,6 @@ export const getSignals = async (req: Request, res: Response, next: NextFunction
         next(error)
     }
 }
-
-export const getFearAndGreed = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const fearAndGreed = await getFearAndGreedService()
-        if (!fearAndGreed) {
-            return res.status(404).json({ status: false, message: "Fear and greed not found" })
-        }
-        return res.status(200).json({
-            status: true,
-            data: fearAndGreed
-        })
-    } catch (error) {
-        next(error)
-    }
-}
-
 
 export const getSignalPostsArticles = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -77,6 +61,34 @@ export const getSignalAiTokenAnalysis = async (req: Request, res: Response, next
         return res.status(200).json({
             status: true,
             data,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getSignalCfgiIndex = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const cfgiIndex = await getTokenCfgiIndexService(req.params.id)
+
+        return res.status(200).json({
+            status: true,
+            data: cfgiIndex,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getFearAndGreed = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const fearAndGreed = await getFearAndGreedService()
+        if (!fearAndGreed) {
+            return res.status(404).json({ status: false, message: "Fear and greed not found" })
+        }
+        return res.status(200).json({
+            status: true,
+            data: fearAndGreed
         })
     } catch (error) {
         next(error)
