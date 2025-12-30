@@ -9,8 +9,6 @@ export const getUsersService = async () => {
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-        console.log(" 🚀   -->  thirtyDaysAgo:", thirtyDaysAgo)
-
         const users = await prisma.user.findMany({
             include: {
                 sessions: {

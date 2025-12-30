@@ -211,7 +211,7 @@ export const scheduleFetchNewSignals = async () => {
         "fetchNewSignals",
         {},
         {
-            jobId: "daily-fetch-new-signals",
+            jobId: "daily-fetch-new-signals-job",
             repeat: {
                 pattern: "0 4 * * *", // Cron: Every day at 1:00 AM
                 tz: "Europe/Paris"

@@ -196,7 +196,7 @@ export const scheduleStatsCalculation = async () => {
         "calculateSourceStats",
         {},
         {
-            jobId: "daily-stats-calculating",
+            jobId: "daily-stats-calculating-job",
             repeat: {
                 pattern: "0 6 * * *", // Cron: Every day at 6:00 AM,
                 tz: "Europe/Paris"

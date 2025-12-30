@@ -6,6 +6,9 @@ import config from "../../config/config"
 import speakeasy from "speakeasy"
 import QRCode from "qrcode"
 import { ensureUserSetupService } from "../setups/setups.service"
+import crypto from "crypto"
+import transporter from "../../config/mail"
+import { forgottenPasswordTemplate } from "../../providers/mailer/templates/forgotten-password.template"
 
 export const generateTokens = (userId: number) => {
     // const a = 1
@@ -326,5 +329,116 @@ export const getMe = async (req: Request, res: Response) => {
         })
     } catch (error: any) {
         return res.status(500).json({ status: false, message: error.message })
+    }
+}
+
+export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { email } = req.body
+        const user = await prisma.user.findUnique({ where: { email } })
+
+        if (!user) {
+            return res.status(404).json({ status: false, message: "User not found" })
+        }
+
+        const token = crypto.randomBytes(20).toString("hex")
+        const expires = new Date(Date.now() + 3600000) // 1 hour
+
+        await prisma.user.update({
+            where: { email },
+            data: {
+                resetPasswordToken: token,
+                resetPasswordExpires: expires
+            }
+        })
+
+        const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`
+
+        let htmlContent = forgottenPasswordTemplate.content.en
+        htmlContent = htmlContent.replace(/{{clientName}}/g, user.login || user.email)
+        htmlContent = htmlContent.replace(/{{resetLink}}/g, resetUrl)
+        htmlContent = htmlContent.replace(/{{currentYear}}/g, new Date().getFullYear().toString())
+
+        const mailOptions = {
+            to: user.email,
+            from: "\"TheWise\" <" + process.env.MAIL_USERNAME + ">",
+            subject: forgottenPasswordTemplate.subject.en,
+            html: htmlContent
+        }
+
+        await transporter.sendMail(mailOptions)
+
+        res.status(200).json({
+            status: true,
+            data: {
+                status: true,
+                message: "An e-mail has been sent to " + user.email + " with further instructions."
+            }
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const checkResetToken = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { token } = req.params
+        const user = await prisma.user.findFirst({
+            where: {
+                resetPasswordToken: token,
+                resetPasswordExpires: { gte: new Date() }
+            }
+        })
+
+        if (!user) {
+            return res.status(400).json({ status: false, message: "Password reset token is invalid or has expired." })
+        }
+
+        res.status(200).json({
+            status: true,
+            data: {
+                status: true,
+                message: "Token is valid"
+            }
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { token, newPassword } = req.body
+        const user = await prisma.user.findFirst({
+            where: {
+                resetPasswordToken: token,
+                resetPasswordExpires: { gte: new Date() }
+            }
+        })
+
+        if (!user) {
+            return res.status(400).json({ status: false, message: "Password reset token is invalid or has expired." })
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                password: hashedPassword,
+                resetPasswordToken: null,
+                resetPasswordExpires: null
+            }
+        })
+
+        res.status(200).json({
+            status: true,
+            data: {
+                status: true,
+                message: "Success! Your password has been changed."
+            }
+        })
+    } catch (error) {
+        next(error)
     }
 }

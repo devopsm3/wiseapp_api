@@ -264,7 +264,7 @@ export const scheduleSignalPivotUpdate = async () => {
         "dailyPivotUpdate",
         {},
         {
-            jobId: "daily-pivot-update",
+            jobId: "daily-pivot-update-job",
             repeat: {
                 pattern: "0 5 * * *", // Cron: Every day at 4:00 AM,
                 tz: "Europe/Paris"

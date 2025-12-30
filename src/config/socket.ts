@@ -34,26 +34,43 @@ export function initSocket(server: any) {
                     io.to(socket.id).emit("user_connected", socket.id)
                     console.log("\n ✅ User connected:", user.email, socket.id, " \n")
 
-                    // Track session start
-                    const session = await prisma.userSession.create({
-                        data: {
-                            userId: user.id,
-                            startTime: new Date()
-                        }
+                    // Track session or merge with last one
+                    const SESSION_MERGE_THRESHOLD = 60 * 5 // 5 minutes
+                    const now = new Date()
+
+                    const lastSession = await prisma.userSession.findFirst({
+                        where: { userId: user.id },
+                        orderBy: { startTime: "desc" }
                     })
+
+                    let session: any
+
+                    if (lastSession && lastSession.endTime && (now.getTime() - lastSession.endTime.getTime()) < SESSION_MERGE_THRESHOLD * 1000) {
+                        session = await prisma.userSession.update({
+                            where: { id: lastSession.id },
+                            data: { endTime: null }
+                        })
+                    } else {
+                        session = await prisma.userSession.create({
+                            data: {
+                                userId: user.id,
+                                startTime: now
+                            }
+                        })
+                    }
 
                     socket.on("disconnect", async () => {
                         console.log("\n ❌ User disconnected:", user.email, socket.id, " \n")
                         const endTime = new Date()
                         const duration = Math.floor((endTime.getTime() - session.startTime.getTime()) / 1000)
-                        
+
                         await prisma.user.update({
                             where: { id: user.id },
                             data: {
                                 lastLogin: endTime
                             }
                         })
-                        
+
                         await prisma.userSession.update({
                             where: { id: session.id },
                             data: {

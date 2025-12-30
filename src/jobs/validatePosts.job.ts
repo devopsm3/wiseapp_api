@@ -7,6 +7,7 @@ import { checkTelegramPostExists } from "../providers/telegram/telegram.provider
 import { createNotificationService } from "../modules/notifications/notifications.service"
 import { NotificationType } from "@prisma/client"
 import { getIO } from "../config/socket"
+import { SourcePostAnalysis } from "../providers/sources/sources.types"
 
 // Create BullMQ Queue for post validation
 export const postValidationQueue = new Queue("postValidation", {
@@ -186,7 +187,8 @@ export const postValidationWorker = new Worker("postValidation", async (job) => 
                     sourceId: true,
                     platform: true,
                     originalId: true,
-                    date: true
+                    date: true,
+                    analysis: true
                 },
                 orderBy: {
                     date: "desc"
@@ -194,13 +196,12 @@ export const postValidationWorker = new Worker("postValidation", async (job) => 
             })
 
             // Apply tiered batching filter
-            const postsToCheck = allPosts.filter(post =>
-                shouldCheckPost(post.date!, dayOfYear)
-            )
+            const postsToCheck = allPosts.filter(post => shouldCheckPost(post.date!, dayOfYear))
+            const validPostsToCheck = postsToCheck.filter(post => (post.analysis as unknown as SourcePostAnalysis).type !== "Irrelevant")
 
-            console.log(`📊 Total  posts: ${allPosts.length}`, `   => 📊 Posts to check today (tiered batching): ${postsToCheck.length}`)
+            console.log(`📊 Total  posts: ${allPosts.length}`, `   => 📊 Posts to check today (tiered batching): ${validPostsToCheck.length}`)
 
-            if (postsToCheck.length === 0) {
+            if (validPostsToCheck.length === 0) {
                 console.log("✅ [BULLMQ] No posts to validate today")
                 return {
                     processed: 0,
@@ -219,7 +220,7 @@ export const postValidationWorker = new Worker("postValidation", async (job) => 
             let errorCount = 0
 
             // Validate each post sequentially (to avoid rate limits)
-            for (const post of postsToCheck) {
+            for (const post of validPostsToCheck) {
                 try {
                     const result = await validateSinglePost(post)
                     results.push(result)
@@ -248,7 +249,7 @@ export const postValidationWorker = new Worker("postValidation", async (job) => 
             console.log(" - - - - - - - - - - ")
             console.log(" ")
 
-            const uniqueSourceIds = [...new Set(postsToCheck.map(p => p.sourceId))]
+            const uniqueSourceIds = [...new Set(validPostsToCheck.map(p => p.sourceId))]
             for (const sourceId of uniqueSourceIds) {
                 try {
                     await updateSourceMetrics(sourceId)
@@ -261,7 +262,7 @@ export const postValidationWorker = new Worker("postValidation", async (job) => 
             console.log("✅ [BULLMQ] Daily post validation job completed!")
             console.log(" ")
             return {
-                processed: postsToCheck.length,
+                processed: validPostsToCheck.length,
                 successCount,
                 deletedCount,
                 errorCount,
@@ -306,6 +307,7 @@ export const schedulePostValidation = async () => {
         "dailyPostValidation",
         {},
         {
+            jobId: "daily-post-validation-job",
             repeat: {
                 // pattern: "43 14 * * *", // Cron: Every day at 14:35 AM,
                 pattern: "0 2 * * *", // Cron: Every day at 2:00 AM,

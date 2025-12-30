@@ -59,6 +59,9 @@ model User {
   UserSource    UserSource[]
   notifications Notification[]
   sessions      UserSession[]
+
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
 }
 
 model UserSession {
