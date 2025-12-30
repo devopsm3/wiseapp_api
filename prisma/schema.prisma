@@ -293,3 +293,13 @@ model Notification {
   source   Source? @relation(fields: [sourceId], references: [id])
   sourceId Int?
 }
+
+model CfgiQuote {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  payload   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+}

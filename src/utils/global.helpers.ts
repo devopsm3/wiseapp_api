@@ -102,3 +102,10 @@ export const normalizeSourceId = (sourceId: string): string => {
 
     return id.trim()
 }
+
+
+const FIFTEEN_MINUTES = 15 * 60 * 1000
+
+export const isOlderThan15Min = (date: Date) => {
+    return Date.now() - date.getTime() > FIFTEEN_MINUTES
+}
